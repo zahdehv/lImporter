@@ -1,0 +1,41 @@
+{
+	"name": "obsidian-sample-plugin",
+	"version": "0.0.1",
+	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/diff": "^7.0.1",
+		"@types/node": "^16.18.126",
+		"@types/react": "^19.0.10",
+		"@types/react-dom": "^19.0.4",
+		"@types/sortablejs": "^1.15.8",
+		"@typescript-eslint/eslint-plugin": "5.29.0",
+		"@typescript-eslint/parser": "5.29.0",
+		"builtin-modules": "3.3.0",
+		"esbuild": "^0.25.0",
+		"obsidian": "latest",
+		"tslib": "^2.4.0",
+		"typescript": "4.7.4"
+	},
+	"dependencies": {
+		"@google/generative-ai": "^0.21.0",
+		"@langchain/core": "^0.3.42",
+		"@langchain/google-genai": "^0.1.10",
+		"@langchain/langgraph": "^0.2.53",
+		"diff": "^7.0.0",
+		"diff2html": "^3.4.51",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"sortablejs": "^1.15.6",
+		"wavesurfer.js": "^7.8.14",
+		"zod": "^3.24.2"
+	}
+}
