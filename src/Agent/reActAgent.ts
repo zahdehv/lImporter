@@ -1,5 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
+import * as Diff from 'diff';
 
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ToolNode } from '@langchain/langgraph/prebuilt';
@@ -22,8 +23,11 @@ export class reActAgentLLM {
     const writeFile = tool(async (input) => {
     //Implement here
     return new Promise(async (resolve, reject) => {
-      new Notice(`Creating file '${input.path}'`);
+      // new Notice(`Creating file '${input.path}'`);
+      console.log(`Creating file '${input.path}'`);
                 try {
+                    const prev = this.plugin.app.vault.getFiles().map((a)=> a.path).sort();
+                    
                     const contentWithNewlines = input.content.replace(/\\n/g, '\n');
                     const folderPath = input.path.split('/').slice(0, -1).join('/');
                     const filePath = input.path;
@@ -34,26 +38,41 @@ export class reActAgentLLM {
                             await this.plugin.app.vault.createFolder(folderPath);
                         }
                     }
-        
+                    
                     let existingContent = '';
                     let actionc: "change" | "create" | "delete" = 'create';
                     const fileExists = await this.plugin.app.vault.adapter.exists(filePath);
                     if (fileExists) {
-                        existingContent = await this.plugin.app.vault.adapter.read(filePath);
-                        actionc = 'change';
+                      existingContent = await this.plugin.app.vault.adapter.read(filePath);
+                      actionc = 'change';
                     }
-    
+                    
                     try {
                       await this.plugin.app.vault.adapter.write(filePath, contentWithNewlines);
+                      
+                      //here post
+                      const post = this.plugin.app.vault.getFiles().map((a)=> a.path).sort();
+                      const difff = Diff.diffArrays(prev, post)
+                    
+                    let files = ""
+                    for (let i = 0; i < difff.length; i++) {
+                        let prefix = "";
+                        if (difff[i].removed) {prefix = "-";}
+                        else if (difff[i].added) {prefix = "+";}
+                        for (let j = 0; j < difff[i].value.length; j++) { files+= `${prefix}${difff[i].value[j]}\n`; }
+                    }
+                    console.log(`${files}`);
 
-                      resolve(`El llamado a funcion se completo correctamente, creandose el archivo ${filePath}.`);
+                      resolve(`El llamado a funcion se completo correctamente.
+Resultado:
+<files>
+${files}
+</files>
+`);
 
                   } catch (writeError) {
                       reject(new Error(`Error al escribir archivo: ${writeError}`));
                   }
-                    
-                               
-        
                 } catch (error) {
                     console.log(error);
                 }
@@ -68,8 +87,77 @@ export class reActAgentLLM {
           content: z.string().describe("Contenido a ser escrito en el archivo."),
         }),
       });
+
+      const readFiles = tool(async (input) => {
+        return new Promise(async (resolve, reject) => {
+          console.log("Reading some files");
+          console.log(input.paths);
+            try {
+                console.log(`Reading files matching '${input.paths}'`);
+                
+                // Get all files in vault
+                const allFiles = this.plugin.app.vault.getFiles();
+                
+                // Filter files based on input paths (supports glob patterns)
+                const matchedFiles = allFiles.filter(file => {
+                    return input.paths.some(pathPattern => {
+                        // Simple glob pattern matching (can be enhanced with a proper library if needed)
+                        if (pathPattern.includes('*')) {
+                            const regex = new RegExp('^' + pathPattern.replace(/\*/g, '.*') + '$');
+                            return regex.test(file.path);
+                        }
+                        return file.path === pathPattern;
+                    });
+                });
     
-     const obs_tools = [writeFile];
+                if (matchedFiles.length === 0) {
+                    resolve("No files matched the specified paths.");
+                    return;
+                }
+    
+                // Read contents of all matched files
+                const fileContents = await Promise.all(matchedFiles.map(async file => {
+                    try {
+                        const content = await this.plugin.app.vault.read(file);
+                        return {
+                            path: file.path,
+                            content: content,
+                            size: file.stat.size,
+                            lastModified: new Date(file.stat.mtime).toISOString()
+                        };
+                    } catch (readError) {
+                        return {
+                            path: file.path,
+                            error: `Failed to read file: ${readError}`,
+                            size: file.stat.size
+                        };
+                    }
+                }));
+    
+                // Format the output
+                const result = fileContents.map(file => {
+                    if (file.error) {
+                        return `File: ${file.path}\nError: ${file.error}\nSize: ${file.size} bytes\n`;
+                    }
+                    return `File: ${file.path}\nSize: ${file.size} bytes\nLast Modified: ${file.lastModified}\nContent:\n${file.content}\n`;
+                }).join('\n---\n');
+    
+                resolve(`Successfully read ${matchedFiles.length} file(s):\n\n${result}`);
+    
+            } catch (error) {
+                console.error(error);
+                reject(new Error(`Error reading files: ${error}`));
+            }
+        });
+    }, {
+        name: "readFiles",
+        description: "Lee los contenidos de archivos en la boveda, pudiendo abrir mas de uno.",
+        schema: z.object({
+            paths: z.array(z.string()).describe("Lista de las direcciones de los archivos, cada una un string (e.g., ['daily/notes/*.md', 'projects/current.md']")
+        }),
+    });
+    
+     const obs_tools = [writeFile, readFiles];
 
       
       const llm = new ChatGoogleGenerativeAI({

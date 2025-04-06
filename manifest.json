@@ -1,6 +1,6 @@
 {
-	"id": "imprt",
-	"name": "imprt",
+	"id": "lImporter",
+	"name": "lImporter",
 	"version": "0.0.1",
 	"minAppVersion": "0.15.0",
 	"description": "recording to notes basic service",

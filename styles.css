@@ -1,11 +1,41 @@
-/* Add to your styles.css */
-.button-container {
-    margin-top: 1rem;
+/* PDF Preview Styles */
+.pdf-preview-container {
     display: flex;
-    gap: 0.5rem;
-    justify-content: flex-end;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
-.text-error {
-    color: var(--text-error);
+.pdf-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.pdf-icon {
+    font-size: 2em;
+    color: var(--text-muted);
+}
+
+.pdf-name {
+    font-weight: 500;
+    flex: 1;
+}
+
+.pdf-open-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.pdf-preview {
+    border: 1px dashed var(--background-modifier-border);
+    border-radius: 4px;
+    padding: 1rem;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+/* Adjust button container for PDF mode */
+.button-container {
+    margin-top: 1rem;
 }

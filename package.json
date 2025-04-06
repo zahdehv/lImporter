@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "limporter",
 	"version": "0.0.1",
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
@@ -32,6 +32,7 @@
 		"@langchain/langgraph": "^0.2.53",
 		"diff": "^7.0.0",
 		"diff2html": "^3.4.51",
+		"pdfjs-dist": "^5.1.91",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"sortablejs": "^1.15.6",

@@ -1,7 +1,9 @@
 import { Notice } from 'obsidian'; // To show notices in Obsidian
 
-export interface AudioItem {
+export interface FileItem {
     url: string;
+    title: string;
+    mimeType: string;
     uploaded: boolean;
     uploadData: any | null; // Type 'any' can be refined if after-upload data structure is known
 }
@@ -26,11 +28,9 @@ export class AudioUploader {
      * Uploads an audio blob from an Obsidian blob URL to Google AI Files API.
      *
      * @param blobUrl The Obsidian blob URL of the audio file.
-     * @param displayName  The desired display name for the uploaded file (optional, defaults to 'audio_recording').
-     * @param mimeType The MIME type of the audio file (optional, defaults to 'audio/mpeg').
      * @returns An object containing the upload response and the file name, or null if upload fails or API key is missing.
      */
-    async uploadAudioBlob(audio: AudioItem, displayName: string = 'audio_recording', mimeType: string = 'audio/mpeg'): Promise<{ uploadResponse: any, name: string } | null> {
+    async uploadAudioBlob(audio: FileItem): Promise<{ uploadResponse: any, name: string } | null> {
         //blobUrl: string, 
         const blobUrl = audio.url;
 
@@ -50,9 +50,9 @@ export class AudioUploader {
 
             // Upload the downloaded data.
             const formData = new FormData();
-            const metadata = { file: { mimeType: mimeType, displayName: displayName } };
+            const metadata = { file: { mimeType: audio.mimeType, displayName: audio.title } };
             formData.append("metadata", new Blob([JSON.stringify(metadata)], { type: 'application/json' })); // Changed to 'type'
-            formData.append("file", new Blob([buffer], { type: mimeType })); // Changed to 'type'
+            formData.append("file", new Blob([buffer], { type: audio.mimeType })); // Changed to 'type'
             const res2 = await fetch(
                 `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart&key=${this.apiKey}`,
                 { method: "post", body: formData }
@@ -82,26 +82,3 @@ export class AudioUploader {
         }
     }
 }
-
-// Example usage in your Obsidian plugin:
-
-// 1. Initialize AudioUploader with your API key (get API key from your plugin settings!)
-// const apiKey = /* ... your API key from settings ... */;
-// const audioUploader = new AudioUploader(apiKey);
-
-// 2. When you want to upload an audio blob:
-/*
-const audioBlobUrl = /* ... your blob URL from audio recording ... */;
-
-// audioUploader.uploadAudioBlob(audioBlobUrl, "My Obsidian Recording", "audio/webm") // Adjust mimeType if needed
-//     .then(result => {
-//         if (result) {
-//             console.log("Upload successful!", result);
-//             new Notice(`Audio uploaded successfully: ${result.uploadResponse.file.displayName}`);
-//             // You can now use result.name (file name) or result.uploadResponse (full API response)
-//             // for further processing.
-//         } else {
-//             console.warn("Audio upload failed. See console for details or notices.");
-//         }
-//     });
-// */
