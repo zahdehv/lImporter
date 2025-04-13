@@ -31,18 +31,15 @@ ${files}
 </files>
 
 El audio de entrada tiene la siguiente informacion:
-<instrucciones>
+<claims>
 ${inst}
-</instrucciones>
+</claims>
 
 A partir de la informacion anterior genera un conjunto de notas tal que:
 - no se extiendan demasiado con informacion muy diversa, pero no sean tan cortas como para no contener informacion ninguna
-- el titulo no puede tener mayusculas y espacios (example: treasure hunter.md, Love/love comedy.md)
 - tengan relaciones entre ellas (obsidian like: [[treasure_hunter]] o [[love_comedy]] , notar que no es necesario incluir la extension ni el path completo en el vinculo)
-- los vinculos preferiblemente al estar integrados deben ser con sentido en medio del texto (si no encaja en el contexto usando [[title|displayed link name]] se puede ajustar, siempre que apunte al mismo concepto)
+- los vinculos preferiblemente al estar integrados deben ser con sentido en medio del texto (si no encaja en el contexto, usando [[title|displayed link name]] se puede ajustar, siempre que apunte al mismo concepto)
 - no usar acentos en los nombres de archivos o menciones
-DEBE CREAR UNA CARPETA CON UNA NOTA PRINCIPAL, QUE EXPLIQUE LA ESTRUCTURA GENERAL DE LAS SUBCARPETAS, LA CUAL DEBE CREARSE AL FINAL PARA MAYOR CONSISTENCIA,
-TODO ESTO DENTRO DE UNA CARPETA CON ESTA NOTA Y LAS RESTANTES EN SUBCARPETAS.
 
 Inicialmente crea un TODO que requeriras leer y modificar a lo largo del proceso, idealmente aprovechando lecturas de otros archivos tambien para evitar llamados innecesarios.
 - este debe ser una lista (puede incluir sublistas) en formato markdown (- [ ] item sin marcar o - [x] item marcado)`
