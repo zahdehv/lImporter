@@ -1,32 +1,30 @@
 import { GoogleGenerativeAI, GenerativeModel, ChatSession, FunctionDeclaration } from '@google/generative-ai';
 import { FileItem, AudioUploader } from '../Utilities/fileUploader';
 import { prompt_get_claims_instructions } from 'src/Utilities/promp';
-
-type TranscriptionResult = {
-    claims: string | undefined;
-    instructions: string | undefined;
-};
+import AutoAudioPlugin from 'src/main';
 
 export class ttsBase {
     constructor() {}
-    public async transcribe(audio: FileItem): Promise<TranscriptionResult> {
-        return {claims:"A", instructions: "B"};
+    public async transcribe(audio: FileItem): Promise<string> {
+        return "A";
     }
 }
 export class ttsGeminiFL extends ttsBase {
     private upldr: AudioUploader;
     private model: GenerativeModel;
-    constructor(apiKey: string) {
+    private plugin: AutoAudioPlugin
+    constructor(plugin: AutoAudioPlugin) {
         super();
-        const genAI = new GoogleGenerativeAI(apiKey);
+        this.plugin = plugin;
+        const genAI = new GoogleGenerativeAI(plugin.settings.GOOGLE_API_KEY);
         
         this.model = genAI.getGenerativeModel({
                     model: "gemini-2.0-flash-thinking-exp-01-21",
                     systemInstruction: "Eres un entusiasta del manejo de informacion, siempre que obtienes nueva informacion buscas la mejor manera de ordenarla y relacionarla. Elaboras instrucciones e informaciones intuitivas y comprensivas.",
                 });
-        this.upldr = new AudioUploader(apiKey);
+        this.upldr = new AudioUploader(plugin.settings.GOOGLE_API_KEY);
     }
-    public async transcribe(audio: FileItem): Promise<TranscriptionResult> { // Update return type promise
+    public async transcribe(audio: FileItem): Promise<string> { // Update return type promise
         if (!audio.uploaded) {
             // Ensure this.upldr and uploadAudioBlob handle errors appropriately
             await this.upldr.uploadAudioBlob(audio);
@@ -37,7 +35,7 @@ export class ttsGeminiFL extends ttsBase {
             // Handle error: Upload might have failed or didn't produce expected data
             console.error("Audio upload data is missing after upload attempt.");
             // Return or throw an error appropriate for your application
-            return { claims: undefined, instructions: undefined }; // Or throw new Error(...)
+            return "ERROR, DO NOTHING"; // Or throw new Error(...)
         }
         const file = audio.uploadData.file;
     
@@ -57,7 +55,7 @@ export class ttsGeminiFL extends ttsBase {
     
         if (!txt) {
             console.error("No text received from the model.");
-            return { claims: undefined, instructions: undefined }; // Return default if no text
+            return "ERROR, DO NOTHING"; // Return default if no text
         }
     
         // --- Extract Claims ---
@@ -91,8 +89,24 @@ export class ttsGeminiFL extends ttsBase {
         console.log("Extracted Instructions:", instructions);
         console.log("--- End Transcription Analysis ---");
     
-    
+        let files = "";
+        const fls = this.plugin.app.vault.getFiles().map((a)=> a.path);
+        for (let index = 0; index < fls.length; index++) { files+= `- '`+fls[index]+"'\n";}
+         const prompt = `Los archivos existentes son:
+${files}
+
+Se tiene la siguiente informacion y hechos:
+${claims}
+
+EFECTUA ENTONCES TODAS LAS SIGUIENTES INSTRUCCIONES:
+${instructions}
+
+Al final siempre verifica que no existan Links a archivos no existentes usando la funcion (siempre que termines de escribir un conjunto de archivos, pues otro error puede haber aparecido).
+
+Debe seguir el flujo:
+Lectura -> escritura(varias) -> Comprobacion -> Lectura -> escritura(varias) -> Comprobacion... -> Ordenacion -> Informe del resultado
+`;
         // Return the extracted parts in an object
-        return { claims, instructions };
+        return prompt;
     }
 }

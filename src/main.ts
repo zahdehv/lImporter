@@ -1,12 +1,9 @@
 import { App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, Notice } from 'obsidian';
 import WaveSurfer from 'wavesurfer.js';
 import { setIcon } from 'obsidian';
-import { Pipeline } from './Agent/Pipeline';
 import { FileItem } from './Utilities/fileUploader';
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+import { ttsBase, ttsGeminiFL } from './Agent/audioPrep';
+import { reActAgentLLM } from './Agent/reActAgent';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -103,15 +100,17 @@ export default class AutoAudioPlugin extends Plugin {
 class FileProcessorModal extends Modal {
     plugin: AutoAudioPlugin;
     processing: boolean = false;
-    private pipeline: Pipeline;
+    private tts: ttsBase;
+    private reActAgent: reActAgentLLM;
     private sendButton: HTMLButtonElement;
     private isPDF: boolean;
 
     constructor(plugin: AutoAudioPlugin, public file: TFile) {
         super(plugin.app);
         this.plugin = plugin;
-        this.pipeline = new Pipeline(plugin);
         this.isPDF = file.extension.toLowerCase() === 'pdf';
+        this.tts = new ttsGeminiFL(plugin);
+        this.reActAgent = new reActAgentLLM(plugin);
     }
 
     async onOpen() {
@@ -199,7 +198,13 @@ class FileProcessorModal extends Modal {
             this.waitCLK();
             let successful = false;
             try {
-                const result = await this.pipeline.pipe(fileItem);
+                const prompt = await this.tts.transcribe(fileItem);
+                const finalState = await this.reActAgent.app.invoke({
+                    messages: [{ role: "user", content: prompt }],
+                  }, {"recursionLimit": 100}); //Come HERE siuuuu
+                  
+                  const answer = finalState.messages[finalState.messages.length - 1].content;
+                  console.log(answer);
                 successful = true;
             } catch (error) {
                 console.error(error);

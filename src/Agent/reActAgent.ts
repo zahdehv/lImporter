@@ -11,7 +11,7 @@ import {
     START
 } from "@langchain/langgraph/web";
 import MyPlugin from "../main";
-import { Notice } from "obsidian";
+import { write_file_description, write_file_path_description, write_file_content_description } from "src/Utilities/promp";
 
 export class reActAgentLLM {
     public app: any;
@@ -79,27 +79,10 @@ ${files}
     }, {
         name: "writeFile",
         description:
-          `Usado para crear archivos markdown(.md). Ejemplo de nombres (direccion) de archivo: 'arte_cubano.md' o amor/romance.md. No usar acentos. Si usas un nombre de archivo existente, lo modificaras, usalo para rectificar errores en caso de ser necesario.
-Los archivos deben iniciar con el encabezado:
----
-Title: "Here goes the Title"
-tags: 
-- tag1 (los tags no deben tener espacios)
-- tag2
-aliases:
-- alias1
-- alias2
----
-
-Los links son de la forma [[nombre de archivo(no necesita incluir la direccion completa)|Nombre mostrado en la Nota]] y debe ser incluido en el texto, no al final ni de forma incoherente.
-
-Puede usar todos los recursos disponibles del lenguaje Markdown.
-
-File name cannot contain any of the following characters: * " \ / < > : | ?
-`,
+          write_file_description,
         schema: z.object({
-          path: z.string().describe("Direccion para crear o modificar el archivo."),
-          content: z.string().describe("Contenido a ser escrito en el archivo."),
+          path: z.string().describe(write_file_path_description),
+          content: z.string().describe(write_file_content_description),
         }),
       });
 
@@ -172,10 +155,116 @@ File name cannot contain any of the following characters: * " \ / < > : |
         }),
     });
     
-     const obs_tools = [writeFile, readFiles];
+     const moveFile = tool(async (input: { sourcePath: string, targetPath: string }) => {
+         return new Promise(async (resolve, reject) => {
+             try {
+                 const file = this.plugin.app.vault.getAbstractFileByPath(input.sourcePath);
+                 if (!file) {
+                     reject(new Error(`File not found: ${input.sourcePath}`));
+                     return;
+                 }
+     
+                 // Create target directory if it doesn't exist
+                 const targetDir = input.targetPath.split('/').slice(0, -1).join('/');
+                 if (targetDir && !await this.plugin.app.vault.adapter.exists(targetDir)) {
+                     await this.plugin.app.vault.createFolder(targetDir);
+                 }
+     
+                 await this.plugin.app.vault.rename(file, input.targetPath);
+                 resolve(`File moved successfully from ${input.sourcePath} to ${input.targetPath}`);
+             } catch (error) {
+                 reject(new Error(`Error moving file: ${error}`));
+             }
+         });
+     }, {
+         name: "moveFile",
+         description: "Mueve un archivo de una ubicación a otra en la bóveda de Obsidian.",
+         schema: z.object({
+             sourcePath: z.string().describe("Ruta actual del archivo a mover."),
+             targetPath: z.string().describe("Nueva ruta destino para el archivo.")
+         }),
+     });
+     
+     const renameFile = tool(async (input: { path: string, newName: string }) => {
+         return new Promise(async (resolve, reject) => {
+             try {
+                 const file = this.plugin.app.vault.getAbstractFileByPath(input.path);
+                 if (!file) {
+                     reject(new Error(`File not found: ${input.path}`));
+                     return;
+                 }
+     
+                 // Get the directory path and construct the new full path
+                 const dirPath = input.path.split('/').slice(0, -1).join('/');
+                 const newPath = dirPath ? `${dirPath}/${input.newName}` : input.newName;
+                 
+                 // Check if target already exists
+                 const targetExists = await this.plugin.app.vault.adapter.exists(newPath);
+                 if (targetExists) {
+                     reject(new Error(`Cannot rename: A file already exists at ${newPath}`));
+                     return;
+                 }
+     
+                 await this.plugin.app.vault.rename(file, newPath);
+                 resolve(`File renamed successfully from ${input.path} to ${newPath}`);
+             } catch (error) {
+                 reject(new Error(`Error renaming file: ${error}`));
+             }
+         });
+     }, {
+         name: "renameFile",
+         description: "Renombra un archivo en la bóveda de Obsidian manteniendo su ubicación.",
+         schema: z.object({
+             path: z.string().describe("Ruta completa del archivo a renombrar."),
+             newName: z.string().describe("Nuevo nombre del archivo (incluyendo extensión).")
+         }),
+     });
+     
+     const getGhostReferences = tool(async () => {
+         return new Promise(async (resolve, reject) => {
+          console.log("GHOST");
+          console.log("GHOST");
+          console.log("GHOST");
+             try {
+                 const files = this.plugin.app.vault.getMarkdownFiles();
+                 const ghostRefs: {sourceFile: string, unresolvedLink: string}[] = [];
+     
+                 for (const file of files) {
+                     const content = await this.plugin.app.vault.read(file);
+                     const links = this.plugin.app.metadataCache.getFileCache(file)?.links || [];
+                     
+                     for (const link of links) {
+                         const linkedFile = this.plugin.app.metadataCache.getFirstLinkpathDest(link.link, file.path);
+                         if (!linkedFile) {
+                             ghostRefs.push({
+                                 sourceFile: file.path,
+                                 unresolvedLink: link.link
+                             });
+                         }
+                     }
+                 }
+     
+                 if (ghostRefs.length === 0) {
+                     resolve("No se encontraron referencias no resueltas (ghost references) en la bóveda.");
+                 } else {
+                     const result = ghostRefs.map(ref => 
+                         `Archivo: ${ref.sourceFile}\nEnlace no resuelto: ${ref.unresolvedLink}`
+                     ).join('\n---\n');
+                     resolve(`Referencias no resueltas encontradas:\n\n${result}`);
+                 }
+             } catch (error) {
+                 reject(new Error(`Error buscando referencias no resueltas: ${error}`));
+             }
+         });
+     }, {
+         name: "getGhostReferences",
+         description: "Encuentra todos los enlaces no resueltos (ghost references) en la bóveda de Obsidian y los archivos donde aparecen. Debe ser usado al final para verificar que todo este bien conectado.",
+         schema: z.object({})
+     });
 
+     const obs_tools = [writeFile, readFiles, moveFile, renameFile, getGhostReferences];
       
-      const llm = new ChatGoogleGenerativeAI({
+     const llm = new ChatGoogleGenerativeAI({
         model: "gemini-2.0-flash",
         temperature: 0,
         maxRetries: 4,
@@ -184,7 +273,8 @@ File name cannot contain any of the following characters: * " \ / < > : |
       }).bindTools(obs_tools);
       
 
-const toolNodeForGraph = new ToolNode(obs_tools)
+
+const toolNodeForGraph = new ToolNode(obs_tools);
   
   const shouldContinue = (state: typeof MessagesAnnotation.State) => {
     const { messages } = state;
