@@ -47,7 +47,7 @@ jobs:
       - name: Create zip file
         run: |
           mkdir -p dist
-          zip -j dist/lImporter-${{ steps.version.outputs.new_version }}.zip main.js manifest.json styles.css
+          zip -j dist/lImporter.zip main.js manifest.json styles.css
 
       - name: Commit and push changes
         run: |
@@ -69,4 +69,4 @@ jobs:
           gh release create "${{ steps.version.outputs.new_version }}" \
             --title="${{ steps.version.outputs.new_version }}" \
             --draft \
-            main.js manifest.json styles.css dist/lImporter-${{ steps.version.outputs.new_version }}.zip
+            main.js manifest.json styles.css dist/lImporter.zip
