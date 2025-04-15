@@ -2,7 +2,7 @@ import MyPlugin from "../main";
 import { ttsBase, ttsGeminiFL } from "./audioPrep";
 import { FileItem } from "../Utilities/fileUploader";
 import { reActAgentLLM } from "./reActAgent";
-import { Notice } from "obsidian";
+// import { Notice } from "obsidian";
 
 export class Pipeline {
     private tts: ttsBase;
@@ -15,10 +15,8 @@ export class Pipeline {
     }
 
     public async pipe(file: FileItem) {
-      // new Notice("Started processing...");
       console.log("Started processing...");
        const {claims, instructions} = await this.tts.transcribe(file);
-      // new Notice("Ended Transcription")
       console.log("Ended Transcription")
       let files = "";
       const fls = this.plugin.app.vault.getFiles().map((a)=> a.path);
@@ -39,10 +37,8 @@ ${instructions}
       });
       
       const answer = finalState.messages[finalState.messages.length - 1].content;
-      // new Notice(answer);
       console.log(answer);
       
       return answer;
     }
-
 }

@@ -42,15 +42,15 @@ class AutoSettingTab extends PluginSettingTab {
                 });
             });
 
-        new Setting(containerEl)
-            .setName('Show Waveform')
-            .setDesc('Show a cute waveform for the audio.')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.showWaveform)
-                .onChange(async (value) => {
-                    this.plugin.settings.showWaveform = value;
-                    await this.plugin.saveSettings();
-                }));
+        // new Setting(containerEl)
+        //     .setName('Show Waveform')
+        //     .setDesc('Show a cute waveform for the audio.')
+        //     .addToggle(toggle => toggle
+        //         .setValue(this.plugin.settings.showWaveform)
+        //         .onChange(async (value) => {
+        //             this.plugin.settings.showWaveform = value;
+        //             await this.plugin.saveSettings();
+        //         }));
 
         new Setting(containerEl)
             .setName('Allow PDF')
