@@ -39,12 +39,5 @@ El plugin funciona de manera automática:
 - La calidad de la transcripción depende de la claridad del audio original
 - Se requiere conexión a Internet para el procesamiento
 
-## TODO
--[ ] Añadir opción en el menú contextual para procesar archivos existentes
--[ ] Implementar un botón en la cinta de opciones (Ribbon) para acceso rápido
--[ ] Mejorar la interfaz de usuario para la visualización de resultados
--[ ] Añadir soporte para más formatos de archivo
--[ ] Implementar opciones de personalización para el formato de las notas generadas
-
 ## Soporte
 Si encuentras algún problema o tienes sugerencias, por favor abre un issue [aquí](https://github.com/zahdehyv/lImporter/issues).
