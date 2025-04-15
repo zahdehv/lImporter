@@ -3,9 +3,8 @@
   "name": "lImporter",
   "version": "0.0.1",
   "minAppVersion": "0.15.0",
-  "description": "recording to notes basic service",
-  "author": "Obsidian",
-  "authorUrl": "https://obsidian.md",
-  "fundingUrl": "https://obsidian.md/pricing",
+  "description": "importing notes with llm basic service",
+  "author": "zahdehv",
+  "authorUrl": "https://github.com/zahdehyv",
   "isDesktopOnly": false
 }
