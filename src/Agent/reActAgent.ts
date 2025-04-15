@@ -56,18 +56,16 @@ export class reActAgentLLM {
                     
                     let files = ""
                     for (let i = 0; i < difff.length; i++) {
-                        let prefix = "";
-                        if (difff[i].removed) {prefix = "-";}
-                        else if (difff[i].added) {prefix = "+";}
-                        for (let j = 0; j < difff[i].value.length; j++) { files+= `${prefix}${difff[i].value[j]}\n`; }
+                        let suffix = "";
+                        if (difff[i].removed) {suffix = "(file removed)";}
+                        else if (difff[i].added) {suffix = "(file added)";}
+                        for (let j = 0; j < difff[i].value.length; j++) { files+= `- ${difff[i].value[j]} ${suffix}\n`; }
                     }
                     console.log(`${files}`);
 
                       resolve(`El llamado a funcion se completo correctamente.
 Resultado:
-<files>
 ${files}
-</files>
 `);
 
                   } catch (writeError) {
@@ -81,7 +79,24 @@ ${files}
     }, {
         name: "writeFile",
         description:
-          "Usado para crear archivos markdown(.md). Ejemplo de nombres (direccion) de archivo: 'arte_cubano.md' o amor/romance.md. No usar acentos. Si usas un nombre de archivo existente, lo modificaras, usalo para rectificar errores en caso de ser necesario.",
+          `Usado para crear archivos markdown(.md). Ejemplo de nombres (direccion) de archivo: 'arte_cubano.md' o amor/romance.md. No usar acentos. Si usas un nombre de archivo existente, lo modificaras, usalo para rectificar errores en caso de ser necesario.
+Los archivos deben iniciar con el encabezado:
+---
+Title: "Here goes the Title"
+tags: 
+- tag1 (los tags no deben tener espacios)
+- tag2
+aliases:
+- alias1
+- alias2
+---
+
+Los links son de la forma [[nombre de archivo(no necesita incluir la direccion completa)|Nombre mostrado en la Nota]] y debe ser incluido en el texto, no al final ni de forma incoherente.
+
+Puede usar todos los recursos disponibles del lenguaje Markdown.
+
+File name cannot contain any of the following characters: * " \ / < > : | ?
+`,
         schema: z.object({
           path: z.string().describe("Direccion para crear o modificar el archivo."),
           content: z.string().describe("Contenido a ser escrito en el archivo."),
@@ -162,8 +177,8 @@ ${files}
       
       const llm = new ChatGoogleGenerativeAI({
         model: "gemini-2.0-flash",
-        temperature: 0.2,
-        maxRetries: 2,
+        temperature: 0,
+        maxRetries: 4,
         apiKey: plugin.settings.GOOGLE_API_KEY,
         // other params...
       }).bindTools(obs_tools);
@@ -174,6 +189,8 @@ const toolNodeForGraph = new ToolNode(obs_tools)
   const shouldContinue = (state: typeof MessagesAnnotation.State) => {
     const { messages } = state;
     const lastMessage: any = messages[messages.length - 1];
+    console.log("LASTMESSAGE");
+    console.log(lastMessage);
     if ("tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls?.length) {
         return "tools";
     }
@@ -201,10 +218,3 @@ const toolNodeForGraph = new ToolNode(obs_tools)
     }
     
  }
-  
-      
-
-
-  
-  
-  

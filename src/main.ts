@@ -153,21 +153,6 @@ class FileProcessorModal extends Modal {
                 text: this.file.name 
             });
 
-            // Open PDF Button
-            // const openBtn = pdfContainer.createEl('button', { 
-            //     cls: 'pdf-open-btn mod-cta',
-            //     text: 'Open PDF' 
-            // });
-            // openBtn.addEventListener('click', () => {
-            //     // window.open(objURL, '_blank')
-            //     // this.app.openWithDefaultApp(this.file.path);
-            // });
-
-            // PDF Preview (could be enhanced with PDF.js later)
-            // const preview = pdfContainer.createDiv({ cls: 'pdf-preview' });
-            // preview.createEl('p', { 
-            //     text: 'PDF preview would appear here with PDF.js integration' 
-            // });
         } else {
             // Audio Display
             contentEl.createEl('div', { 
