@@ -1,6 +1,6 @@
 {
 	"name": "limporter",
-	"version": "0.0.1",
+	"version": "0.0.0",
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
 	"scripts": {
