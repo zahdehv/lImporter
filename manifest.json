@@ -1,11 +1,11 @@
 {
-	"id": "lImporter",
-	"name": "lImporter",
-	"version": "0.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "recording to notes basic service",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
-	"isDesktopOnly": false
+  "id": "lImporter",
+  "name": "lImporter",
+  "version": "0.0.1",
+  "minAppVersion": "0.15.0",
+  "description": "recording to notes basic service",
+  "author": "Obsidian",
+  "authorUrl": "https://obsidian.md",
+  "fundingUrl": "https://obsidian.md/pricing",
+  "isDesktopOnly": false
 }
