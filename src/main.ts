@@ -1,24 +1,23 @@
 import { App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, Notice } from 'obsidian';
-import WaveSurfer from 'wavesurfer.js';
 import { setIcon } from 'obsidian';
-import { FileItem } from './Utilities/fileUploader';
-import { ttsBase, ttsGeminiFL } from './Agent/audioPrep';
-import { reActAgentLLM } from './Agent/reActAgent';
+import { FileItem } from './fileUploader';
+import { ttsBase, ttsGeminiFL } from './filePrep';
+import { reActAgentLLM } from './reActAgent';
+import { processTracker } from './processTracker';
+// import { createProgressTracker, LOGTrack, resetProgressTracker, updateProgressDetail, updateProgressStep } from './Utilities/processTracker';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
-    showWaveform: boolean;
     allowPDF: boolean;
 }
 
 const DEFAULT_SETTINGS: AutoPluginSettings = {
     GOOGLE_API_KEY: 'your-default-api-key',
-    showWaveform: false,
     allowPDF: true,
 };
 
 class AutoSettingTab extends PluginSettingTab {
-    constructor(app: App, private plugin: AutoAudioPlugin) {
+    constructor(app: App, private plugin: AutoFilePlugin) {
         super(app, plugin);
     }
 
@@ -39,17 +38,6 @@ class AutoSettingTab extends PluginSettingTab {
                 });
             });
 
-        // Show waveform is not necessary to begin with
-        // new Setting(containerEl)
-        //     .setName('Show Waveform')
-        //     .setDesc('Show a cute waveform for the audio.')
-        //     .addToggle(toggle => toggle
-        //         .setValue(this.plugin.settings.showWaveform)
-        //         .onChange(async (value) => {
-        //             this.plugin.settings.showWaveform = value;
-        //             await this.plugin.saveSettings();
-        //         }));
-
         new Setting(containerEl)
             .setName('Allow PDF')
             .setDesc('Allow sending PDF instead of audio.')
@@ -62,8 +50,9 @@ class AutoSettingTab extends PluginSettingTab {
     }
 }
 
-export default class AutoAudioPlugin extends Plugin {
+export default class AutoFilePlugin extends Plugin {
     settings: AutoPluginSettings;
+    tracker: processTracker;
 
     async onload() {
         await this.loadSettings();
@@ -115,17 +104,15 @@ export default class AutoAudioPlugin extends Plugin {
 }
 
 class FileProcessorModal extends Modal {
-    plugin: AutoAudioPlugin;
-    processing: boolean = false;
+    private plugin: AutoFilePlugin;
+    private processing: boolean = false;
     private tts: ttsBase;
     private reActAgent: reActAgentLLM;
     private sendButton: HTMLButtonElement;
     private isPDF: boolean;
-    private progressContainer: HTMLElement;
-    private progressSteps: {[key: string]: HTMLElement} = {};
-    private currentStep: string = '';
+    
 
-    constructor(plugin: AutoAudioPlugin, public file: TFile) {
+    constructor(plugin: AutoFilePlugin, public file: TFile) {
         super(plugin.app);
         this.plugin = plugin;
         this.isPDF = file.extension.toLowerCase() === 'pdf';
@@ -197,34 +184,9 @@ class FileProcessorModal extends Modal {
                 }
             });
 
-            if (this.plugin.settings.showWaveform) {
-                const waveformContainer = audioContainer.createDiv('limporter-waveform-container');
-                const wavesurfer = WaveSurfer.create({
-                    media: audioEl,
-                    container: waveformContainer,
-                    waveColor: 'var(--text-muted)',
-                    progressColor: 'var(--interactive-accent)',
-                    barWidth: 4,
-                    barHeight: 1,
-                    barGap: 1,
-                    height: 40,
-                    cursorWidth: 0,
-                    barRadius: 7,
-                    dragToSeek: true,
-                    interact: true,
-                });
-                await wavesurfer.loadBlob(blob);
-            }
         }
-
-        // Description text
-        contentContainer.createEl('p', {
-            text: `This will process your ${this.isPDF ? 'PDF' : 'audio'} file and create structured notes based on its content.`,
-            cls: 'limporter-description'
-        });
-
-        // Add progress tracking section
-        this.createProgressTracker(contentContainer);
+        
+        this.plugin.tracker = new processTracker(contentContainer);
 
         // Process Button
         const buttonContainer = contentEl.createDiv('limporter-button-container');
@@ -241,162 +203,42 @@ class FileProcessorModal extends Modal {
             this.sendButton.disabled = true;
             this.processing = true;
             this.waitCLK();
-            let successful = false;
+            this.plugin.tracker.resetTracker();
+
             try {
-                // Reset progress tracker
-                this.resetProgressTracker();
-                
-                // Step 1: Upload and transcribe
-                this.updateProgressStep('upload', 'in-progress', 'Uploading file...');
-                await sleep(500); // Small delay for UI update
-                
-                // Step 2: Transcribe/analyze content
-                this.updateProgressStep('upload', 'complete', 'File uploaded');
-                this.updateProgressStep('transcribe', 'in-progress', 'Transcribing and analyzing content...');
-                
-                // Monitor for console logs from audioPrep.ts
-                const originalConsoleLog = console.log;
-                console.log = (...args) => {
-                    originalConsoleLog(...args);
-                    
-                    // Check for specific log messages to update progress
-                    if (args[0] === "--- Transcription Analysis ---") {
-                        this.updateProgressStep('transcribe', 'complete', 'Content analyzed');
-                        this.updateProgressStep('generate', 'in-progress', 'Generating structured notes...');
-                    }
-                };
                 
                 const prompt = await this.tts.transcribe(fileItem);
-                
-                // Step 3: Generate content with reActAgent
-                this.updateProgressStep('generate', 'complete', 'Notes structure generated');
-                this.updateProgressStep('write', 'in-progress', 'Writing files...');
-                
-                // Monitor for tool calls in reActAgent
-                const originalConsoleLog2 = console.log;
-                let fileCount = 0;
-                console.log = (...args) => {
-                    originalConsoleLog2(...args);
+                if (prompt) {
+                    console.log("A");
+                    const finalState = await this.reActAgent.app.invoke({
+                        messages: [{ role: "user", content: prompt }],
+                    }, {"recursionLimit": 113});
+                    const answer = finalState.messages[finalState.messages.length - 1].content;
+                    console.log(answer);
+                    const answer_step = this.plugin.tracker.appendStep("Answer", answer, "bot-message-square");
+                    answer_step.updateState("pending");
+                } 
                     
-                    // Check for file creation logs
-                    if (typeof args[0] === 'string' && args[0].includes('Creating file')) {
-                        fileCount++;
-                        this.updateProgressDetail('write', `Creating file ${fileCount}...`);
-                    }
-                    
-                    // Check for ghost references check
-                    if (args[0] === "GHOST") {
-                        this.updateProgressStep('write', 'complete', `${fileCount} files created`);
-                        this.updateProgressStep('verify', 'in-progress', 'Verifying links...');
-                    }
-                };
-                
-                const finalState = await this.reActAgent.app.invoke({
-                    messages: [{ role: "user", content: prompt }],
-                }, {"recursionLimit": 100});
-                
-                // Restore original console.log
-                console.log = originalConsoleLog;
-                
-                // Step 4: Complete
-                this.updateProgressStep('verify', 'complete', 'Links verified');
-                this.updateProgressStep('complete', 'complete', 'Processing complete!');
-                
-                const answer = finalState.messages[finalState.messages.length - 1].content;
-                console.log(answer);
-                successful = true;
-            } catch (error) {
+                } catch (error) {
                 console.error(error);
-                this.updateProgressStep(this.currentStep, 'error', `Error: ${error.message || 'Unknown error'}`);
+                const errortrack = this.plugin.tracker.appendStep("General Error", error,'x');
+                errortrack.updateState("error", error, "upload");
             }
             this.processing = false;
             this.sendButton.disabled = false;
-            if (successful) {
-                setIcon(buttonIcon, 'check');
-                this.sendButton.textContent = ' Success';
-                this.sendButton.prepend(buttonIcon);
-            } else {
-                setIcon(buttonIcon, 'x');
-                this.sendButton.textContent = ' Failed';
-                this.sendButton.prepend(buttonIcon);
+            
+            const buttonIcon = this.sendButton.querySelector('span');
+            this.sendButton.textContent = 'Process File';
+            if (buttonIcon) this.sendButton.prepend(buttonIcon);
+            if (buttonIcon) {
+                setIcon(buttonIcon, 'corner-down-left');
             }
         });
     }
 
-    private createProgressTracker(container: HTMLElement) {
-        // Create progress container
-        this.progressContainer = container.createDiv('limporter-progress-container');
-        this.progressContainer.style.display = 'none'; // Hide initially
-        
-        // Create progress steps
-        const steps = [
-            { id: 'upload', label: 'Upload', icon: 'upload' },
-            { id: 'transcribe', label: 'Transcribe', icon: 'file-audio' },
-            { id: 'generate', label: 'Generate', icon: 'bot-message-square' },
-            { id: 'write', label: 'Write Files', icon: 'file-text' },
-            { id: 'verify', label: 'Verify Links', icon: 'link' },
-            { id: 'complete', label: 'Complete', icon: 'check-circle' }
-        ];
-        
-        for (const step of steps) {
-            const stepEl = this.progressContainer.createDiv('limporter-progress-step');
-            stepEl.dataset.status = 'pending';
-            
-            const iconContainer = stepEl.createDiv('limporter-step-icon');
-            setIcon(iconContainer, step.icon);
-            
-            const stepContent = stepEl.createDiv('limporter-step-content');
-            const stepLabel = stepContent.createDiv('limporter-step-label');
-            stepLabel.textContent = step.label;
-            
-            const stepStatus = stepContent.createDiv('limporter-step-status');
-            stepStatus.textContent = 'Pending';
-            
-            this.progressSteps[step.id] = stepEl;
-        }
-    }
-    
-    private resetProgressTracker() {
-        this.progressContainer.style.display = 'flex';
-        for (const id in this.progressSteps) {
-            this.progressSteps[id].dataset.status = 'pending';
-            const statusEl = this.progressSteps[id].querySelector('.limporter-step-status');
-            if (statusEl) statusEl.textContent = 'Pending';
-        }
-    }
-    
-    private updateProgressStep(stepId: string, status: 'pending' | 'in-progress' | 'complete' | 'error', message?: string) {
-        if (!this.progressSteps[stepId]) return;
-        
-        this.currentStep = stepId;
-        this.progressSteps[stepId].dataset.status = status;
-        
-        const statusEl = this.progressSteps[stepId].querySelector('.limporter-step-status');
-        if (statusEl && message) statusEl.textContent = message;
-        
-        // Update icon based on status
-        const iconEl = this.progressSteps[stepId].querySelector('.limporter-step-icon');
-        if (iconEl) {
-            if (status === 'in-progress') {
-                setIcon(iconEl as HTMLElement, 'loader');
-            } else if (status === 'complete') {
-                setIcon(iconEl as HTMLElement, 'check');
-            } else if (status === 'error') {
-                setIcon(iconEl as HTMLElement, 'x');
-            }
-        }
-    }
-    
-    private updateProgressDetail(stepId: string, detail: string) {
-        if (!this.progressSteps[stepId]) return;
-        
-        const statusEl = this.progressSteps[stepId].querySelector('.limporter-step-status');
-        if (statusEl) statusEl.textContent = detail;
-    }
-
     private async waitCLK() {
         const buttonIcon = this.sendButton.querySelector('span');
-        this.sendButton.textContent = ' Processing';
+        this.sendButton.textContent = 'Processing';
         if (buttonIcon) this.sendButton.prepend(buttonIcon);
         
         for (let index = 0; this.processing; index++) {

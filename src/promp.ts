@@ -49,3 +49,10 @@ Este debe estar contenido en el texto si es posible. En caso de no serlo se pued
 que explique la relacion al archivo.
 
 Puede usar todos los recursos disponibles del lenguaje Markdown.`
+
+export const prompt_ghost_references = `Encuentra todos los enlaces no resueltos (ghost references)
+en la bóveda de Obsidian, y los archivos donde aparecen. 
+Debe ser usado al final para verificar que todo este bien conectado.
+
+Estos pueden ser resueltos creando el archivo faltante o renombrando archivos, 
+dado que el conflicto de enlace sea por errores de escritura`

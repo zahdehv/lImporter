@@ -10,8 +10,13 @@ import {
     END,
     START
 } from "@langchain/langgraph/web";
-import MyPlugin from "../main";
-import { write_file_description, write_file_path_description, write_file_content_description } from "src/Utilities/promp";
+import MyPlugin from "./main";
+import { 
+    write_file_description,
+    write_file_path_description,
+    write_file_content_description,
+    prompt_ghost_references 
+       } from "src/promp";
 
 export class reActAgentLLM {
     public app: any;
@@ -25,6 +30,7 @@ export class reActAgentLLM {
     return new Promise(async (resolve, reject) => {
       // new Notice(`Creating file '${input.path}'`);
       console.log(`Creating file '${input.path}'`);
+      const wrt_trk = this.plugin.tracker.appendStep("Write File", input.path, "file-edit");
                 try {
                     const prev = this.plugin.app.vault.getFiles().map((a)=> a.path).sort();
                     
@@ -62,17 +68,19 @@ export class reActAgentLLM {
                         for (let j = 0; j < difff[i].value.length; j++) { files+= `- ${difff[i].value[j]} ${suffix}\n`; }
                     }
                     console.log(`${files}`);
-
+                    wrt_trk.updateState("complete");
                       resolve(`El llamado a funcion se completo correctamente.
 Resultado:
 ${files}
 `);
 
                   } catch (writeError) {
+                    wrt_trk.updateState("error");
                       reject(new Error(`Error al escribir archivo: ${writeError}`));
                   }
                 } catch (error) {
                     console.log(error);
+                    wrt_trk.updateState("error");
                 }
             });
 
@@ -88,6 +96,7 @@ ${files}
 
       const readFiles = tool(async (input) => {
         return new Promise(async (resolve, reject) => {
+            const read_trk = this.plugin.tracker.appendStep("Read Files", "Match filenames","file-search");
           console.log("Reading some files");
           console.log(input.paths);
             try {
@@ -109,10 +118,16 @@ ${files}
                 });
     
                 if (matchedFiles.length === 0) {
+                    read_trk.updateState("pending", "No files matched the specified paths.")
                     resolve("No files matched the specified paths.");
                     return;
                 }
-    
+                let read = ""
+                for (let index = 0; index < matchedFiles.length; index++) {
+                    read+= matchedFiles[index].path+"\n";
+                };
+
+                
                 // Read contents of all matched files
                 const fileContents = await Promise.all(matchedFiles.map(async file => {
                     try {
@@ -131,18 +146,24 @@ ${files}
                         };
                     }
                 }));
-    
+                
                 // Format the output
                 const result = fileContents.map(file => {
                     if (file.error) {
+                        const fl_trk = this.plugin.tracker.appendStep("File Read", file.path, "file-x");
+                        fl_trk.updateState("pending");
                         return `File: ${file.path}\nError: ${file.error}\nSize: ${file.size} bytes\n`;
                     }
+                    const fl_trk = this.plugin.tracker.appendStep("File Read", file.path, "file-check");
+                    fl_trk.updateState("pending");
                     return `File: ${file.path}\nSize: ${file.size} bytes\nLast Modified: ${file.lastModified}\nContent:\n${file.content}\n`;
                 }).join('\n---\n');
-    
+                
+                read_trk.updateState("complete", `Read ${fileContents.length} files`);
                 resolve(`Successfully read ${matchedFiles.length} file(s):\n\n${result}`);
     
             } catch (error) {
+                read_trk.updateState("error", error);
                 console.error(error);
                 reject(new Error(`Error reading files: ${error}`));
             }
@@ -155,11 +176,15 @@ ${files}
         }),
     });
     
+    //Tracking moving pending
      const moveFile = tool(async (input: { sourcePath: string, targetPath: string }) => {
          return new Promise(async (resolve, reject) => {
+            const move_trk = this.plugin.tracker.appendStep("Move File",`${input.sourcePath} -> ${input.targetPath}`, "scissors")
+            console.log("MOVING FILES");
              try {
                  const file = this.plugin.app.vault.getAbstractFileByPath(input.sourcePath);
                  if (!file) {
+                    move_trk.updateState("error", `File not found: ${input.sourcePath}`)
                      reject(new Error(`File not found: ${input.sourcePath}`));
                      return;
                  }
@@ -171,8 +196,10 @@ ${files}
                  }
      
                  await this.plugin.app.vault.rename(file, input.targetPath);
+                 move_trk.updateState("complete");
                  resolve(`File moved successfully from ${input.sourcePath} to ${input.targetPath}`);
              } catch (error) {
+             move_trk.updateState("error", error);
                  reject(new Error(`Error moving file: ${error}`));
              }
          });
@@ -181,50 +208,13 @@ ${files}
          description: "Mueve un archivo de una ubicación a otra en la bóveda de Obsidian.",
          schema: z.object({
              sourcePath: z.string().describe("Ruta actual del archivo a mover."),
-             targetPath: z.string().describe("Nueva ruta destino para el archivo.")
-         }),
-     });
-     
-     const renameFile = tool(async (input: { path: string, newName: string }) => {
-         return new Promise(async (resolve, reject) => {
-             try {
-                 const file = this.plugin.app.vault.getAbstractFileByPath(input.path);
-                 if (!file) {
-                     reject(new Error(`File not found: ${input.path}`));
-                     return;
-                 }
-     
-                 // Get the directory path and construct the new full path
-                 const dirPath = input.path.split('/').slice(0, -1).join('/');
-                 const newPath = dirPath ? `${dirPath}/${input.newName}` : input.newName;
-                 
-                 // Check if target already exists
-                 const targetExists = await this.plugin.app.vault.adapter.exists(newPath);
-                 if (targetExists) {
-                     reject(new Error(`Cannot rename: A file already exists at ${newPath}`));
-                     return;
-                 }
-     
-                 await this.plugin.app.vault.rename(file, newPath);
-                 resolve(`File renamed successfully from ${input.path} to ${newPath}`);
-             } catch (error) {
-                 reject(new Error(`Error renaming file: ${error}`));
-             }
-         });
-     }, {
-         name: "renameFile",
-         description: "Renombra un archivo en la bóveda de Obsidian manteniendo su ubicación.",
-         schema: z.object({
-             path: z.string().describe("Ruta completa del archivo a renombrar."),
-             newName: z.string().describe("Nuevo nombre del archivo (incluyendo extensión).")
+             targetPath: z.string().describe("Nueva ruta destino para el archivo. (Puede usar la misma ruta base para renombrar el archivo)")
          }),
      });
      
      const getGhostReferences = tool(async () => {
          return new Promise(async (resolve, reject) => {
-          console.log("GHOST");
-          console.log("GHOST");
-          console.log("GHOST");
+            const ghost_track = this.plugin.tracker.appendStep("Search ghosts","Unresolved Links Check", "ghost");
              try {
                  const files = this.plugin.app.vault.getMarkdownFiles();
                  const ghostRefs: {sourceFile: string, unresolvedLink: string}[] = [];
@@ -245,50 +235,51 @@ ${files}
                  }
      
                  if (ghostRefs.length === 0) {
+                     ghost_track.updateState("complete");
                      resolve("No se encontraron referencias no resueltas (ghost references) en la bóveda.");
                  } else {
                      const result = ghostRefs.map(ref => 
                          `Archivo: ${ref.sourceFile}\nEnlace no resuelto: ${ref.unresolvedLink}`
                      ).join('\n---\n');
+                     ghost_track.updateState("pending");
                      resolve(`Referencias no resueltas encontradas:\n\n${result}`);
                  }
-             } catch (error) {
+                } catch (error) {
+                    ghost_track.updateState("error", error);
                  reject(new Error(`Error buscando referencias no resueltas: ${error}`));
              }
          });
      }, {
          name: "getGhostReferences",
-         description: "Encuentra todos los enlaces no resueltos (ghost references) en la bóveda de Obsidian y los archivos donde aparecen. Debe ser usado al final para verificar que todo este bien conectado.",
+         description: prompt_ghost_references,
          schema: z.object({})
      });
 
-     const obs_tools = [writeFile, readFiles, moveFile, renameFile, getGhostReferences];
+     const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences];
       
      const llm = new ChatGoogleGenerativeAI({
         model: "gemini-2.0-flash",
-        temperature: 0,
-        maxRetries: 4,
+        temperature: 0.3,
+        maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
         // other params...
-      }).bindTools(obs_tools);
-      
+      }).bindTools(agent_tools);
 
-
-const toolNodeForGraph = new ToolNode(obs_tools);
+    const toolNodeForGraph = new ToolNode(agent_tools);
   
-  const shouldContinue = (state: typeof MessagesAnnotation.State) => {
-    const { messages } = state;
-    const lastMessage: any = messages[messages.length - 1];
-    console.log("LASTMESSAGE");
-    console.log(lastMessage);
-    if ("tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls?.length) {
-        return "tools";
-    }
-    return END;
+    const shouldContinue = (state: typeof MessagesAnnotation.State) => {
+        const { messages } = state;
+        const lastMessage: any = messages[messages.length - 1];
+        console.log("LASTMESSAGE");
+        console.log(lastMessage);
+        if ("tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls?.length) {
+            return "tools";
+        }
+        return END;
   }
   
   const callModel = async (state: typeof MessagesAnnotation.State) => {
-    console.log("ENTERED CALLMODEL");
+
     const { messages } = state;
     const response = await llm.invoke(messages);
     return { messages: response };

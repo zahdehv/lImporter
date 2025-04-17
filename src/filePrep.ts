@@ -1,19 +1,19 @@
 import { GoogleGenerativeAI, GenerativeModel, ChatSession, FunctionDeclaration } from '@google/generative-ai';
-import { FileItem, AudioUploader } from '../Utilities/fileUploader';
-import { prompt_get_claims_instructions } from 'src/Utilities/promp';
-import AutoAudioPlugin from 'src/main';
+import { FileItem, FileUploader } from './fileUploader';
+import { prompt_get_claims_instructions } from 'src/promp';
+import AutoFilePlugin from 'src/main';
 
 export class ttsBase {
     constructor() {}
-    public async transcribe(audio: FileItem): Promise<string> {
+    public async transcribe(tfile: FileItem): Promise<string|null> {
         return "A";
     }
 }
 export class ttsGeminiFL extends ttsBase {
-    private upldr: AudioUploader;
+    private upldr: FileUploader;
     private model: GenerativeModel;
-    private plugin: AutoAudioPlugin
-    constructor(plugin: AutoAudioPlugin) {
+    private plugin: AutoFilePlugin
+    constructor(plugin: AutoFilePlugin) {
         super();
         this.plugin = plugin;
         const genAI = new GoogleGenerativeAI(plugin.settings.GOOGLE_API_KEY);
@@ -22,23 +22,37 @@ export class ttsGeminiFL extends ttsBase {
                     model: "gemini-2.0-flash-thinking-exp-01-21",
                     systemInstruction: "Eres un entusiasta del manejo de informacion, siempre que obtienes nueva informacion buscas la mejor manera de ordenarla y relacionarla. Elaboras instrucciones e informaciones intuitivas y comprensivas.",
                 });
-        this.upldr = new AudioUploader(plugin.settings.GOOGLE_API_KEY);
+        this.upldr = new FileUploader(plugin.settings.GOOGLE_API_KEY);
     }
-    public async transcribe(audio: FileItem): Promise<string> { // Update return type promise
-        if (!audio.uploaded) {
-            // Ensure this.upldr and uploadAudioBlob handle errors appropriately
-            await this.upldr.uploadAudioBlob(audio);
-        }
-    
+    public async transcribe(tfile: FileItem): Promise<string|null> { // Update return type promise
+        const upld_trk = this.plugin.tracker.appendStep("File Upload", tfile.title, "upload");
+        // await sleep(2000);
+        
+        if (!tfile.uploaded) {
+            try {
+                await this.upldr.uploadFileBlob(tfile); 
+                upld_trk.updateState("complete", "File uploaded succesfully");
+            } catch (error) {
+                console.error(error);
+                upld_trk.updateState("error", error);
+                // upld_trk.updateState("error", error);
+                return null;
+            }
+            
+        } else {upld_trk.updateState("complete", "File already in the cloud");}
+        
         // Add checks to ensure uploadData and file exist if upload was needed
-        if (!audio.uploadData?.file) {
+        if (!tfile.uploadData?.file) {
             // Handle error: Upload might have failed or didn't produce expected data
-            console.error("Audio upload data is missing after upload attempt.");
+            console.error("File upload data is missing after upload attempt.");
             // Return or throw an error appropriate for your application
-            return "ERROR, DO NOTHING"; // Or throw new Error(...)
+            upld_trk.updateState("error", "File upload data is missing after upload attempt.")
+            return null; // Or throw new Error(...)
         }
-        const file = audio.uploadData.file;
-    
+        const file = tfile.uploadData.file;
+        
+        
+        const prmpt_trk = this.plugin.tracker.appendStep("Preprocess File", "Generating an input prompt...", "trending-up-down");
         // Ensure this.model.generateContent handles potential errors
         const result = await this.model.generateContent([
             {
@@ -49,13 +63,12 @@ export class ttsGeminiFL extends ttsBase {
             },
             { text: prompt_get_claims_instructions },
         ]);
-    
         // It's good practice to check if the response and text exist
         const txt = result?.response?.text();
-    
+        
         if (!txt) {
             console.error("No text received from the model.");
-            return "ERROR, DO NOTHING"; // Return default if no text
+            return null; // Return default if no text
         }
     
         // --- Extract Claims ---
@@ -68,9 +81,12 @@ export class ttsGeminiFL extends ttsBase {
            
             claims = claimsMatch[1].trim(); // Trim whitespace from the result
         } else {
-            console.log("Claims tag not found or empty in the response.");
+            console.error("Claims tag not found or empty in the response.");
+            prmpt_trk.updateState("error", "Claims tag not found or empty in the response.")
+
+            return null;
         }
-    
+        
         let instructions: string | undefined = undefined;
         // Using the same regex logic as claims, but for the instructions tag
         const instructionsRegex = /<instructions>([\s\S]*)<\/instructions>/;
@@ -80,23 +96,25 @@ export class ttsGeminiFL extends ttsBase {
             instructions = instructionsMatch[1].trim(); // Trim whitespace
         } else {
             console.log("Instructions tag not found or empty in the response.");
+            prmpt_trk.updateState("error", "Instructions tag not found or empty in the response.")
+            return null;
         }
     
         // Logging for debugging (optional)
-        console.log("--- Transcription Analysis ---");
-        console.log("Original Text Length:", txt.length);
-        console.log("Extracted Claims:", claims);
-        console.log("Extracted Instructions:", instructions);
-        console.log("--- End Transcription Analysis ---");
+        // console.log("--- Transcription Analysis ---");
+        // console.log("Original Text Length:", txt.length);
+        // console.log("Extracted Claims:", claims);
+        // console.log("Extracted Instructions:", instructions);
+        // console.log("--- End Transcription Analysis ---");
     
         let files = "";
         const fls = this.plugin.app.vault.getFiles().map((a)=> a.path);
         for (let index = 0; index < fls.length; index++) { files+= `- '`+fls[index]+"'\n";}
          const prompt = `Los archivos existentes son:
-${files}
-
-Se tiene la siguiente informacion y hechos:
-${claims}
+         ${files}
+         
+         Se tiene la siguiente informacion y hechos:
+         ${claims}
 
 EFECTUA ENTONCES TODAS LAS SIGUIENTES INSTRUCCIONES:
 ${instructions}
@@ -106,6 +124,7 @@ Al final siempre verifica que no existan Links a archivos no existentes usando l
 Debe seguir el flujo:
 Lectura -> escritura(varias) -> Comprobacion -> Lectura -> escritura(varias) -> Comprobacion... -> Ordenacion -> Informe del resultado
 `;
+        prmpt_trk.updateState("complete");
         // Return the extracted parts in an object
         return prompt;
     }
