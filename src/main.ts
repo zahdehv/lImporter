@@ -4,7 +4,7 @@ import { FileItem } from './fileUploader';
 import { ttsBase, ttsGeminiFL } from './filePrep';
 import { reActAgentLLM } from './reActAgent';
 import { processTracker } from './processTracker';
-// import { createProgressTracker, LOGTrack, resetProgressTracker, updateProgressDetail, updateProgressStep } from './Utilities/processTracker';
+import { isAIMessageChunk } from '@langchain/core/messages';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -209,14 +209,16 @@ class FileProcessorModal extends Modal {
                 
                 const prompt = await this.tts.transcribe(fileItem);
                 if (prompt) {
-                    console.log("A");
-                    const finalState = await this.reActAgent.app.invoke({
+                    const finalState = await this.reActAgent.agent.stream({
                         messages: [{ role: "user", content: prompt }],
-                    }, {"recursionLimit": 113});
-                    const answer = finalState.messages[finalState.messages.length - 1].content;
-                    console.log(answer);
-                    const answer_step = this.plugin.tracker.appendStep("Answer", answer, "bot-message-square");
-                    answer_step.updateState("pending");
+                    }, {"recursionLimit": 113 , streamMode: "debug" });
+
+                    for await(const chunk of finalState){console.log(chunk);}
+
+                    // const answer = finalState.messages[finalState.messages.length - 1].content;
+                    // console.log(answer);
+                    // const answer_step = this.plugin.tracker.appendStep("Answer", answer, "bot-message-square");
+                    // answer_step.updateState("pending");
                 } 
                     
                 } catch (error) {

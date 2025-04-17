@@ -66,7 +66,7 @@ export class FileUploader {
         const uploadResponse = await res2.json();
 
         // View the response and log items
-        console.log(`Uploaded file ${uploadResponse.file.displayName} as: ${uploadResponse.file.uri}`);
+        // console.log(`Uploaded file ${uploadResponse.file.displayName} as: ${uploadResponse.file.uri}`);
         const name = uploadResponse.file.name;
 
         audio.uploadData = uploadResponse;

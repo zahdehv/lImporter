@@ -1,14 +1,14 @@
 import { tool } from "@langchain/core/tools";
-import { z } from "zod";
+import { any, z } from "zod";
 import * as Diff from 'diff';
-
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatGoogleGenerativeAI, GoogleGenerativeAIChatCallOptions } from "@langchain/google-genai";
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import {
     StateGraph,
     MessagesAnnotation,
     END,
-    START
+    START,
+    CompiledStateGraph
 } from "@langchain/langgraph/web";
 import MyPlugin from "./main";
 import { 
@@ -18,8 +18,18 @@ import {
     prompt_ghost_references 
        } from "src/promp";
 
+import { Annotation } from "@langchain/langgraph/web";
+import { BaseMessageLike, AIMessageFields, AIMessage, AIMessageChunk} from "@langchain/core/messages";
+
+const StateAnnotation = Annotation.Root({
+    messages: Annotation<BaseMessageLike[]>({
+    reducer: (x, y) => x.concat(y),
+    }),
+});
+
+
 export class reActAgentLLM {
-    public app: any;
+    public agent: CompiledStateGraph<any,any,any>;
     private plugin: MyPlugin;
 
     constructor(plugin: MyPlugin) {
@@ -29,7 +39,7 @@ export class reActAgentLLM {
     //Implement here
     return new Promise(async (resolve, reject) => {
       // new Notice(`Creating file '${input.path}'`);
-      console.log(`Creating file '${input.path}'`);
+    //   console.log(`Creating file '${input.path}'`);
       const wrt_trk = this.plugin.tracker.appendStep("Write File", input.path, "file-edit");
                 try {
                     const prev = this.plugin.app.vault.getFiles().map((a)=> a.path).sort();
@@ -67,7 +77,7 @@ export class reActAgentLLM {
                         else if (difff[i].added) {suffix = "(file added)";}
                         for (let j = 0; j < difff[i].value.length; j++) { files+= `- ${difff[i].value[j]} ${suffix}\n`; }
                     }
-                    console.log(`${files}`);
+                    // console.log(`${files}`);
                     wrt_trk.updateState("complete");
                       resolve(`El llamado a funcion se completo correctamente.
 Resultado:
@@ -79,7 +89,7 @@ ${files}
                       reject(new Error(`Error al escribir archivo: ${writeError}`));
                   }
                 } catch (error) {
-                    console.log(error);
+                    console.error(error);
                     wrt_trk.updateState("error");
                 }
             });
@@ -97,10 +107,10 @@ ${files}
       const readFiles = tool(async (input) => {
         return new Promise(async (resolve, reject) => {
             const read_trk = this.plugin.tracker.appendStep("Read Files", "Match filenames","file-search");
-          console.log("Reading some files");
-          console.log(input.paths);
+        //   console.log("Reading some files");
+        //   console.log(input.paths);
             try {
-                console.log(`Reading files matching '${input.paths}'`);
+                // console.log(`Reading files matching '${input.paths}'`);
                 
                 // Get all files in vault
                 const allFiles = this.plugin.app.vault.getFiles();
@@ -180,7 +190,7 @@ ${files}
      const moveFile = tool(async (input: { sourcePath: string, targetPath: string }) => {
          return new Promise(async (resolve, reject) => {
             const move_trk = this.plugin.tracker.appendStep("Move File",`${input.sourcePath} -> ${input.targetPath}`, "scissors")
-            console.log("MOVING FILES");
+            // console.log("MOVING FILES");
              try {
                  const file = this.plugin.app.vault.getAbstractFileByPath(input.sourcePath);
                  if (!file) {
@@ -208,7 +218,7 @@ ${files}
          description: "Mueve un archivo de una ubicación a otra en la bóveda de Obsidian.",
          schema: z.object({
              sourcePath: z.string().describe("Ruta actual del archivo a mover."),
-             targetPath: z.string().describe("Nueva ruta destino para el archivo. (Puede usar la misma ruta base para renombrar el archivo)")
+             targetPath: z.string().describe("Nueva ruta destino para el archivo. (Puede usar la misma ruta base para renombrar el archivo, o moverlo a .trash para eliminarlo)")
          }),
      });
      
@@ -262,39 +272,49 @@ ${files}
         temperature: 0.3,
         maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
+        streaming: true,
+        
         // other params...
       }).bindTools(agent_tools);
 
     const toolNodeForGraph = new ToolNode(agent_tools);
   
-    const shouldContinue = (state: typeof MessagesAnnotation.State) => {
+    const routeMessage = (state: typeof StateAnnotation.State) => {
         const { messages } = state;
-        const lastMessage: any = messages[messages.length - 1];
-        console.log("LASTMESSAGE");
-        console.log(lastMessage);
-        if ("tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls?.length) {
-            return "tools";
+        const lastMessage = messages[messages.length - 1] as AIMessage;
+        // If no tools are called, we can finish (respond to the user)
+        if (!lastMessage?.tool_calls?.length) {
+          return END;
         }
-        return END;
-  }
+        // Otherwise if there is, we continue and call the tools
+        // return END;
+        return "tools";
+      };
+      
+      const callModel = async (
+        state: typeof StateAnnotation.State,
+      ) => {
+        // For versions of @langchain/core < 0.2.3, you must call `.stream()`
+        // and aggregate the message from chunks instead of calling `.invoke()`.
+        const { messages } = state;
+        const thinking = this.plugin.tracker.appendStep("Language Model", "Thinking...", "bot");
+        const responseMessage = await llm.invoke(messages);
+            // console.log("RESPONSE NORMAL");
+            // console.log(responseMessage);
+        thinking.updateState("pending", "Finished!");
+        // if (responseMessage.content) {thinking.updateCaption(responseMessage.content.toString());}
+        return { messages: [responseMessage] };  
+      };
+      
+      const workflow = new StateGraph(StateAnnotation)
+        .addNode("agent", callModel)
+        .addNode("tools", toolNodeForGraph)
+        .addEdge("__start__", "agent")
+        .addConditionalEdges("agent", routeMessage)
+        .addEdge("tools", "agent");
+      
   
-  const callModel = async (state: typeof MessagesAnnotation.State) => {
-
-    const { messages } = state;
-    const response = await llm.invoke(messages);
-    return { messages: response };
-  }
-  
-  
-  const workflow = new StateGraph(MessagesAnnotation)
-    // Define the two nodes we will cycle between
-    .addNode("agent", callModel)
-    .addNode("tools", toolNodeForGraph)
-    .addEdge(START, "agent")
-    .addConditionalEdges("agent", shouldContinue, ["tools", END])
-    .addEdge("tools", "agent");
-  
-  this.app = workflow.compile()
+  this.agent = workflow.compile()
 
     }
     

@@ -31,7 +31,7 @@ export class ttsGeminiFL extends ttsBase {
         if (!tfile.uploaded) {
             try {
                 await this.upldr.uploadFileBlob(tfile); 
-                upld_trk.updateState("complete", "File uploaded succesfully");
+                upld_trk.updateState("complete", "File uploaded succesfully!");
             } catch (error) {
                 console.error(error);
                 upld_trk.updateState("error", error);
@@ -39,7 +39,7 @@ export class ttsGeminiFL extends ttsBase {
                 return null;
             }
             
-        } else {upld_trk.updateState("complete", "File already in the cloud");}
+        } else {upld_trk.updateState("complete", "File already in the cloud!");}
         
         // Add checks to ensure uploadData and file exist if upload was needed
         if (!tfile.uploadData?.file) {
@@ -95,7 +95,7 @@ export class ttsGeminiFL extends ttsBase {
         if (instructionsMatch && instructionsMatch[1] !== undefined) {
             instructions = instructionsMatch[1].trim(); // Trim whitespace
         } else {
-            console.log("Instructions tag not found or empty in the response.");
+            // console.log("Instructions tag not found or empty in the response.");
             prmpt_trk.updateState("error", "Instructions tag not found or empty in the response.")
             return null;
         }
@@ -110,11 +110,11 @@ export class ttsGeminiFL extends ttsBase {
         let files = "";
         const fls = this.plugin.app.vault.getFiles().map((a)=> a.path);
         for (let index = 0; index < fls.length; index++) { files+= `- '`+fls[index]+"'\n";}
-         const prompt = `Los archivos existentes son:
-         ${files}
-         
-         Se tiene la siguiente informacion y hechos:
-         ${claims}
+        const prompt = `Los archivos existentes son:
+${files}
+
+Se tiene la siguiente informacion y hechos:
+${claims}
 
 EFECTUA ENTONCES TODAS LAS SIGUIENTES INSTRUCCIONES:
 ${instructions}
@@ -124,7 +124,7 @@ Al final siempre verifica que no existan Links a archivos no existentes usando l
 Debe seguir el flujo:
 Lectura -> escritura(varias) -> Comprobacion -> Lectura -> escritura(varias) -> Comprobacion... -> Ordenacion -> Informe del resultado
 `;
-        prmpt_trk.updateState("complete");
+        prmpt_trk.updateState("complete", "Prompt Generated!");
         // Return the extracted parts in an object
         return prompt;
     }

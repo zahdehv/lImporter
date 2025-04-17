@@ -20,6 +20,7 @@ export const prompt_get_claims_instructions = `Dado el archivo, debes hacer dos 
   - Si la información es muy extensa, divídela en archivos más pequeños que sigan una intencionalidad.
   - Para archivos muy cortos (ej: un solo hecho), considera incluirlo en otro archivo.
   - Se propone el estilo de toma de notas Zettelkasten para Obsidian.
+La cantidad de notas no debe exceder 4 o 5 notas, y debe incluirse la especificacion de las relaciones para evitar la posterior ampliacion por el agente.
 `;
 
 // write file prompts
