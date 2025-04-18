@@ -53,7 +53,7 @@ class AutoSettingTab extends PluginSettingTab {
 export default class AutoFilePlugin extends Plugin {
     settings: AutoPluginSettings;
     tracker: processTracker;
-
+    
     async onload() {
         await this.loadSettings();
         this.app.workspace.onLayoutReady(() => {
@@ -110,6 +110,7 @@ class FileProcessorModal extends Modal {
     private reActAgent: reActAgentLLM;
     private sendButton: HTMLButtonElement;
     private isPDF: boolean;
+    private abortController: AbortController | any;
     
 
     constructor(plugin: AutoFilePlugin, public file: TFile) {
@@ -195,60 +196,83 @@ class FileProcessorModal extends Modal {
             text: 'Process File'
         });
         
-        const buttonIcon = document.createElement('span');
-        setIcon(buttonIcon, 'corner-down-left');
-        this.sendButton.prepend(buttonIcon);
+        // const buttonIcon = document.createElement('span');
+        // setIcon(buttonIcon, 'corner-down-left');
+        // this.sendButton.prepend(buttonIcon);
 
+        
         this.sendButton.addEventListener('click', async () => {
-            this.sendButton.disabled = true;
+            if (this.processing) {
+            // If already processing, this click should stop the process
+                if (this.abortController) {
+                    this.abortController.abort();
+                    this.processing = false;
+                }
+                this.sendButton.disabled = true; // Disable while cleaning up
+                return;
+            }
+            
+            this.sendButton.classList.add('stop-mode');
+            this.abortController = new AbortController();
             this.processing = true;
-            this.waitCLK();
+
+            this.sendButton.textContent = 'Stop Processing';
+            // const stopIcon = this.sendButton.querySelector('span');
+            // if (stopIcon) {
+                // setIcon(stopIcon, "x-square");
+                // this.sendButton.prepend(stopIcon);
+            // }
+
             this.plugin.tracker.resetTracker();
-
+            
             try {
-                
-                const prompt = await this.tts.transcribe(fileItem);
+                const signal = this.abortController.signal;
+                const prompt = await this.tts.transcribe(fileItem, signal);
                 if (prompt) {
-                    const finalState = await this.reActAgent.agent.stream({
+                    if (signal.aborted) {
+                        throw new Error("Process was aborted by user");
+                    }
+                    const finalState = await this.reActAgent.agent.invoke({
                         messages: [{ role: "user", content: prompt }],
-                    }, {"recursionLimit": 113 , streamMode: "debug" });
+                    }, {"recursionLimit": 113, signal: signal});// , streamMode: "debug" });
 
-                    for await(const chunk of finalState){console.log(chunk);}
 
-                    // const answer = finalState.messages[finalState.messages.length - 1].content;
-                    // console.log(answer);
-                    // const answer_step = this.plugin.tracker.appendStep("Answer", answer, "bot-message-square");
-                    // answer_step.updateState("pending");
+                    const answer = finalState.messages[finalState.messages.length - 1].content;
+                    const answer_step = this.plugin.tracker.appendStep("Answer", answer, "bot-message-square");
+                    answer_step.updateState("pending");
+
+                    // for await (const event of this.reActAgent.agent.streamEvents(
+                    //     { messages: [{ role: "user", content: prompt }] },
+                    //     { version: "v2" }
+                    //   )) {
+                    //     if (event.event === "on_chain_stream") {
+                    //         console.log(event);                            
+                    //     }
+                    //     // console.log(event.event);
+                       
+                    //   }
+                      
                 } 
                     
                 } catch (error) {
                 console.error(error);
                 const errortrack = this.plugin.tracker.appendStep("General Error", error,'x');
-                errortrack.updateState("error", error, "upload");
+                errortrack.updateState("error", error);
             }
-            this.processing = false;
+            
+            this.abortController = null;
+            this.sendButton.classList.remove('stop-mode');
             this.sendButton.disabled = false;
             
-            const buttonIcon = this.sendButton.querySelector('span');
+            this.processing = false;
+            
             this.sendButton.textContent = 'Process File';
-            if (buttonIcon) this.sendButton.prepend(buttonIcon);
-            if (buttonIcon) {
-                setIcon(buttonIcon, 'corner-down-left');
-            }
+            // const introIcon = this.sendButton.querySelector('span');
+            // if (introIcon) {
+                // setIcon(introIcon, 'corner-down-left');
+                // this.sendButton.prepend(introIcon);
+            // }
         });
-    }
-
-    private async waitCLK() {
-        const buttonIcon = this.sendButton.querySelector('span');
-        this.sendButton.textContent = 'Processing';
-        if (buttonIcon) this.sendButton.prepend(buttonIcon);
-        
-        for (let index = 0; this.processing; index++) {
-            if (buttonIcon) {
-                setIcon(buttonIcon, 'clock-'+((index%12)+1));
-            }
-            await sleep(500);
-        }
     }
 
     onClose() {

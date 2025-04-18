@@ -85,12 +85,12 @@ ${files}
 `);
 
                   } catch (writeError) {
-                    wrt_trk.updateState("error");
+                    wrt_trk.updateState("error", writeError);
                       reject(new Error(`Error al escribir archivo: ${writeError}`));
                   }
                 } catch (error) {
                     console.error(error);
-                    wrt_trk.updateState("error");
+                    wrt_trk.updateState("error", error);
                 }
             });
 
@@ -272,46 +272,40 @@ ${files}
         temperature: 0.3,
         maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
-        streaming: true,
+        // streaming: true,
         
         // other params...
       }).bindTools(agent_tools);
 
     const toolNodeForGraph = new ToolNode(agent_tools);
   
-    const routeMessage = (state: typeof StateAnnotation.State) => {
+    const shouldContinue = (state: typeof MessagesAnnotation.State) => {
         const { messages } = state;
-        const lastMessage = messages[messages.length - 1] as AIMessage;
-        // If no tools are called, we can finish (respond to the user)
-        if (!lastMessage?.tool_calls?.length) {
-          return END;
+        const lastMessage: any = messages[messages.length - 1];
+        // console.log("LASTMESSAGE");
+        // console.log(lastMessage);
+        if ("tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls?.length) {
+            return "tools";
         }
-        // Otherwise if there is, we continue and call the tools
-        // return END;
-        return "tools";
-      };
-      
-      const callModel = async (
-        state: typeof StateAnnotation.State,
-      ) => {
-        // For versions of @langchain/core < 0.2.3, you must call `.stream()`
-        // and aggregate the message from chunks instead of calling `.invoke()`.
-        const { messages } = state;
-        const thinking = this.plugin.tracker.appendStep("Language Model", "Thinking...", "bot");
-        const responseMessage = await llm.invoke(messages);
-            // console.log("RESPONSE NORMAL");
-            // console.log(responseMessage);
-        thinking.updateState("pending", "Finished!");
-        // if (responseMessage.content) {thinking.updateCaption(responseMessage.content.toString());}
-        return { messages: [responseMessage] };  
-      };
-      
-      const workflow = new StateGraph(StateAnnotation)
-        .addNode("agent", callModel)
-        .addNode("tools", toolNodeForGraph)
-        .addEdge("__start__", "agent")
-        .addConditionalEdges("agent", routeMessage)
-        .addEdge("tools", "agent");
+        return END;
+  }
+  
+  const callModel = async (state: typeof MessagesAnnotation.State) => {
+    const { messages } = state;
+    const thinking = this.plugin.tracker.appendStep("Language Model", "Thinking...", "bot");
+    const response = await llm.invoke(messages);
+    thinking.updateState("complete", "Call Finished!");
+    return { messages: response };
+  }
+  
+  
+  const workflow = new StateGraph(MessagesAnnotation)
+    // Define the two nodes we will cycle between
+    .addNode("agent", callModel)
+    .addNode("tools", toolNodeForGraph)
+    .addEdge(START, "agent")
+    .addConditionalEdges("agent", shouldContinue, ["tools", END])
+    .addEdge("tools", "agent");
       
   
   this.agent = workflow.compile()

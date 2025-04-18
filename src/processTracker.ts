@@ -21,9 +21,10 @@ export class stepItem {
         if (icon && iconEl) 
             {setIcon(iconEl as HTMLElement, icon);} else 
         {if (iconEl) {
-            if (status === 'in-progress') {
-                setIcon(iconEl as HTMLElement, 'loader');
-            } else if (status === 'complete') {
+            // if (status === 'in-progress') {
+            //     setIcon(iconEl as HTMLElement, 'loader');
+            // } else 
+            if (status === 'complete') {
                 setIcon(iconEl as HTMLElement, 'check');
                 // setIcon(iconEl as HTMLElement, 'check-circle');
             } else if (status === 'error') {

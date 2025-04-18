@@ -30,7 +30,7 @@ export class FileUploader {
      * @param blobUrl The Obsidian blob URL of the audio file.
      * @returns An object containing the upload response and the file name, or null if upload fails or API key is missing.
      */
-    async uploadFileBlob(audio: FileItem): Promise<{ uploadResponse: any, name: string } | null> {
+    async uploadFileBlob(audio: FileItem, signal: AbortSignal): Promise<{ uploadResponse: any, name: string } | null> {
         //blobUrl: string, 
         const blobUrl = audio.url;
 
@@ -40,7 +40,7 @@ export class FileUploader {
 
       
         // Download data from blob URL
-        const res = await fetch(blobUrl);
+        const res = await fetch(blobUrl,{signal: signal});
         if (!res.ok) {
             throw new Error(`Faissled to fetch blob data: ${res.status} ${res.statusText}`);
             return null;
@@ -54,7 +54,7 @@ export class FileUploader {
         formData.append("file", new Blob([buffer], { type: audio.mimeType })); // Changed to 'type'
         const res2 = await fetch(
             `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart&key=${this.apiKey}`,
-            { method: "post", body: formData }
+            { method: "post", body: formData, signal: signal }
         );
 
         if (!res2.ok) {
@@ -71,6 +71,11 @@ export class FileUploader {
 
         audio.uploadData = uploadResponse;
         audio.uploaded = true;
+
+        if (signal.aborted) {
+            throw new Error("Aborted!");
+            
+        }
 
         return { uploadResponse, name };
 

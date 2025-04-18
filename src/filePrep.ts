@@ -5,7 +5,7 @@ import AutoFilePlugin from 'src/main';
 
 export class ttsBase {
     constructor() {}
-    public async transcribe(tfile: FileItem): Promise<string|null> {
+    public async transcribe(tfile: FileItem, signal: AbortSignal): Promise<string|null> {
         return "A";
     }
 }
@@ -24,18 +24,20 @@ export class ttsGeminiFL extends ttsBase {
                 });
         this.upldr = new FileUploader(plugin.settings.GOOGLE_API_KEY);
     }
-    public async transcribe(tfile: FileItem): Promise<string|null> { // Update return type promise
+    public async transcribe(tfile: FileItem, signal: AbortSignal): Promise<string|null> { // Update return type promise
         const upld_trk = this.plugin.tracker.appendStep("File Upload", tfile.title, "upload");
-        // await sleep(2000);
+        // await sleep(2000000);
         
         if (!tfile.uploaded) {
             try {
-                await this.upldr.uploadFileBlob(tfile); 
+                await this.upldr.uploadFileBlob(tfile, signal); 
+                if (signal.aborted) {
+                    throw new Error("Operation Aborted");
+                }
                 upld_trk.updateState("complete", "File uploaded succesfully!");
             } catch (error) {
                 console.error(error);
                 upld_trk.updateState("error", error);
-                // upld_trk.updateState("error", error);
                 return null;
             }
             
@@ -54,20 +56,34 @@ export class ttsGeminiFL extends ttsBase {
         
         const prmpt_trk = this.plugin.tracker.appendStep("Preprocess File", "Generating an input prompt...", "trending-up-down");
         // Ensure this.model.generateContent handles potential errors
-        const result = await this.model.generateContent([
-            {
-                fileData: {
-                    mimeType: file.mimeType,
-                    fileUri: file.uri,
+        let txt;
+        try {
+            const result = await this.model.generateContentStream([
+                {
+                    fileData: {
+                        mimeType: file.mimeType,
+                        fileUri: file.uri,
+                    },
                 },
-            },
-            { text: prompt_get_claims_instructions },
-        ]);
-        // It's good practice to check if the response and text exist
-        const txt = result?.response?.text();
+                { text: prompt_get_claims_instructions },
+            ], {signal: signal});
+            // It's good practice to check if the response and text exist
+            txt = "";
+
+            for await (const chunk of result.stream) {
+                txt += chunk.text();
+                prmpt_trk.updateCaption(txt.slice(-999));
+              }
+              
+        } catch (error) {
+            prmpt_trk.updateState("error", error)
+            return null;
+        }
+        
         
         if (!txt) {
             console.error("No text received from the model.");
+            prmpt_trk.updateState("error", "No text received from the model.")
             return null; // Return default if no text
         }
     
