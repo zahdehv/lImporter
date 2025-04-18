@@ -4,7 +4,7 @@ export const prompt_get_claims_instructions = `Dado el archivo, debes hacer dos 
   - Estos deben estar enumerados en una lista (de markdown) que debe estar entre tags <claims></claims>.
   - Deben ser obtenidos de la fuente original.
   - Deben cubrir en conjunto la mayor parte de la información original posible.
-  - Cada uno debe contar con el contexto suficiente para ser comprendido por sí solo. En caso de requerir mayor contexto, este debe ser incluido entre [corchetes, el contexto iría aquí].
+  - Cada uno debe contar con el contexto suficiente para ser comprendido por sí solo. En caso de requerir mayor contexto, este debe ser incluido entre [[corchetes, el contexto iría aquí]].
   - No deben contener ambigüedad.
 
 2. Crear una lista de instrucciones que use el contexto anteriormente brindado, con el fin de generar un conjunto de notas en una bóveda de Obsidian:
