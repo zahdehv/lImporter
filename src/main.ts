@@ -388,7 +388,7 @@ class FileProcessorModal extends Modal {
     private createProcessButton(container: HTMLElement): void {
         const button = container.createEl('button', { 
             cls: 'limporter-button primary',
-            text: 'Process Files'
+            text: 'Process Input'
         });
 
         button.addEventListener('click', async () => {
@@ -427,7 +427,7 @@ class FileProcessorModal extends Modal {
             } finally {
                 this.abortController = null;
                 button.removeClass('stop-mode');
-                button.setText('Process Files');
+                button.setText('Process Input');
                 button.disabled = false;
                 this.processing = false;
             }
