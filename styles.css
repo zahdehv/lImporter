@@ -367,3 +367,25 @@
 @keyframes opaccc {
     0%,100% {opacity: 0.5;}
 }
+
+/* Add these to your existing styles.css */
+.limporter-progress-container {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.limporter-progress-container:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.limporter-progress-step {
+    display: none; /* Hidden by default */
+}
+
+.limporter-progress-step:last-child {
+    display: flex; /* Always show last step */
+}
+
+.limporter-progress-container.show-all .limporter-progress-step {
+    display: flex; /* Show all steps when container has show-all class */
+}

@@ -21,12 +21,8 @@ export class stepItem {
         if (icon && iconEl) 
             {setIcon(iconEl as HTMLElement, icon);} else 
         {if (iconEl) {
-            // if (status === 'in-progress') {
-            //     setIcon(iconEl as HTMLElement, 'loader');
-            // } else 
             if (status === 'complete') {
                 setIcon(iconEl as HTMLElement, 'check');
-                // setIcon(iconEl as HTMLElement, 'check-circle');
             } else if (status === 'error') {
                 setIcon(iconEl as HTMLElement, 'x');
             } else if (status === 'pending') {
@@ -50,7 +46,8 @@ export class stepItem {
 
 export class processTracker {
     private progressContainer: HTMLElement;
-    // private progressSteps: any;
+    private steps: stepItem[] = [];
+    private showAllSteps: boolean = false;
 
     constructor(parentContainer: HTMLElement) {
         this.progressContainer = parentContainer.createDiv('limporter-progress-container');
@@ -60,15 +57,44 @@ export class processTracker {
             text: `This will process your file and create structured notes based on its content.`,
             cls: 'limporter-description'
         });
-        // this.progressSteps = [];
+
+        // Add click handler to toggle step visibility
+        this.progressContainer.addEventListener('click', () => {
+            this.toggleStepsVisibility();
+        });
     }
-    public resetTracker(){
-        // this.progressSteps = [];
+
+    public resetTracker() {
+        this.steps = [];
+        this.showAllSteps = false;
         this.progressContainer.empty();
         this.progressContainer.style.display = 'flex';
     }
 
-    public appendStep(label:string, message:string, icon: string):stepItem{
+    private toggleStepsVisibility() {
+        this.showAllSteps = !this.showAllSteps;
+        this.updateStepsVisibility();
+    }
+
+    private updateStepsVisibility() {
+        if (this.steps.length === 0) return;
+        
+        // Always show the last step
+        const lastStep = this.steps[this.steps.length - 1];
+        lastStep.updateState(lastStep['item'].dataset.status as any);
+        
+        // Show/hide other steps based on showAllSteps flag
+        for (let i = 0; i < this.steps.length - 1; i++) {
+            const step = this.steps[i];
+            if (this.showAllSteps) {
+                step['item'].style.display = 'flex';
+            } else {
+                step['item'].style.display = 'none';
+            }
+        }
+    }
+
+    public appendStep(label: string, message: string, icon: string): stepItem {
         const stepEl = this.progressContainer.createDiv('limporter-progress-step');
         stepEl.dataset.status = 'pending';
 
@@ -82,10 +108,13 @@ export class processTracker {
         const stepStatus = stepContent.createDiv('limporter-step-status');
         stepStatus.textContent = 'Pending';
         
-        // this.progressSteps.push(stepEl);
         const stepItm = new stepItem(stepEl, icon);
+        this.steps.push(stepItm);
+        
+        // Update visibility of all steps
+        this.updateStepsVisibility();
+        
         stepItm.updateState("in-progress", message);
         return stepItm;
     }
-    
 }
