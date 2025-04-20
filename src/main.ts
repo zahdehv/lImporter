@@ -406,7 +406,7 @@ class FileProcessorModal extends Modal {
             
             try {
                 const signal = this.abortController.signal;
-                const prompt = await this.tts.transcribe(this.fileItems, signal);
+                const prompt = await this.tts.transcribe(this.fileItems, this.prompt, signal);
                 if (prompt && !signal.aborted) {
                     const finalState = await this.reActAgent.agent.invoke({
                         messages: [{ role: "user", content: prompt }],

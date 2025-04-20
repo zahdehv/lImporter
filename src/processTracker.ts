@@ -54,7 +54,7 @@ export class processTracker {
         this.progressContainer.style.display = 'flex';
         // Description text
         this.progressContainer.createEl('p', {
-            text: `This will process your file and create structured notes based on its content.`,
+            text: `This will process your file(s) and create structured notes based on its content.`,
             cls: 'limporter-description'
         });
 

@@ -2,10 +2,11 @@ import { GoogleGenerativeAI, GenerativeModel, ChatSession, FunctionDeclaration }
 import { FileItem, FileUploader } from './fileUploader';
 import { prompt_get_claims_instructions } from 'src/promp';
 import AutoFilePlugin from 'src/main';
+import { trace } from 'console';
 
 export class ttsBase {
     constructor() {}
-    public async transcribe(tfile: FileItem[], signal: AbortSignal): Promise<string|null> {
+    public async transcribe(tfile: FileItem[], instruction: string, signal: AbortSignal): Promise<string|null> {
         return "A";
     }
 }
@@ -24,7 +25,7 @@ export class ttsGeminiFL extends ttsBase {
                 });
         this.upldr = new FileUploader(plugin.settings.GOOGLE_API_KEY);
     }
-    public async transcribe(tfiles: FileItem[], signal: AbortSignal): Promise<string|null> { // Update return type promise
+    public async transcribe(tfiles: FileItem[], instruction: string, signal: AbortSignal): Promise<string|null> { // Update return type promise
         // await sleep(2000000);
         const context = [];
         for (const tfile of tfiles) {
@@ -62,10 +63,14 @@ export class ttsGeminiFL extends ttsBase {
             },
         });
     }
-    if (context.length === 0) {throw new Error("No Files Provided");}
+    if (context.length === 0) {
+        const nofile = this.plugin.tracker.appendStep("No FILES provided", "The processor will work with the PROMPT", 'file');
+        nofile.updateState("pending")
+        // throw new Error("No Files Provided");
+    }
 
-        context.push({ text: prompt_get_claims_instructions });
-        const prmpt_trk = this.plugin.tracker.appendStep("Preprocess File", "Generating an input prompt...", "trending-up-down");
+        context.push({ text: instruction });
+        const prmpt_trk = this.plugin.tracker.appendStep("Generate Agent instruction", "Generating an input prompt...", "trending-up-down");
         // Ensure this.model.generateContent handles potential errors
         let txt;
         try {
@@ -89,54 +94,11 @@ export class ttsGeminiFL extends ttsBase {
             prmpt_trk.updateState("error", "No text received from the model.")
             return null; // Return default if no text
         }
-    
-        // --- Extract Claims ---
-        let claims: string | undefined = undefined;
-       
-        const claimsRegex = /<claims>([\s\S]*)<\/claims>/;
-        const claimsMatch = claimsRegex.exec(txt);
-    
-        if (claimsMatch && claimsMatch[1] !== undefined) {
-           
-            claims = claimsMatch[1].trim(); // Trim whitespace from the result
-        } else {
-            console.error("Claims tag not found or empty in the response.");
-            prmpt_trk.updateState("error", "Claims tag not found or empty in the response.")
-
-            return null;
-        }
-        
-        let instructions: string | undefined = undefined;
-        // Using the same regex logic as claims, but for the instructions tag
-        const instructionsRegex = /<instructions>([\s\S]*)<\/instructions>/;
-        const instructionsMatch = instructionsRegex.exec(txt);
-    
-        if (instructionsMatch && instructionsMatch[1] !== undefined) {
-            instructions = instructionsMatch[1].trim(); // Trim whitespace
-        } else {
-            // console.log("Instructions tag not found or empty in the response.");
-            prmpt_trk.updateState("error", "Instructions tag not found or empty in the response.")
-            return null;
-        }
-    
-        // Logging for debugging (optional)
-        // console.log("--- Transcription Analysis ---");
-        // console.log("Original Text Length:", txt.length);
-        // console.log("Extracted Claims:", claims);
-        // console.log("Extracted Instructions:", instructions);
-        // console.log("--- End Transcription Analysis ---");
-    
-        let files = "";
-        const fls = this.plugin.app.vault.getFiles().map((a)=> a.path);
-        for (let index = 0; index < fls.length; index++) { files+= `- '`+fls[index]+"'\n";}
-        const prompt = `Los archivos existentes son:
-${files}
-
-Se tiene la siguiente informacion y hechos:
-${claims}
-
-EFECTUA ENTONCES TODAS LAS SIGUIENTES INSTRUCCIONES:
-${instructions}
+        // GET FILES 
+        // let files = "";
+        // const fls = this.plugin.app.vault.getFiles().map((a)=> a.path);
+        // for (let index = 0; index < fls.length; index++) { files+= `- '`+fls[index]+"'\n";}
+        const prompt = `${txt}
 
 Al final siempre verifica que no existan Links a archivos no existentes usando la funcion (siempre que termines de escribir un conjunto de archivos, pues otro error puede haber aparecido).
 
