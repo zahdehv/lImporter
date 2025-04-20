@@ -1,8 +1,35 @@
-/* Material Design Styles */
+/* Status Bar */
+.limporter-status-bar {
+    /* display: none; */
+    padding: 2px 8px;
+    border-radius: 4px;
+    background-color: var(--background-secondary-alt);
+    transition: all 0.2s ease;
+    /* cursor: default; */
+}
+
+.limporter-status-bar:hover {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    transform: scale(1.05);
+}
+
+/* Ribbon Icon */
+.limporter-ribbon-icon {
+    /* cursor: pointer; */
+    transition: transform 0.2s ease;
+}
+
+.limporter-ribbon-icon:hover {
+    transform: scale(1.1);
+    color: var(--interactive-accent);
+}
+
+/* Modal Styles */
 .limporter-modal {
     padding: 1.5rem;
     border-radius: 8px;
-    background-color: rgb(26, 26, 26);
+    background-color: rgb(24, 24, 24);
 }
 
 .limporter-header {
@@ -20,10 +47,13 @@
     flex: 1;
 }
 
-.limporter-content {
+/* Files Container */
+.limporter-files-container {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 1rem;
+    min-height: 60px;
+    margin-bottom: 1.5rem;
 }
 
 .limporter-file-item {
@@ -33,19 +63,29 @@
     background: var(--background-secondary);
     padding: 1rem;
     border-radius: 8px;
+    transition: all 0.2s ease;
+    cursor: move;
+}
+
+.limporter-file-item.sortable-chosen {
+    background-color: var(--background-modifier-hover);
+}
+
+.limporter-file-item.sortable-ghost {
+    opacity: 0.5;
+    background-color: var(--background-modifier-active);
 }
 
 .limporter-file-info {
     display: flex;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.1rem;
-    border-radius: 8px;
 }
 
 .limporter-file-icon {
     font-size: 2.2em;
     color: var(--text-accent);
+    /* cursor: move; */
 }
 
 .limporter-file-details {
@@ -62,19 +102,79 @@
     color: var(--text-muted);
 }
 
-.limporter-audio-container {
-    background: var(--background-secondary);
-    padding: 1rem;
-    border-radius: 8px;
+.limporter-audio-player {
+    width: 100%;
+    margin-top: 0.5rem;
 }
 
+/* Trash Zone */
+/* Action container styles */
+/* Action container */
+.limporter-action-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-right: 8px;
+}
+
+/* Drag handle */
+.limporter-drag-handle {
+    /* cursor: grab; */
+    color: var(--text-muted);
+    opacity: 0.5;
+    transition: all 0.2s ease;
+}
+
+.limporter-drag-handle:hover {
+    opacity: 1;
+    color: var(--text-accent);
+}
+
+/* Trash icon */
+.limporter-trash-icon {
+    color: var(--text-error);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+/* Show trash icon on hover or during drag */
+.limporter-file-item:hover .limporter-trash-icon,
+.limporter-file-item.sortable-active .limporter-trash-icon {
+    opacity: 1;
+}
+
+.limporter-trash-icon:hover {
+    transform: scale(1.2);
+    color: var(--interactive-accent);
+}
+/* aaaaa */
+
+.limporter-trash-zone {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 60px;
+    margin-bottom: 1rem;
+    background-color: var(--background-modifier-error);
+    border-radius: 8px;
+    color: white;
+    font-size: 1.5rem;
+    transition: all 0.2s ease;
+}
+
+.limporter-trash-zone.sortable-active {
+    display: flex;
+    background-color: var(--background-modifier-error-hover);
+}
+
+/* Button Container */
 .limporter-button-container {
     display: flex;
-    gap: 4px;
-    /* flex-direction: column; */
+    gap: 0.5rem;
     justify-content: flex-end;
     margin-top: 1.5rem;
-    margin-bottom: 1.5rem;
 }
 
 .limporter-button {
@@ -87,6 +187,8 @@
     font-weight: 500;
     transition: all 0.2s ease;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: none;
+    cursor: pointer;
 }
 
 .limporter-button:hover {
@@ -110,6 +212,49 @@
     cursor: not-allowed;
 }
 
+.limporter-button.stop-mode {
+    background-color: #ff4444;
+    animation: opacc 1s ease-in-out infinite;
+}
+
+.limporter-button.stop-mode:hover {
+    background-color: #e00000;
+}
+
+/* Textarea Container */
+.limporter-textarea-container {
+    margin: 1rem 0;
+}
+
+.material-textarea {
+    width: 100%;
+    min-height: 56px;
+    padding: 1.5rem;
+    border-radius: 4px;
+    border: none;
+    background-color: var(--background-primary);
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.1);
+    transition: box-shadow 0.3s ease;
+    resize: none;
+    font-family: inherit;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.material-textarea:focus {
+    box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 
+                0 4px 5px 0 rgba(0,0,0,0.14), 
+                0 1px 10px 0 rgba(0,0,0,0.12);
+    outline: none;
+}
+
+/* Animations */
+@keyframes opacc {
+    0%,100% {opacity: 0.8;}
+    50% {opacity: 1;}
+}
+
+
 /* Progress Tracker Styles */
 .limporter-progress-container {
     display: flex;
@@ -120,7 +265,6 @@
     background: var(--background-secondary);
     border-radius: 8px;
 }
-
 .limporter-progress-step {
     display: flex;
     align-items: center;
@@ -129,19 +273,15 @@
     border-radius: 4px;
     transition: all 0.2s ease;
 }
-
 .limporter-progress-step[data-status="in-progress"] {
     background-color: var(--background-modifier-hover);
 }
-
 .limporter-progress-step[data-status="complete"] {
     background-color: var(--background-modifier-success-hover);
 }
-
 .limporter-progress-step[data-status="error"] {
     background-color: var(--background-modifier-error-hover);
 }
-
 .limporter-step-icon {
     display: flex;
     align-items: center;
@@ -152,60 +292,48 @@
     background-color: var(--background-modifier-border);
     color: var(--text-muted);
 }
-
 .limporter-progress-step[data-status="in-progress"] .limporter-step-icon {
     background-color: var(--interactive-accent);
     color: var(--text-on-accent);
     animation: jumpp 1s ease-in-out infinite;
 }
-
 .limporter-progress-step[data-status="complete"] .limporter-step-icon {
     background-color: var(--interactive-success);
     color: white;
 }
-
 .limporter-progress-step[data-status="error"] .limporter-step-icon {
     background-color: var(--text-error);
     color: white;
 }
-
 .limporter-step-content {
     flex: 1;
 }
-
 .limporter-step-label {
     font-weight: 500;
     margin-bottom: 0.2rem;
 }
-
 .limporter-step-status {
     font-size: 0.85em;
     color: var(--text-muted);
 }
-
 .limporter-progress-step[data-status="in-progress"] .limporter-step-status {
     color: var(--text-normal);
 }
-
 .limporter-progress-step[data-status="complete"] .limporter-step-status {
     color: var(--interactive-success);
 }
-
 .limporter-progress-step[data-status="error"] .limporter-step-status {
     color: rgb(218, 218, 218);
 }
-
 .limporter-button.stop-mode {
     background-color: #ff4444;
     border-color: #cc0000;
     animation: opacc 1s ease-in-out infinite;
     
 }
-
 .limporter-button.stop-mode:hover {
     background-color: #e00000;
 }
-
 .limporter-button.stop-mode:disabled {
     opacity: 0.1;
     transform: none;
@@ -214,39 +342,10 @@
     animation: opaccc 1s ease-in-out infinite;
 }
 
-/* Material Textarea */
-.material-textarea {
-    padding: 1.5rem;
-    position: relative;
-    font-size: 16px;
-    line-height: 1.5;
-    color: var(--text-normal);
-    background-color: var(--background-primary);
-    border: none !important;
-    border-radius: 4px !important;
-    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.1);
-    transition: box-shadow 0.3s ease;
-  }
-  
-  .material-textarea:focus {
-    box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 
-                0 4px 5px 0 rgba(0,0,0,0.14), 
-                0 1px 10px 0 rgba(0,0,0,0.12);
-    outline: none;
-  }
-  
-  
-  .material-textarea:focus + .material-floating-label,
-  .material-textarea:not(:placeholder-shown) + .material-floating-label {
-    transform: translateY(-24px) scale(0.75);
-    color: var(--text-accent);
-  }
-
 @keyframes coinn {
     0% { transform: rotateY(0deg); }
     100% { transform: rotateY(360deg); }
 }
-
 @keyframes jumpp {
     0% { transform: rotate(0deg); }
     25% { transform: rotate(10deg); }
@@ -254,22 +353,39 @@
     75% { transform: rotate(-10deg); }
     100% { transform: rotate(0deg); }
 }
-
 @keyframes hoverr {
     50% { transform: translateY(-10%);}
 }
-
 @keyframes contrastt {
     0%,100% {filter: contrast(100%);}
     50% {filter: contrast(300%)}
 }
-
 @keyframes opacc {
     0%,100% {opacity: 0.8;}
     50% {opacity: 1;}
 }
-
 @keyframes opaccc {
     0%,100% {opacity: 0.5;}
 }
 
+/* Add these to your existing styles.css */
+.limporter-progress-container {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.limporter-progress-container:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.limporter-progress-step {
+    display: none; /* Hidden by default */
+}
+
+.limporter-progress-step:last-child {
+    display: flex; /* Always show last step */
+}
+
+.limporter-progress-container.show-all .limporter-progress-step {
+    display: flex; /* Show all steps when container has show-all class */
+}

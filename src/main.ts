@@ -1,5 +1,4 @@
-import { setIcon, App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, Notice, TextAreaComponent, MarkdownView, ButtonComponent } from 'obsidian';
-import {  } from 'obsidian';
+import { setIcon, App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, TextAreaComponent } from 'obsidian';
 import { FileItem } from './fileUploader';
 import { ttsBase, ttsGeminiFL } from './filePrep';
 import { reActAgentLLM } from './reActAgent';
@@ -34,10 +33,10 @@ class AutoSettingTab extends PluginSettingTab {
                 text
                     .setPlaceholder('Enter your API key')
                     .setValue(this.plugin.settings.GOOGLE_API_KEY)
-                text.onChange(async (value) => {
-                    this.plugin.settings.GOOGLE_API_KEY = value;
-                    await this.plugin.saveSettings();
-                });
+                    .onChange(async (value) => {
+                        this.plugin.settings.GOOGLE_API_KEY = value;
+                        await this.plugin.saveSettings();
+                    });
             });
 
         new Setting(containerEl)
@@ -55,39 +54,28 @@ class AutoSettingTab extends PluginSettingTab {
 export default class AutoFilePlugin extends Plugin {
     settings: AutoPluginSettings;
     tracker: processTracker;
-    private statusBarItem:any;
+    private statusBarItem: HTMLElement;
+    private ribbonIcon: HTMLElement;
+
     async onload() {
         await this.loadSettings();
+        
+        // Create ribbon icon
+        this.ribbonIcon = this.addRibbonIcon(
+            'bot-message-square', 
+            'Open lImporter',
+            () => new FileProcessorModal(this).open()
+        );
+        this.ribbonIcon.addClass('limporter-ribbon-icon');
+
+        // Status bar item
         this.statusBarItem = this.addStatusBarItem();
-        // Base styling
-        this.statusBarItem.style.cssText = `
-            display: none;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background-color: var(--background-secondary-alt);
-            transition: all 0.2s ease;
-            cursor: default;
-        `;
-
-        // Hover effects
-        this.statusBarItem.onmouseover = () => {
-            this.statusBarItem.style.backgroundColor = 'var(--interactive-accent)';
-            this.statusBarItem.style.color = 'var(--text-on-accent)';
-            this.statusBarItem.style.transform = 'scale(1.05)';
-        };
-
-        this.statusBarItem.onmouseout = () => {
-            this.statusBarItem.style.backgroundColor = 'var(--background-secondary-alt)';
-            this.statusBarItem.style.color = '';
-            this.statusBarItem.style.transform = '';
-        };
-
+        this.statusBarItem.addClass('limporter-status-bar');
         this.statusBarItem.onClickEvent(() => {
             const activeFile = this.app.workspace.getActiveFile();
-            if (activeFile)this.openFileProcessor(activeFile);
+            if (activeFile) this.openFileProcessor(activeFile);
         });
-
-
+        setIcon(this.statusBarItem,"bot");
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(
                 this.app.vault.on("create", (file: TAbstractFile) => {
@@ -97,7 +85,6 @@ export default class AutoFilePlugin extends Plugin {
                 })
             );
             
-            // Register file menu event for supported files
             this.registerEvent(
                 this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
                     if (file instanceof TFile && this.isSupportedFile(file)) {
@@ -105,36 +92,22 @@ export default class AutoFilePlugin extends Plugin {
                             item
                                 .setTitle("Process with lImporter")
                                 .setIcon("bot-message-square")
-                                .onClick(() => {
-                                    this.openFileProcessor(file);
-                                });
+                                .onClick(() => this.openFileProcessor(file));
                         });
                     }
                 })
             );
         });
-        // Initial check
-    this.updateStatusBar();
-
-    // Register events
-    this.registerEvent(
-        this.app.workspace.on('file-open', () => this.updateStatusBar())
-    );
-
-    this.registerEvent(
-        this.app.workspace.on('active-leaf-change', () => this.updateStatusBar())
-    );
-
-    this.registerEvent(
-        this.app.vault.on('modify', (file) => {
+        
+        this.updateStatusBar();
+        this.registerEvent(this.app.workspace.on('file-open', () => this.updateStatusBar()));
+        this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateStatusBar()));
+        this.registerEvent(this.app.vault.on('modify', (file) => {
             const activeFile = this.app.workspace.getActiveFile();
             if (activeFile?.path === file.path) {
                 this.updateStatusBar();
             }
-        })
-    );
-
-
+        }));
         
         this.addSettingTab(new AutoSettingTab(this.app, this));
     }
@@ -142,25 +115,21 @@ export default class AutoFilePlugin extends Plugin {
     private updateStatusBar() {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile) {
-            this.statusBarItem.style.display = "none";
+            this.statusBarItem.hide();
             return;
         }
 
-        const hasTargetExtension = this.isSupportedFile(activeFile);
-        this.statusBarItem.style.display = hasTargetExtension ? "block" : "none";
-        
-        // Optional: Update text to show which extension matched
-        if (hasTargetExtension) {
-            // this.statusBarItem.setText(`    lImporter`);
-            // const icon = document.createElement('span');
+        if (this.isSupportedFile(activeFile)) {
+            this.statusBarItem.show();
             setIcon(this.statusBarItem, 'bot-message-square');
-            // this.statusBarItem.prepend(icon);
+        } else {
+            this.statusBarItem.hide();
         }
     }
 
     public SupportedFiles(): string[] {
         const supportedExtensions = ["mp3", "wav", "ogg", "m4a", "aac", "flac", "aiff"];
-        if (this.settings.allowPDF) { supportedExtensions.push("pdf"); };
+        if (this.settings.allowPDF) supportedExtensions.push("pdf");
         return supportedExtensions;
     }
 
@@ -168,13 +137,10 @@ export default class AutoFilePlugin extends Plugin {
         return this.SupportedFiles().includes(file.extension.toLowerCase());
     }
 
-    
-
     private openFileProcessor(file: TFile) {
         new FileProcessorModal(this, file).open();
     }
     
-
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
@@ -182,7 +148,6 @@ export default class AutoFilePlugin extends Plugin {
     async saveSettings() {
         await this.saveData(this.settings);
     }
-
 }
 
 class FileSuggestionModal extends FuzzySuggestModal<TFile> {
@@ -213,23 +178,25 @@ class FileSuggestionModal extends FuzzySuggestModal<TFile> {
     }
 }
 
-
-
 class FileProcessorModal extends Modal {
     private plugin: AutoFilePlugin;
-    private processing: boolean = false;
+    private processing = false;
     private tts: ttsBase;
     private reActAgent: reActAgentLLM;
     private isPDF: boolean;
-    private abortController: AbortController | any;
-    private prompt: string = "";
-    private isVisible:boolean = false;
+    private abortController?: AbortController | any;
+    private prompt = "";
+    private isVisible = false;
+    private fileItems: FileItem[] = [];
+    private trashZone: HTMLElement;
+    private isDraggingToTrash = false;
     
-
-    constructor(plugin: AutoFilePlugin, public file: TFile) {
+    constructor(plugin: AutoFilePlugin, public file?: TFile) {
         super(plugin.app);
         this.plugin = plugin;
-        this.isPDF = file.extension.toLowerCase() === 'pdf';
+        if (file) {
+            this.isPDF = file.extension.toLowerCase() === 'pdf';
+        }
         this.tts = new ttsGeminiFL(plugin);
         this.reActAgent = new reActAgentLLM(plugin);
     }
@@ -237,18 +204,50 @@ class FileProcessorModal extends Modal {
     async onOpen() {
         const { contentEl } = this;
         contentEl.empty();
-        contentEl.addClass('limporter-modal');
+        contentEl.addClass('limporter-modal')
+        // Initialize with primary file if provided
+        if (this.file) {
+            const primaryFile = await this.prepareFileData(this.file);
+            this.fileItems = [primaryFile];
+        }
         
-        // Create header
-        const headerEl = contentEl.createDiv('limporter-header');
+        this.createHeader(contentEl);
+        this.createTrashZone(contentEl);
+        const filesContainer = this.createFilesContainer(contentEl);
+        this.renderFileItems(filesContainer);
+        
+        this.plugin.tracker = new processTracker(contentEl);        
+        this.createButtonContainer(contentEl);
+    }
+
+    private createHeader(container: HTMLElement): void {
+        const headerEl = container.createDiv('limporter-header');
         headerEl.createEl('h3', { 
             cls: 'limporter-title',
             text: 'Process with lImporter' 
         });
+    }
+
+    private createTrashZone(container: HTMLElement): void {
+        this.trashZone = container.createDiv('limporter-trash-zone');
+        setIcon(this.trashZone, 'trash-2');
+        this.trashZone.style.display = 'none';
+    }
+
+    private createFilesContainer(container: HTMLElement): HTMLElement {
+        return container.createDiv('limporter-files-container');
+    }
+
+    private createButtonContainer(container: HTMLElement): void {
+        const buttonContainer = container.createDiv('limporter-button-container');
         
-        
-        // Prepare file data
-        const arrayBuffer = await this.app.vault.readBinary(this.file);
+        this.createVisibilityButton(buttonContainer);
+        this.createAddButton(buttonContainer);
+        this.createProcessButton(buttonContainer);
+    }
+
+    private async prepareFileData(file: TFile): Promise<FileItem> {
+        const arrayBuffer = await this.app.vault.readBinary(file);
         const typeMap: Record<string, string> = {
             mp3: 'audio/mpeg',
             wav: 'audio/wav',
@@ -259,244 +258,201 @@ class FileProcessorModal extends Modal {
             aiff: 'audio/aiff',
             pdf: 'application/pdf'
         };
-        const mime = typeMap[this.file.extension] || 'application/octet-stream';
-        const blob = new Blob([arrayBuffer], { type: mime });
-        const objURL = URL.createObjectURL(blob);
-        const fileItem: FileItem = {
-            url: objURL,
-            title: this.file.name,
+        const mime = typeMap[file.extension.toLowerCase()] || 'application/octet-stream';
+        
+        return {
+            url: URL.createObjectURL(new Blob([arrayBuffer], { type: mime })),
+            title: file.name,
             mimeType: mime,
             uploaded: false,
             uploadData: null
         };
-        
-        // Create content container
-        const contentContainer = contentEl.createDiv('limporter-content');
-        // File info section
-        const fileHolderEl = contentContainer.createDiv('limporter-file-item');
-        const fileInfoEl = fileHolderEl.createDiv('limporter-file-info');
-        const iconEl = fileInfoEl.createDiv('limporter-file-icon');
-        setIcon(iconEl, this.isPDF ? 'file-text' : 'file-audio');
-        
-        const fileDetailsEl = fileInfoEl.createDiv('limporter-file-details');
-        fileDetailsEl.createEl('div', { 
-            cls: 'limporter-file-name',
-            text: this.file.name 
-        });
-        fileDetailsEl.createEl('div', { 
-            cls: 'limporter-file-type',
-            text: this.isPDF ? 'PDF Document' : 'Audio File' 
-        });
+    }
 
-        if (!this.isPDF) {
-            // Audio player
-            const audioEl = fileHolderEl.createEl('audio', {
-                attr: {
-                    controls: 'true',
-                    src: objURL,
-                    style: 'width: 100%;'
-                }
+    private renderFileItems(container: HTMLElement): void {
+        container.empty();
+        
+        this.fileItems.forEach((fileItem, index) => {
+            const fileEl = container.createDiv('limporter-file-item');
+            fileEl.dataset.index = index.toString();
+            
+            const fileInfoEl = fileEl.createDiv('limporter-file-info');
+            
+            
+            const iconEl = fileInfoEl.createDiv('limporter-file-icon');
+            setIcon(iconEl, fileItem.mimeType.includes('pdf') ? 'file-text' : 'file-audio');
+    
+            
+            const fileDetailsEl = fileInfoEl.createDiv('limporter-file-details');
+            fileDetailsEl.createEl('div', { 
+                cls: 'limporter-file-name',
+                text: fileItem.title 
+            });
+            fileDetailsEl.createEl('div', { 
+                cls: 'limporter-file-type',
+                text: fileItem.mimeType.includes('pdf') ? 'PDF Document' : 'Audio File' 
             });
 
-        }
-        new Sortable(contentContainer, {handle: ".limporter-file-icon"});
+            if (!fileItem.mimeType.includes('pdf')) {
+                fileEl.createEl('audio', {
+                    attr: {
+                        controls: 'true',
+                        src: fileItem.url,
+                        class: 'limporter-audio-player'
+                    }
+                });
+            }
+            
+            // Action container with BOTH drag handle and trash icon
+            const actionContainer = fileInfoEl.createDiv('limporter-action-container');
+            // Drag handle
+            // const dragHandle = actionContainer.createDiv('limporter-drag-handle');
+            // setIcon(dragHandle, 'grip-vertical'); // Using a grip icon
+            
+            // Trash icon (always visible)
+            const trashIcon = actionContainer.createDiv('limporter-trash-icon');
+            setIcon(trashIcon, 'trash-2');
+            
+            // Add this inside the file item loop
+            trashIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(fileEl.dataset.index || '0');
+                this.fileItems.splice(index, 1);
+                this.renderFileItems(container);
+                console.log(this.fileItems);
+            });
+
+        });
+
+        // Initialize SortableJS with trash zone support
+        new Sortable(container, {
+            animation: 150,
+            // handle: '.limporter-drag-handle', // Only the grip icon is draggable
+            filter: '.limporter-trash-icon', // Prevent dragging from trash icon
+            preventOnFilter: false, // Allow click events on filtered elements
+            onStart: () => {
+                // Visual feedback during drag
+                container.querySelectorAll('.limporter-file-item').forEach(el => {
+                    el.classList.add('sortable-active');
+                });
+            },
+            onEnd: () => {
+                // Clean up visual feedback
+                container.querySelectorAll('.limporter-file-item').forEach(el => {
+                    el.classList.remove('sortable-active');
+                });
+            }
+        });
         
-        this.plugin.tracker = new processTracker(contentEl);        
+    }
 
-        // Process Button
-        const buttonContainer = contentEl.createDiv('limporter-button-container');
-
-        const visibilityButton = buttonContainer.createEl('button', { 
+    private createVisibilityButton(container: HTMLElement): void {
+        const button = container.createEl('button', { 
             cls: 'limporter-button primary',
             text: 'Show PROMPT'
         });
 
-        const addButton = buttonContainer.createEl('button', { 
+        const textAreaContainer = this.contentEl.createDiv('limporter-textarea-container');
+        textAreaContainer.style.display = 'none';
+        const adjustFn = this.createMaterialTextArea(textAreaContainer);
+
+        button.addEventListener('click', () => {
+            this.isVisible = !this.isVisible;
+            button
+                .toggleClass('stop-mode', this.isVisible);
+            button.setText(this.isVisible ? 'Hide PROMPT' : 'Show PROMPT');
+            textAreaContainer.style.display = this.isVisible ? 'block' : 'none';
+            adjustFn();
+        });
+    }
+
+    private createAddButton(container: HTMLElement): void {
+        const button = container.createEl('button', { 
             cls: 'limporter-button primary',
             text: 'Add File'
         });
 
-        addButton.addEventListener('click', async () => {
-                //here goes the add logic
-                new FileSuggestionModal(this.app, this.plugin.SupportedFiles(), (file) => {
-                    if (file) {
-                        console.log("Selected file:", file.name);
-                        // Do something with the file
-                    }
-                }).open();
-
-        });
-
-        const sendButton = buttonContainer.createEl('button', { 
-            cls: 'limporter-button primary',
-            text: 'Process File'
-        });
-        
-        
-        // const buttonIcon = document.createElement('span');
-        // setIcon(buttonIcon, 'corner-down-left');
-        // sendButton.prepend(buttonIcon);
-
-        
-        sendButton.addEventListener('click', async () => {
-            if (this.processing) {
-            // If already processing, this click should stop the process
-                if (this.abortController) {
-                    this.abortController.abort();
-                    this.processing = false;
+        button.addEventListener('click', () => {
+            new FileSuggestionModal(this.app, this.plugin.SupportedFiles(), async (file) => {
+                if (file) {
+                    const newFileItem = await this.prepareFileData(file);
+                    this.fileItems.push(newFileItem);
+                    this.renderFileItems(
+                        this.contentEl.querySelector('.limporter-files-container')  as HTMLElement
+                    );
                 }
-                sendButton.disabled = true; // Disable while cleaning up
+            }).open();
+        });
+    }
+
+    private createProcessButton(container: HTMLElement): void {
+        const button = container.createEl('button', { 
+            cls: 'limporter-button primary',
+            text: 'Process Files'
+        });
+
+        button.addEventListener('click', async () => {
+            if (this.processing) {
+                this.abortController?.abort();
+                button.disabled = true;
                 return;
             }
             
-            sendButton.classList.add('stop-mode');
+            button.addClass('stop-mode');
+            button.setText('Stop Processing');
             this.abortController = new AbortController();
             this.processing = true;
-
-            sendButton.textContent = 'Stop Processing';
-            // const stopIcon = sendButton.querySelector('span');
-            // if (stopIcon) {
-                // setIcon(stopIcon, "x-square");
-                // sendButton.prepend(stopIcon);
-            // }
-
             this.plugin.tracker.resetTracker();
             
             try {
                 const signal = this.abortController.signal;
-                const prompt = await this.tts.transcribe(fileItem, signal);
-                if (prompt) {
-                    if (signal.aborted) {
-                        throw new Error("Process was aborted by user");
-                    }
+                const prompt = await this.tts.transcribe(this.fileItems, this.prompt, signal);
+                if (prompt && !signal.aborted) {
                     const finalState = await this.reActAgent.agent.invoke({
                         messages: [{ role: "user", content: prompt }],
-                    }, {"recursionLimit": 113, signal: signal});// , streamMode: "debug" });
-
+                    }, { recursionLimit: 113, signal });
 
                     const answer = finalState.messages[finalState.messages.length - 1].content;
-                    const answer_step = this.plugin.tracker.appendStep("Answer", answer, "bot-message-square");
-                    answer_step.updateState("pending");
-
-                    // for await (const event of this.reActAgent.agent.streamEvents(
-                    //     { messages: [{ role: "user", content: prompt }] },
-                    //     { version: "v2" }
-                    //   )) {
-                    //     if (event.event === "on_chain_stream") {
-                    //         console.log(event);                            
-                    //     }
-                    //     // console.log(event.event);
-                       
-                    //   }
-                      
-                } 
-                    
-                } catch (error) {
+                    const answerStep = this.plugin.tracker.appendStep(
+                        `Answer`, 
+                        answer, 
+                        "bot-message-square"
+                    );
+                    answerStep.updateState("pending");
+                }
+            } catch (error) {
                 console.error(error);
-                const errortrack = this.plugin.tracker.appendStep("General Error", error,'x');
-                errortrack.updateState("error", error);
+                const errorTrack = this.plugin.tracker.appendStep("General Error", error, 'x');
+                errorTrack.updateState("error", error);
+            } finally {
+                this.abortController = null;
+                button.removeClass('stop-mode');
+                button.setText('Process Files');
+                button.disabled = false;
+                this.processing = false;
             }
-            
-            this.abortController = null;
-            sendButton.classList.remove('stop-mode');
-            sendButton.disabled = false;
-            
-            this.processing = false;
-            
-            sendButton.textContent = 'Process File';
-            // const introIcon = sendButton.querySelector('span');
-            // if (introIcon) {
-                // setIcon(introIcon, 'corner-down-left');
-                // sendButton.prepend(introIcon);
-            // }
         });
-
-        const textccc = contentEl.createDiv('limporter-content');
-        textccc.style.display = 'none';
-        const AdjustFunct = this.createMaterialTextArea(textccc);
-        visibilityButton.addEventListener('click', async () => {
-            if (this.isVisible) {
-                visibilityButton.classList.remove('stop-mode');
-                visibilityButton.textContent = 'Show PROMPT';
-                
-            } else{
-                visibilityButton.classList.add('stop-mode');
-                visibilityButton.textContent = 'Hide PROMPT';
-                }
-            
-                this.isVisible = !this.isVisible;
-                    // const textareaContainer = contentEl.querySelector('.textarea-container');
-                    
-                if (textccc) {
-                    textccc.style.display = this.isVisible ? 'block' : 'none';
-                    AdjustFunct();
-                }
-                
-        });
-        // const srt=new Sortable(buttonContainer, {})
-        // const srt1=new Sortable(contentEl, {})
     }
 
-    private createMaterialTextArea(containerEl: HTMLElement) {
+    private createMaterialTextArea(container: HTMLElement): () => void {
+        const textArea = new TextAreaComponent(container)
+            .setPlaceholder("Type your message...")
+            .setValue(prompt_get_claims_instructions)
+            .onChange((value) => this.prompt = value);
 
-        // Create the text area
-        const textArea = new TextAreaComponent(containerEl)
-        .setPlaceholder("Type your message...")
-        .setValue(prompt_get_claims_instructions)
-        .onChange((value) => {
-            // Handle text changes
-            this.prompt = value;
-        });
-
-        // Get the underlying HTML element
         const textAreaEl = textArea.inputEl;
-
-        // Apply Material Design styling
         textAreaEl.addClass("material-textarea");
-        textAreaEl.style.width = "100%";
-        textAreaEl.style.minHeight = "56px";
-        textAreaEl.style.padding = "1.5rem";
-        textAreaEl.style.borderRadius = "4px";
-        textAreaEl.style.border = "none";
-        textAreaEl.style.backgroundColor = "var(--background-primary)";
-        textAreaEl.style.boxShadow = "0 1px 2px 0 rgba(0,0,0,0.1)";
-        textAreaEl.style.transition = "box-shadow 0.3s ease";
-        textAreaEl.style.resize = "none";
-        textAreaEl.style.fontFamily = "inherit";
-        textAreaEl.style.maxHeight = '400px';
-        textAreaEl.style.overflowY = 'auto'; 
-        textAreaEl.style.transition = 'height 0.2s ease';
-
-        textAreaEl.style.resize = 'none';
-        // textAreaEl.style.overflowY = 'hidden'; // Hide scrollbar
         
-        // Function to adjust height
         const adjustHeight = () => {
-            textAreaEl.style.height = 'auto'; // Reset height
-            textAreaEl.style.height = `${textAreaEl.scrollHeight}px`; // Set to content height
+            textAreaEl.style.height = 'auto';
+            textAreaEl.style.height = `${textAreaEl.scrollHeight}px`;
         };
-  
-        // Initial adjustment
+
         adjustHeight();
-  
-        // Adjust on input
         textAreaEl.addEventListener('input', adjustHeight);
 
-        // Focus effects
-        textAreaEl.addEventListener("focus", () => {
-        textAreaEl.style.boxShadow = "0 2px 4px -1px rgba(0,0,0,0.2), 0 4px 5px 0 rgba(0,0,0,0.14), 0 1px 10px 0 rgba(0,0,0,0.12)";
-        textAreaEl.style.outline = "none";
-        });
-
-        textAreaEl.addEventListener("blur", () => {
-        textAreaEl.style.boxShadow = "0 1px 2px 0 rgba(0,0,0,0.1)";
-        });
-
-
         return adjustHeight;
-      }
-      
-    
+    }
 
     onClose() {
         const { contentEl } = this;
