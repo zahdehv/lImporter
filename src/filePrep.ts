@@ -5,7 +5,7 @@ import AutoFilePlugin from 'src/main';
 
 export class ttsBase {
     constructor() {}
-    public async transcribe(tfile: FileItem, signal: AbortSignal): Promise<string|null> {
+    public async transcribe(tfile: FileItem[], signal: AbortSignal): Promise<string|null> {
         return "A";
     }
 }
@@ -24,10 +24,13 @@ export class ttsGeminiFL extends ttsBase {
                 });
         this.upldr = new FileUploader(plugin.settings.GOOGLE_API_KEY);
     }
-    public async transcribe(tfile: FileItem, signal: AbortSignal): Promise<string|null> { // Update return type promise
-        const upld_trk = this.plugin.tracker.appendStep("File Upload", tfile.title, "upload");
+    public async transcribe(tfiles: FileItem[], signal: AbortSignal): Promise<string|null> { // Update return type promise
         // await sleep(2000000);
-        
+        const context = [];
+        for (const tfile of tfiles) {
+            const upld_trk = this.plugin.tracker.appendStep("File Upload", tfile.title, "upload");
+            if (signal.aborted) break;
+
         if (!tfile.uploaded) {
             try {
                 await this.upldr.uploadFileBlob(tfile, signal); 
@@ -52,21 +55,21 @@ export class ttsGeminiFL extends ttsBase {
             return null; // Or throw new Error(...)
         }
         const file = tfile.uploadData.file;
-        
-        
+        context.push({
+            fileData: {
+                mimeType: file.mimeType,
+                fileUri: file.uri,
+            },
+        });
+    }
+    if (context.length === 0) {throw new Error("No Files Provided");}
+
+        context.push({ text: prompt_get_claims_instructions });
         const prmpt_trk = this.plugin.tracker.appendStep("Preprocess File", "Generating an input prompt...", "trending-up-down");
         // Ensure this.model.generateContent handles potential errors
         let txt;
         try {
-            const result = await this.model.generateContentStream([
-                {
-                    fileData: {
-                        mimeType: file.mimeType,
-                        fileUri: file.uri,
-                    },
-                },
-                { text: prompt_get_claims_instructions },
-            ], {signal: signal});
+            const result = await this.model.generateContentStream(context, {signal: signal});
             // It's good practice to check if the response and text exist
             txt = "";
 
