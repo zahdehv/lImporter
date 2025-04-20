@@ -75,7 +75,7 @@ export class ttsGeminiFL extends ttsBase {
 
             for await (const chunk of result.stream) {
                 txt += chunk.text();
-                prmpt_trk.updateCaption(txt.slice(-999));
+                prmpt_trk.updateCaption(txt.slice(-222));
               }
               
         } catch (error) {
