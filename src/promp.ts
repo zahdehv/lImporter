@@ -1,4 +1,6 @@
 // preproc prompt
+export const default_prompt = `Crea una jerarquia de notas basado en el contenido.`;
+
 export const prompt_get_claims_instructions = `Dado el archivo, debes hacer dos cosas:
 1. Extraer los hechos e informaciones diferentes brindadas:
   - Estos deben estar enumerados en una lista (de markdown) que debe estar entre tags <claims></claims>.

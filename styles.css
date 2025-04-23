@@ -64,7 +64,7 @@
     padding: 1rem;
     border-radius: 8px;
     transition: all 0.2s ease;
-    cursor: move;
+    /* cursor: move; */
 }
 
 .limporter-file-item.sortable-chosen {
@@ -85,7 +85,7 @@
 .limporter-file-icon {
     font-size: 2.2em;
     color: var(--text-accent);
-    /* cursor: move; */
+    cursor: move;
 }
 
 .limporter-file-details {
@@ -151,7 +151,7 @@
 /* aaaaa */
 
 .limporter-trash-zone {
-    display: none;
+    /* display: none; */
     align-items: center;
     justify-content: center;
     width: 100%;
@@ -237,7 +237,7 @@
     transition: box-shadow 0.3s ease;
     resize: none;
     font-family: inherit;
-    max-height: 400px;
+    max-height: 300px;
     overflow-y: auto;
 }
 
@@ -264,6 +264,8 @@
     padding: 1rem;
     background: var(--background-secondary);
     border-radius: 8px;
+    max-height: 300px;
+    overflow-y: auto;
 }
 .limporter-progress-step {
     display: flex;

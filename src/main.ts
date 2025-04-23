@@ -4,8 +4,10 @@ import { ttsBase, ttsGeminiFL } from './filePrep';
 import { reActAgentLLM } from './reActAgent';
 import { processTracker } from './processTracker';
 import Sortable from 'sortablejs';
-import { prompt_get_claims_instructions } from './promp';
+import { default_prompt, prompt_get_claims_instructions } from './promp';
 import { FuzzySuggestModal } from 'obsidian';
+import { MSGBLD } from './genMessage';
+import { isAIMessageChunk } from '@langchain/core/messages';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -185,7 +187,7 @@ class FileProcessorModal extends Modal {
     private reActAgent: reActAgentLLM;
     private isPDF: boolean;
     private abortController?: AbortController | any;
-    private prompt = "";
+    private prompt = default_prompt;
     private isVisible = false;
     private fileItems: FileItem[] = [];
     private trashZone: HTMLElement;
@@ -212,12 +214,13 @@ class FileProcessorModal extends Modal {
         }
         
         this.createHeader(contentEl);
-        this.createTrashZone(contentEl);
+        // this.createTrashZone(contentEl);
         const filesContainer = this.createFilesContainer(contentEl);
         this.renderFileItems(filesContainer);
+        this.createFButtonContainer(contentEl);
         
         this.plugin.tracker = new processTracker(contentEl);        
-        this.createButtonContainer(contentEl);
+        this.createPButtonContainer(contentEl);
     }
 
     private createHeader(container: HTMLElement): void {
@@ -228,22 +231,28 @@ class FileProcessorModal extends Modal {
         });
     }
 
-    private createTrashZone(container: HTMLElement): void {
-        this.trashZone = container.createDiv('limporter-trash-zone');
-        setIcon(this.trashZone, 'trash-2');
-        this.trashZone.style.display = 'none';
-    }
+    // private createTrashZone(container: HTMLElement): void {
+    //     this.trashZone = container.createDiv('limporter-trash-zone');
+    //     setIcon(this.trashZone, 'trash-2');
+    //     // this.trashZone.style.display = 'none';
+    // }
 
     private createFilesContainer(container: HTMLElement): HTMLElement {
         return container.createDiv('limporter-files-container');
     }
 
-    private createButtonContainer(container: HTMLElement): void {
+    private createPButtonContainer(container: HTMLElement): void {
         const buttonContainer = container.createDiv('limporter-button-container');
         
         this.createVisibilityButton(buttonContainer);
-        this.createAddButton(buttonContainer);
+        this.createOldProcessButton(buttonContainer);
         this.createProcessButton(buttonContainer);
+    }
+
+    private createFButtonContainer(container: HTMLElement): void {
+        const buttonContainer = container.createDiv('limporter-button-container');
+        
+        this.createAddButton(buttonContainer);
     }
 
     private async prepareFileData(file: TFile): Promise<FileItem> {
@@ -259,9 +268,10 @@ class FileProcessorModal extends Modal {
             pdf: 'application/pdf'
         };
         const mime = typeMap[file.extension.toLowerCase()] || 'application/octet-stream';
-        
+        const blob = new Blob([arrayBuffer], { type: mime });
         return {
-            url: URL.createObjectURL(new Blob([arrayBuffer], { type: mime })),
+            url: URL.createObjectURL(blob),
+            blob: blob,
             title: file.name,
             mimeType: mime,
             uploaded: false,
@@ -327,7 +337,7 @@ class FileProcessorModal extends Modal {
         // Initialize SortableJS with trash zone support
         new Sortable(container, {
             animation: 150,
-            // handle: '.limporter-drag-handle', // Only the grip icon is draggable
+            handle: '.limporter-file-icon', // Only the grip icon is draggable
             filter: '.limporter-trash-icon', // Prevent dragging from trash icon
             preventOnFilter: false, // Allow click events on filtered elements
             onStart: () => {
@@ -385,6 +395,55 @@ class FileProcessorModal extends Modal {
         });
     }
 
+    private createOldProcessButton(container: HTMLElement): void {
+        const button = container.createEl('button', { 
+            cls: 'limporter-button primary',
+            text: 'ClaimE'
+        });
+
+        button.addEventListener('click', async () => {
+            if (this.processing) {
+                this.abortController?.abort();
+                button.disabled = true;
+                return;
+            }
+            
+            button.addClass('stop-mode');
+            button.setText('Stop');
+            this.abortController = new AbortController();
+            this.processing = true;
+            this.plugin.tracker.resetTracker();
+            
+            try {
+                const signal = this.abortController.signal;
+                const prompt = await this.tts.transcribe(this.fileItems, prompt_get_claims_instructions, signal);
+                if (prompt && !signal.aborted) {
+                    const finalState = await this.reActAgent.agent.invoke({
+                        messages: [{ role: "user", content: prompt }],
+                    }, { recursionLimit: 113, signal });
+
+                    const answer = finalState.messages[finalState.messages.length - 1].content;
+                    const answerStep = this.plugin.tracker.appendStep(
+                        `Answer`, 
+                        answer, 
+                        "bot-message-square"
+                    );
+                    answerStep.updateState("pending");
+                }
+            } catch (error) {
+                console.error(error);
+                const errorTrack = this.plugin.tracker.appendStep("General Error", error, 'x');
+                errorTrack.updateState("error", error);
+            } finally {
+                this.abortController = null;
+                button.removeClass('stop-mode');
+                button.setText('ClaimE');
+                button.disabled = false;
+                this.processing = false;
+            }
+        });
+    }
+
     private createProcessButton(container: HTMLElement): void {
         const button = container.createEl('button', { 
             cls: 'limporter-button primary',
@@ -406,19 +465,29 @@ class FileProcessorModal extends Modal {
             
             try {
                 const signal = this.abortController.signal;
-                const prompt = await this.tts.transcribe(this.fileItems, this.prompt, signal);
-                if (prompt && !signal.aborted) {
-                    const finalState = await this.reActAgent.agent.invoke({
-                        messages: [{ role: "user", content: prompt }],
-                    }, { recursionLimit: 113, signal });
-
-                    const answer = finalState.messages[finalState.messages.length - 1].content;
-                    const answerStep = this.plugin.tracker.appendStep(
-                        `Answer`, 
-                        answer, 
-                        "bot-message-square"
-                    );
-                    answerStep.updateState("pending");
+                // const prompt = await this.tts.transcribe(this.fileItems, this.prompt, signal);
+                const msgbld = new MSGBLD(this.plugin);
+                const msg = await msgbld.genPrompt(this.fileItems, this.prompt, signal);
+                if (msg && !signal.aborted) {
+                    const stream = await this.reActAgent.agent.stream({
+                        messages: [{ role: "user", content: msg }],
+                    }, { recursionLimit: 113, signal: signal, streamMode: "messages" });
+                    for await (const [message, _metadata] of stream) {
+                        if (isAIMessageChunk(message)) {
+                            console.log(`${message.getType()} MESSAGE CONTENT: ${message.content}`);
+                        } else {
+                        }
+                      }
+                      
+                      
+                      
+                    // const answer = finalState.messages[finalState.messages.length - 1].content;
+                    // const answerStep = this.plugin.tracker.appendStep(
+                    //     `Answer`, 
+                    //     answer, 
+                    //     "bot-message-square"
+                    // );
+                    // answerStep.updateState("pending");
                 }
             } catch (error) {
                 console.error(error);
@@ -437,7 +506,7 @@ class FileProcessorModal extends Modal {
     private createMaterialTextArea(container: HTMLElement): () => void {
         const textArea = new TextAreaComponent(container)
             .setPlaceholder("Type your message...")
-            .setValue(prompt_get_claims_instructions)
+            .setValue(default_prompt)
             .onChange((value) => this.prompt = value);
 
         const textAreaEl = textArea.inputEl;

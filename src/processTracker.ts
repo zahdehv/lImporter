@@ -12,8 +12,7 @@ export class stepItem {
         
         this.item.dataset.status = status;
         
-        const statusEl = this.item.querySelector('.limporter-step-status');
-        if (statusEl && message) this.updateCaption(message);
+        if (message) this.updateCaption(message);
         
         // Update icon based on status
         const iconEl = this.item.querySelector('.limporter-step-icon');
@@ -30,12 +29,14 @@ export class stepItem {
             }
         }}
     }
+
     public updateCaption(caption: string) {
         if (!this.item) return;
         
         const statusEl = this.item.querySelector('.limporter-step-status');
         if (statusEl) statusEl.textContent = caption;
     }
+    
     public updateIcon(caption: string) {
         if (!this.item) return;
         

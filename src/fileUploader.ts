@@ -2,6 +2,7 @@ import { Notice } from 'obsidian'; // To show notices in Obsidian
 
 export interface FileItem {
     url: string;
+    blob: Blob;
     title: string;
     mimeType: string;
     uploaded: boolean;

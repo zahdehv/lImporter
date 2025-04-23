@@ -1,7 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { any, z } from "zod";
 import * as Diff from 'diff';
-import { ChatGoogleGenerativeAI, GoogleGenerativeAIChatCallOptions } from "@langchain/google-genai";
+import { ChatGoogleGenerativeAI, GoogleGenerativeAIChatCallOptions,GoogleGenerativeAIChatInput } from "@langchain/google-genai";
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import {
     StateGraph,
@@ -268,7 +268,7 @@ ${files}
      const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences];
       
      const llm = new ChatGoogleGenerativeAI({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash-preview-04-17",
         temperature: 0.3,
         maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
@@ -297,7 +297,6 @@ ${files}
     thinking.updateState("complete", "Call Finished!");
     return { messages: response };
   }
-  
   
   const workflow = new StateGraph(MessagesAnnotation)
     // Define the two nodes we will cycle between
