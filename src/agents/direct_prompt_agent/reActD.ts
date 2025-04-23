@@ -10,13 +10,13 @@ import {
     START,
     CompiledStateGraph
 } from "@langchain/langgraph/web";
-import MyPlugin from "./main";
+import MyPlugin from "../../main";
 import { 
     write_file_description,
     write_file_path_description,
     write_file_content_description,
     prompt_ghost_references 
-       } from "src/promp";
+       } from "src/utils/promp";
 
 import { Annotation } from "@langchain/langgraph/web";
 import { BaseMessageLike, AIMessageFields, AIMessage, AIMessageChunk} from "@langchain/core/messages";
@@ -28,7 +28,7 @@ const StateAnnotation = Annotation.Root({
 });
 
 
-export class reActAgentLLM {
+export class reActAgentDirect {
     public agent: CompiledStateGraph<any,any,any>;
     private plugin: MyPlugin;
 

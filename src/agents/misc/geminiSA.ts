@@ -1,6 +1,6 @@
 import { GoogleGenAI, Part, Type } from "@google/genai";
-import { FileItem } from "./fileUploader";
-import { processTracker } from "./processTracker";
+import { FileItem } from "../../utils/fileUploader";
+import { processTracker } from "../../utils/processTracker";
 import { MarkdownRenderer } from "obsidian";
 // READ(embed with cornell idea) -> CREATE -> CHECK
 export class KsAgent {

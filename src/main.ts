@@ -1,13 +1,9 @@
 import { setIcon, App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, TextAreaComponent } from 'obsidian';
-import { FileItem } from './fileUploader';
-import { ttsBase, ttsGeminiFL } from './filePrep';
-import { reActAgentLLM } from './reActAgent';
-import { processTracker } from './processTracker';
+import { FileItem } from './utils/fileUploader';
+import { processTracker } from './utils/processTracker';
 import Sortable from 'sortablejs';
-import { default_prompt, prompt_get_claims_instructions } from './promp';
 import { FuzzySuggestModal } from 'obsidian';
-import { MSGBLD } from './genMessage';
-import { isAIMessageChunk } from '@langchain/core/messages';
+import { ClaimInstPipe, DirectPipe, Pipeline } from './agents/pipelines';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -183,24 +179,17 @@ class FileSuggestionModal extends FuzzySuggestModal<TFile> {
 class FileProcessorModal extends Modal {
     private plugin: AutoFilePlugin;
     private processing = false;
-    private tts: ttsBase;
-    private reActAgent: reActAgentLLM;
-    private isPDF: boolean;
     private abortController?: AbortController | any;
-    private prompt = default_prompt;
+    private prompt = "";
     private isVisible = false;
     private fileItems: FileItem[] = [];
-    private trashZone: HTMLElement;
-    private isDraggingToTrash = false;
+    private currentPipeline: Pipeline|null = null;
+    private textAreaComponent?: TextAreaComponent; 
+    private adjustPromptArea: () => void;
     
     constructor(plugin: AutoFilePlugin, public file?: TFile) {
         super(plugin.app);
         this.plugin = plugin;
-        if (file) {
-            this.isPDF = file.extension.toLowerCase() === 'pdf';
-        }
-        this.tts = new ttsGeminiFL(plugin);
-        this.reActAgent = new reActAgentLLM(plugin);
     }
 
     async onOpen() {
@@ -243,9 +232,9 @@ class FileProcessorModal extends Modal {
 
     private createPButtonContainer(container: HTMLElement): void {
         const buttonContainer = container.createDiv('limporter-button-container');
-        
+
+        this.createPipelineDropdown(buttonContainer); 
         this.createVisibilityButton(buttonContainer);
-        this.createOldProcessButton(buttonContainer);
         this.createProcessButton(buttonContainer);
     }
 
@@ -364,7 +353,7 @@ class FileProcessorModal extends Modal {
 
         const textAreaContainer = this.contentEl.createDiv('limporter-textarea-container');
         textAreaContainer.style.display = 'none';
-        const adjustFn = this.createMaterialTextArea(textAreaContainer);
+        this.createMaterialTextArea(textAreaContainer);
 
         button.addEventListener('click', () => {
             this.isVisible = !this.isVisible;
@@ -372,7 +361,7 @@ class FileProcessorModal extends Modal {
                 .toggleClass('stop-mode', this.isVisible);
             button.setText(this.isVisible ? 'Hide PROMPT' : 'Show PROMPT');
             textAreaContainer.style.display = this.isVisible ? 'block' : 'none';
-            adjustFn();
+            this.adjustPromptArea();
         });
     }
 
@@ -394,61 +383,53 @@ class FileProcessorModal extends Modal {
             }).open();
         });
     }
+    private createPipelineDropdown(container: HTMLElement): void {
+        const pipelineOptions = [
+            { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
+            { id: 'direct_call', name: 'Direct Call', pipeline: () => new DirectPipe(this.plugin) },
+            // Add more pipelines here as needed
+        ];
 
-    private createOldProcessButton(container: HTMLElement): void {
-        const button = container.createEl('button', { 
-            cls: 'limporter-button primary',
-            text: 'ClaimE'
-        });
-
-        button.addEventListener('click', async () => {
-            if (this.processing) {
-                this.abortController?.abort();
-                button.disabled = true;
-                return;
-            }
-            
-            button.addClass('stop-mode');
-            button.setText('Stop');
-            this.abortController = new AbortController();
-            this.processing = true;
-            this.plugin.tracker.resetTracker();
-            
-            try {
-                const signal = this.abortController.signal;
-                const prompt = await this.tts.transcribe(this.fileItems, prompt_get_claims_instructions, signal);
-                if (prompt && !signal.aborted) {
-                    const finalState = await this.reActAgent.agent.invoke({
-                        messages: [{ role: "user", content: prompt }],
-                    }, { recursionLimit: 113, signal });
-
-                    const answer = finalState.messages[finalState.messages.length - 1].content;
-                    const answerStep = this.plugin.tracker.appendStep(
-                        `Answer`, 
-                        answer, 
-                        "bot-message-square"
-                    );
-                    answerStep.updateState("pending");
-                }
-            } catch (error) {
-                console.error(error);
-                const errorTrack = this.plugin.tracker.appendStep("General Error", error, 'x');
-                errorTrack.updateState("error", error);
-            } finally {
-                this.abortController = null;
-                button.removeClass('stop-mode');
-                button.setText('ClaimE');
-                button.disabled = false;
-                this.processing = false;
-            }
-        });
+        const dropdownContainer = container.createDiv('limporter-dropdown-container');
+        
+        new Setting(dropdownContainer)
+            .setName('Pipeline:')
+            .addDropdown(dropdown => {
+                dropdown
+                    .addOption('', '- - -')
+                    .addOptions(Object.fromEntries(
+                        pipelineOptions.map(opt => [opt.id, opt.name])
+                    ))
+                    .onChange(async (value) => {
+                        if (value) {
+                            const selected = pipelineOptions.find(opt => opt.id === value);
+                            if (selected) {
+                                // console.log(value);
+                                this.currentPipeline = selected.pipeline();
+                                // Update the prompt with the pipeline's default
+                                this.prompt = this.currentPipeline.default_prompt;
+                                // Update the textarea if it exists
+                                if (this.textAreaComponent) {
+                                    this.textAreaComponent.setValue(this.prompt);
+                                }
+                                this.adjustPromptArea()
+                                // console.log(this.currentPipeline);
+                                // Enable the process button when a pipeline is selected
+                                // const processBtn = container.querySelector('.limporter-button') as HTMLButtonElement;
+                                // if (processBtn) processBtn.disabled = false;
+                            }
+                        }
+                    });
+            });
     }
+
 
     private createProcessButton(container: HTMLElement): void {
         const button = container.createEl('button', { 
             cls: 'limporter-button primary',
-            text: 'Process Input'
+            text: 'Process'
         });
+        // button.disabled = true;
 
         button.addEventListener('click', async () => {
             if (this.processing) {
@@ -456,39 +437,24 @@ class FileProcessorModal extends Modal {
                 button.disabled = true;
                 return;
             }
+
+            this.plugin.tracker.resetTracker();
             
+            if (!this.currentPipeline) {
+                const nopipe = this.plugin.tracker.appendStep("Pipeline Error", 'No pipeline selected', "test");
+                nopipe.updateState('error');
+                console.error('No pipeline selected');
+                return;
+            }
             button.addClass('stop-mode');
-            button.setText('Stop Processing');
+            button.setText('Stop');
             this.abortController = new AbortController();
             this.processing = true;
-            this.plugin.tracker.resetTracker();
+            
             
             try {
                 const signal = this.abortController.signal;
-                // const prompt = await this.tts.transcribe(this.fileItems, this.prompt, signal);
-                const msgbld = new MSGBLD(this.plugin);
-                const msg = await msgbld.genPrompt(this.fileItems, this.prompt, signal);
-                if (msg && !signal.aborted) {
-                    const stream = await this.reActAgent.agent.stream({
-                        messages: [{ role: "user", content: msg }],
-                    }, { recursionLimit: 113, signal: signal, streamMode: "messages" });
-                    for await (const [message, _metadata] of stream) {
-                        if (isAIMessageChunk(message)) {
-                            console.log(`${message.getType()} MESSAGE CONTENT: ${message.content}`);
-                        } else {
-                        }
-                      }
-                      
-                      
-                      
-                    // const answer = finalState.messages[finalState.messages.length - 1].content;
-                    // const answerStep = this.plugin.tracker.appendStep(
-                    //     `Answer`, 
-                    //     answer, 
-                    //     "bot-message-square"
-                    // );
-                    // answerStep.updateState("pending");
-                }
+                await this.currentPipeline.call(this.prompt, this.fileItems, signal);
             } catch (error) {
                 console.error(error);
                 const errorTrack = this.plugin.tracker.appendStep("General Error", error, 'x');
@@ -496,31 +462,29 @@ class FileProcessorModal extends Modal {
             } finally {
                 this.abortController = null;
                 button.removeClass('stop-mode');
-                button.setText('Process Input');
+                button.setText('Process');
                 button.disabled = false;
                 this.processing = false;
             }
         });
     }
 
-    private createMaterialTextArea(container: HTMLElement): () => void {
-        const textArea = new TextAreaComponent(container)
+    private createMaterialTextArea(container: HTMLElement): void {
+        this.textAreaComponent = new TextAreaComponent(container)
             .setPlaceholder("Type your message...")
-            .setValue(default_prompt)
+            .setValue("")
             .onChange((value) => this.prompt = value);
 
-        const textAreaEl = textArea.inputEl;
+        const textAreaEl = this.textAreaComponent.inputEl;
         textAreaEl.addClass("material-textarea");
         
-        const adjustHeight = () => {
+        this.adjustPromptArea = () => {
             textAreaEl.style.height = 'auto';
             textAreaEl.style.height = `${textAreaEl.scrollHeight}px`;
         };
 
-        adjustHeight();
-        textAreaEl.addEventListener('input', adjustHeight);
-
-        return adjustHeight;
+        this.adjustPromptArea();
+        textAreaEl.addEventListener('input', this.adjustPromptArea);
     }
 
     onClose() {

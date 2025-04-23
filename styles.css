@@ -391,3 +391,56 @@
 .limporter-progress-container.show-all .limporter-progress-step {
     display: flex; /* Show all steps when container has show-all class */
 }
+
+
+
+/* Ghost Dropdown */
+.limporter-modal .setting-item {
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+  }
+  
+  .limporter-modal .setting-item-control select {
+    width: 100%;
+    padding: 8px 4px;
+    font-size: 14px;
+    color: var(--text-normal);
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    appearance: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 0 var(--text-faint);
+  }
+  
+  .limporter-modal .setting-item-control select:hover {
+    box-shadow: 0 2px 0 var(--interactive-accent);
+  }
+  
+  .limporter-modal .setting-item-control select:focus {
+    outline: none;
+    box-shadow: 0 2px 0 var(--interactive-accent);
+    background-color: var(--background-modifier-hover);
+  }
+  
+  .limporter-modal .setting-item-name {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-bottom: 4px;
+    display: block;
+  }
+  
+  /* Custom dropdown arrow using text */
+  .limporter-modal .setting-item-control::after {
+    content: "⌄";
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-30%);
+    pointer-events: none;
+    color: var(--text-faint);
+    font-size: 18px;
+  }

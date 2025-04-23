@@ -1,8 +1,9 @@
-import { FileItem } from "./fileUploader";
+import { FileItem } from "../../utils/fileUploader";
 import { GoogleGenAI, Part } from "@google/genai";
-import { FileUploader } from "./fileUploader";
-import AutoFilePlugin from "./main";
+import { FileUploader } from "../../utils/fileUploader";
+import AutoFilePlugin from "../../main";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
 interface Rtext {
     type: "text",
     text: string,
