@@ -11,7 +11,7 @@ lImporter es un plugin para Obsidian que permite procesar archivos de audio y PD
 - Creación de enlaces entre notas relacionadas
 
 ## Instalación
-1. Descarga la última versión desde la sección de [Releases](https://github.com/zahdehyv/lImporter/releases)
+1. Descarga la última versión desde la sección de [Releases](https://github.com/zahdehv/lImporter/releases)
 2. Extrae el contenido en la carpeta `.obsidian/plugins/` de tu bóveda de Obsidian
 3. Activa el plugin en la configuración de Obsidian (Ajustes > Plugins de comunidad)
 
@@ -40,4 +40,4 @@ El plugin funciona de manera automática:
 - Se requiere conexión a Internet para el procesamiento
 
 ## Soporte
-Si encuentras algún problema o tienes sugerencias, por favor abre un issue [aquí](https://github.com/zahdehyv/lImporter/issues).
+Si encuentras algún problema o tienes sugerencias, por favor abre un issue [aquí](https://github.com/zahdehv/lImporter/issues).
