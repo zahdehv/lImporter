@@ -242,8 +242,8 @@
 }
 
 .material-textarea:focus {
-    box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2), 
-                0 4px 5px 0 rgba(0,0,0,0.14), 
+    box-shadow: 0 2px 4px -1px rgba(0,0,0,0.2),
+                0 4px 5px 0 rgba(0,0,0,0.14),
                 0 1px 10px 0 rgba(0,0,0,0.12);
     outline: none;
 }
@@ -257,24 +257,35 @@
 
 /* Progress Tracker Styles */
 .limporter-progress-container {
-    display: flex;
+    display: flex; /* Keep flex for overall layout */
     flex-direction: column;
     gap: 0.8rem;
     margin: 1.5rem 0;
     padding: 1rem;
     background: var(--background-secondary);
     border-radius: 8px;
-    max-height: 300px;
+    min-height: 300px; /* Keep min-height and scroll */
+    max-height: 300px; /* Keep max-height and scroll */
     overflow-y: auto;
+    /* Removed cursor: pointer and hover effect */
+    transition: background-color 0.2s ease; /* Keep transition if desired */
 }
+
+/* Removed hover rule for progress container */
+
 .limporter-progress-step {
-    display: flex;
+    display: flex; /* Changed from none to flex - steps are always visible */
     align-items: center;
     gap: 0.8rem;
     padding: 0.5rem;
     border-radius: 4px;
     transition: all 0.2s ease;
 }
+
+/* Removed .limporter-progress-step:last-child rule */
+/* Removed .limporter-progress-container.show-all rule */
+
+
 .limporter-progress-step[data-status="in-progress"] {
     background-color: var(--background-modifier-hover);
 }
@@ -331,7 +342,7 @@
     background-color: #ff4444;
     border-color: #cc0000;
     animation: opacc 1s ease-in-out infinite;
-    
+
 }
 .limporter-button.stop-mode:hover {
     background-color: #e00000;
@@ -370,29 +381,6 @@
     0%,100% {opacity: 0.5;}
 }
 
-/* Add these to your existing styles.css */
-.limporter-progress-container {
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-
-.limporter-progress-container:hover {
-    background-color: var(--background-modifier-hover);
-}
-
-.limporter-progress-step {
-    display: none; /* Hidden by default */
-}
-
-.limporter-progress-step:last-child {
-    display: flex; /* Always show last step */
-}
-
-.limporter-progress-container.show-all .limporter-progress-step {
-    display: flex; /* Show all steps when container has show-all class */
-}
-
-
 
 /* Ghost Dropdown */
 .limporter-modal .setting-item {
@@ -401,7 +389,7 @@
     border: none;
     background: none;
   }
-  
+
   .limporter-modal .setting-item-control select {
     width: 100%;
     padding: 8px 4px;
@@ -415,27 +403,27 @@
     transition: all 0.15s ease;
     box-shadow: 0 1px 0 var(--text-faint);
   }
-  
+
   .limporter-modal .setting-item-control select:hover {
     box-shadow: 0 2px 0 var(--interactive-accent);
   }
-  
+
   .limporter-modal .setting-item-control select:focus {
     outline: none;
     box-shadow: 0 2px 0 var(--interactive-accent);
     background-color: var(--background-modifier-hover);
   }
-  
+
   .limporter-modal .setting-item-name {
     font-size: 12px;
     color: var(--text-faint);
     margin-bottom: 4px;
     display: block;
   }
-  
+
   /* Custom dropdown arrow using text */
   .limporter-modal .setting-item-control::after {
-    content: "⌄";
+    /* content: "⌄"; */
     position: absolute;
     right: 8px;
     top: 50%;

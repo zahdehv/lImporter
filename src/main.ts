@@ -4,6 +4,7 @@ import { processTracker } from './utils/processTracker';
 import Sortable from 'sortablejs';
 import { FuzzySuggestModal } from 'obsidian';
 import { ClaimInstPipe, DirectPipe, Pipeline } from './agents/pipelines';
+import { listFilesTree } from './utils/filelist';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -57,7 +58,14 @@ export default class AutoFilePlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-        
+        this.ribbonIcon = this.addRibbonIcon(
+            'play', 
+            'play',
+            async () => {
+                console.log(await listFilesTree(this.app.vault, "", 5, true));
+            }
+        );
+
         // Create ribbon icon
         this.ribbonIcon = this.addRibbonIcon(
             'bot-message-square', 

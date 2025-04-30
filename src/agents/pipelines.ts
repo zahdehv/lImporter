@@ -1,10 +1,10 @@
 import AutoFilePlugin from "src/main";
 import { FileItem } from "src/utils/fileUploader";
 import { direct_default_prompt, prompt_get_claims_instructions } from "src/utils/promp";
-import { geminiPREP } from "./pre_claim_agent/filePrep";
-import { reActAgentClaimI } from "./pre_claim_agent/reAct";
-import { reActAgentDirect } from "./direct_prompt_agent/reActD";
-import { MSGBLD } from "./direct_prompt_agent/genMessage";
+import { geminiPREP } from "./utils/generatePromptExternal";
+import { reActAgentClaimI } from "./ClaimInstAgent";
+import { reActAgentDirect } from "./DirectAgent";
+import { MSGBLD } from "./utils/genMessageMultimodalLG";
 
 export abstract class Pipeline {
     protected plugin: AutoFilePlugin;
