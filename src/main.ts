@@ -1,4 +1,4 @@
-import { Notice, setIcon, App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, TextAreaComponent, ItemView, WorkspaceLeaf } from 'obsidian';
+import { Notice, setIcon, App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, TextAreaComponent, ItemView, WorkspaceLeaf, DropdownComponent } from 'obsidian';
 import { FileItem } from './utils/fileUploader';
 import { processTracker } from './utils/processTracker';
 import Sortable from 'sortablejs';
@@ -29,6 +29,7 @@ class LimporterView extends ItemView {
     private currentPipeline: Pipeline | null = null;
     private textAreaComponent?: TextAreaComponent;
     private adjustPromptArea: () => void;
+    private dropdown: DropdownComponent;
 
     constructor(leaf: WorkspaceLeaf, plugin: AutoFilePlugin) {
         super(leaf);
@@ -58,6 +59,8 @@ class LimporterView extends ItemView {
         // Create the text area container first
         const textAreaContainer = containerEl.createDiv('limporter-textarea-container');
         textAreaContainer.style.display = 'none'; // Keep hidden by default
+        this.createPipelineDropdown(textAreaContainer); 
+
         this.createMaterialTextArea(textAreaContainer);
         
         const filesContainer = this.createFilesContainer(containerEl);
@@ -65,10 +68,12 @@ class LimporterView extends ItemView {
         
         // Create the button containers
         // this.createFButtonContainer(filesContainer);
-        this.createPButtonContainer(containerEl);
+        this.createButtonContainer(containerEl);
         
         // Initialize tracker
         this.plugin.tracker = new processTracker(containerEl);
+        
+        (this.dropdown.selectEl as HTMLSelectElement).dispatchEvent(new Event('change'));
     }
 
     async addFile(file: TFile) {
@@ -83,9 +88,8 @@ class LimporterView extends ItemView {
         return container.createDiv('limporter-files-container');
     }
 
-    private createPButtonContainer(container: HTMLElement): void {
+    private createButtonContainer(container: HTMLElement): void {
         const buttonContainer = container.createDiv('limporter-button-container');
-        this.createPipelineDropdown(buttonContainer); 
         this.createVisibilityButton(buttonContainer);
         this.createProcessButton(buttonContainer);
     }
@@ -160,22 +164,22 @@ class LimporterView extends ItemView {
             });
         });
 
-        new Sortable(container, {
-            animation: 150,
-            handle: '.limporter-file-icon',
-            filter: '.limporter-trash-icon',
-            preventOnFilter: false,
-            onStart: () => {
-                container.querySelectorAll('.limporter-file-item').forEach(el => {
-                    el.classList.add('sortable-active');
-                });
-            },
-            onEnd: () => {
-                container.querySelectorAll('.limporter-file-item').forEach(el => {
-                    el.classList.remove('sortable-active');
-                });
-            }
-        });
+        // new Sortable(container, {
+        //     animation: 150,
+        //     handle: '.limporter-file-icon',
+        //     filter: '.limporter-trash-icon',
+        //     preventOnFilter: false,
+        //     onStart: () => {
+        //         container.querySelectorAll('.limporter-file-item').forEach(el => {
+        //             el.classList.add('sortable-active');
+        //         });
+        //     },
+        //     onEnd: () => {
+        //         container.querySelectorAll('.limporter-file-item').forEach(el => {
+        //             el.classList.remove('sortable-active');
+        //         });
+        //     }
+        // });
 
         this.createAddButton(container);
     }
@@ -183,7 +187,7 @@ class LimporterView extends ItemView {
     private createVisibilityButton(container: HTMLElement): void {
         const button = container.createEl('button', { 
             cls: 'limporter-button primary',
-            text: 'Show PROMPT'
+            text: 'Show CONFIG'
         });
     
         // Find the existing textarea container instead of creating a new one
@@ -193,7 +197,7 @@ class LimporterView extends ItemView {
             this.isVisible = !this.isVisible;
             button
                 .toggleClass('stop-mode', this.isVisible);
-            button.setText(this.isVisible ? 'Hide PROMPT' : 'Show PROMPT');
+            button.setText(this.isVisible ? 'Hide CONFIG' : 'Show CONFIG');
             textAreaContainer.style.display = this.isVisible ? 'block' : 'none';
             this.adjustPromptArea();
         });
@@ -217,8 +221,8 @@ class LimporterView extends ItemView {
 
     private createPipelineDropdown(container: HTMLElement): void {
         const pipelineOptions = [
-            { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
             { id: 'direct_call', name: 'Direct Call', pipeline: () => new DirectPipe(this.plugin) },
+            { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
         ];
 
         const dropdownContainer = container.createDiv('limporter-dropdown-container');
@@ -226,8 +230,8 @@ class LimporterView extends ItemView {
         new Setting(dropdownContainer)
             .setName('Pipeline:')
             .addDropdown(dropdown => {
-                dropdown
-                    .addOption('', '- - -')
+                this.dropdown = dropdown
+                    // .addOption('', '- - -')
                     .addOptions(Object.fromEntries(
                         pipelineOptions.map(opt => [opt.id, opt.name])
                     ))
