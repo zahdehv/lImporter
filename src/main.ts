@@ -1,10 +1,11 @@
-import { setIcon, App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, TextAreaComponent } from 'obsidian';
+import { Notice, setIcon, App, Plugin, TFile, Modal, TAbstractFile, Setting, PluginSettingTab, TextAreaComponent, ItemView, WorkspaceLeaf } from 'obsidian';
 import { FileItem } from './utils/fileUploader';
 import { processTracker } from './utils/processTracker';
 import Sortable from 'sortablejs';
 import { FuzzySuggestModal } from 'obsidian';
 import { ClaimInstPipe, DirectPipe, Pipeline } from './agents/pipelines';
 import { listFilesTree } from './utils/filelist';
+import { InteractiveProcessNotifier } from './utils/process';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -15,6 +16,302 @@ const DEFAULT_SETTINGS: AutoPluginSettings = {
     GOOGLE_API_KEY: 'your-default-api-key',
     allowPDF: true,
 };
+
+const VIEW_TYPE = "limporter-view";
+
+class LimporterView extends ItemView {
+    private plugin: AutoFilePlugin;
+    private processing = false;
+    private abortController?: AbortController | any;
+    private prompt = "";
+    private isVisible = false;
+    private fileItems: FileItem[] = [];
+    private currentPipeline: Pipeline | null = null;
+    private textAreaComponent?: TextAreaComponent;
+    private adjustPromptArea: () => void;
+
+    constructor(leaf: WorkspaceLeaf, plugin: AutoFilePlugin) {
+        super(leaf);
+        this.plugin = plugin;
+        this.plugin.tracker = new processTracker(this.containerEl);
+        // this.plugin.tracker = this.tracker;
+        // console.log(this.tracker);
+    }
+
+    getViewType(): string {
+        return VIEW_TYPE;
+    }
+
+    getDisplayText(): string {
+        return "lImporter";
+    }
+
+    getIcon(): string {
+        return "bot-message-square";
+    }
+
+    async onOpen() {
+        const { containerEl } = this;
+        containerEl.empty();
+        containerEl.addClass('limporter-view');
+    
+        // Create the text area container first
+        const textAreaContainer = containerEl.createDiv('limporter-textarea-container');
+        textAreaContainer.style.display = 'none'; // Keep hidden by default
+        this.createMaterialTextArea(textAreaContainer);
+        
+        const filesContainer = this.createFilesContainer(containerEl);
+        this.renderFileItems(filesContainer);
+        
+        // Create the button containers
+        // this.createFButtonContainer(filesContainer);
+        this.createPButtonContainer(containerEl);
+        
+        // Initialize tracker
+        this.plugin.tracker = new processTracker(containerEl);
+    }
+
+    async addFile(file: TFile) {
+        const newFileItem = await this.prepareFileData(file);
+        this.fileItems.push(newFileItem);
+        this.renderFileItems(
+            this.containerEl.querySelector('.limporter-files-container') as HTMLElement
+        );
+    }
+
+    private createFilesContainer(container: HTMLElement): HTMLElement {
+        return container.createDiv('limporter-files-container');
+    }
+
+    private createPButtonContainer(container: HTMLElement): void {
+        const buttonContainer = container.createDiv('limporter-button-container');
+        this.createPipelineDropdown(buttonContainer); 
+        this.createVisibilityButton(buttonContainer);
+        this.createProcessButton(buttonContainer);
+    }
+
+   
+
+    public async prepareFileData(file: TFile): Promise<FileItem> {
+        const arrayBuffer = await this.app.vault.readBinary(file);
+        const typeMap: Record<string, string> = {
+            mp3: 'audio/mpeg',
+            wav: 'audio/wav',
+            ogg: 'audio/ogg',
+            m4a: 'audio/mp4',
+            aac: 'audio/aac',
+            flac: 'audio/flac',
+            aiff: 'audio/aiff',
+            pdf: 'application/pdf'
+        };
+        const mime = typeMap[file.extension.toLowerCase()] || 'application/octet-stream';
+        const blob = new Blob([arrayBuffer], { type: mime });
+        return {
+            url: URL.createObjectURL(blob),
+            blob: blob,
+            title: file.name,
+            mimeType: mime,
+            uploaded: false,
+            uploadData: null
+        };
+    }
+
+    private renderFileItems(container: HTMLElement): void {
+        container.empty();
+        
+        this.fileItems.forEach((fileItem, index) => {
+            const fileEl = container.createDiv('limporter-file-item');
+            fileEl.dataset.index = index.toString();
+            
+            const fileInfoEl = fileEl.createDiv('limporter-file-info');
+            
+            const iconEl = fileInfoEl.createDiv('limporter-file-icon');
+            setIcon(iconEl, fileItem.mimeType.includes('pdf') ? 'file-text' : 'file-audio');
+    
+            const fileDetailsEl = fileInfoEl.createDiv('limporter-file-details');
+            fileDetailsEl.createEl('div', { 
+                cls: 'limporter-file-name',
+                text: fileItem.title 
+            });
+            fileDetailsEl.createEl('div', { 
+                cls: 'limporter-file-type',
+                text: fileItem.mimeType.includes('pdf') ? 'PDF Document' : 'Audio File' 
+            });
+
+            if (!fileItem.mimeType.includes('pdf')) {
+                fileEl.createEl('audio', {
+                    attr: {
+                        controls: 'true',
+                        src: fileItem.url,
+                        class: 'limporter-audio-player'
+                    }
+                });
+            }
+            
+            const actionContainer = fileInfoEl.createDiv('limporter-action-container');
+            const trashIcon = actionContainer.createDiv('limporter-trash-icon');
+            setIcon(trashIcon, 'trash-2');
+            
+            trashIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const index = parseInt(fileEl.dataset.index || '0');
+                this.fileItems.splice(index, 1);
+                this.renderFileItems(container);
+            });
+        });
+
+        new Sortable(container, {
+            animation: 150,
+            handle: '.limporter-file-icon',
+            filter: '.limporter-trash-icon',
+            preventOnFilter: false,
+            onStart: () => {
+                container.querySelectorAll('.limporter-file-item').forEach(el => {
+                    el.classList.add('sortable-active');
+                });
+            },
+            onEnd: () => {
+                container.querySelectorAll('.limporter-file-item').forEach(el => {
+                    el.classList.remove('sortable-active');
+                });
+            }
+        });
+
+        this.createAddButton(container);
+    }
+
+    private createVisibilityButton(container: HTMLElement): void {
+        const button = container.createEl('button', { 
+            cls: 'limporter-button primary',
+            text: 'Show PROMPT'
+        });
+    
+        // Find the existing textarea container instead of creating a new one
+        const textAreaContainer = this.containerEl.querySelector('.limporter-textarea-container') as HTMLElement;
+    
+        button.addEventListener('click', () => {
+            this.isVisible = !this.isVisible;
+            button
+                .toggleClass('stop-mode', this.isVisible);
+            button.setText(this.isVisible ? 'Hide PROMPT' : 'Show PROMPT');
+            textAreaContainer.style.display = this.isVisible ? 'block' : 'none';
+            this.adjustPromptArea();
+        });
+    }
+    
+
+    private createAddButton(container: HTMLElement): void {
+        const button = container.createEl('button', { 
+            cls: 'limporter-button primary',
+            text: 'Add File'
+        });
+
+        button.addEventListener('click', () => {
+            new FileSuggestionModal(this.app, this.plugin.SupportedFiles(), async (file) => {
+                if (file) {
+                    await this.addFile(file);
+                }
+            }).open();
+        });
+    }
+
+    private createPipelineDropdown(container: HTMLElement): void {
+        const pipelineOptions = [
+            { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
+            { id: 'direct_call', name: 'Direct Call', pipeline: () => new DirectPipe(this.plugin) },
+        ];
+
+        const dropdownContainer = container.createDiv('limporter-dropdown-container');
+        
+        new Setting(dropdownContainer)
+            .setName('Pipeline:')
+            .addDropdown(dropdown => {
+                dropdown
+                    .addOption('', '- - -')
+                    .addOptions(Object.fromEntries(
+                        pipelineOptions.map(opt => [opt.id, opt.name])
+                    ))
+                    .onChange(async (value) => {
+                        if (value) {
+                            const selected = pipelineOptions.find(opt => opt.id === value);
+                            if (selected) {
+                                this.currentPipeline = selected.pipeline();
+                                this.prompt = this.currentPipeline.default_prompt;
+                                if (this.textAreaComponent) {
+                                    this.textAreaComponent.setValue(this.prompt);
+                                }
+                                this.adjustPromptArea();
+                            }
+                        }
+                    });
+            });
+    }
+
+    private createProcessButton(container: HTMLElement): void {
+        const button = container.createEl('button', { 
+            cls: 'limporter-button primary',
+            text: 'Process'
+        });
+
+        button.addEventListener('click', async () => {
+            if (this.processing) {
+                this.abortController?.abort();
+                button.disabled = true;
+                return;
+            }
+
+            this.plugin.tracker.resetTracker();
+            
+            if (!this.currentPipeline) {
+                const nopipe = this.plugin.tracker.appendStep("Pipeline Error", 'No pipeline selected', "test");
+                nopipe.updateState('error');
+                console.error('No pipeline selected');
+                return;
+            }
+            button.addClass('stop-mode');
+            button.setText('Stop');
+            this.abortController = new AbortController();
+            this.processing = true;
+            
+            try {
+                const signal = this.abortController.signal;
+                await this.currentPipeline.call(this.prompt, this.fileItems, signal);
+            } catch (error) {
+                console.error(error);
+                const errorTrack = this.plugin.tracker.appendStep("General Error", error, 'x');
+                errorTrack.updateState("error", error);
+            } finally {
+                this.abortController = null;
+                button.removeClass('stop-mode');
+                button.setText('Process');
+                button.disabled = false;
+                this.processing = false;
+            }
+        });
+    }
+
+    private createMaterialTextArea(container: HTMLElement): void {
+        this.textAreaComponent = new TextAreaComponent(container)
+            .setPlaceholder("Type your message...")
+            .setValue("")
+            .onChange((value) => this.prompt = value);
+
+        const textAreaEl = this.textAreaComponent.inputEl;
+        textAreaEl.addClass("material-textarea");
+        
+        this.adjustPromptArea = () => {
+            textAreaEl.style.height = 'auto';
+            textAreaEl.style.height = `${textAreaEl.scrollHeight}px`;
+        };
+
+        this.adjustPromptArea();
+        textAreaEl.addEventListener('input', this.adjustPromptArea);
+    }
+
+    async onClose() {
+        // Clean up any resources if needed
+    }
+}
 
 class AutoSettingTab extends PluginSettingTab {
     constructor(app: App, private plugin: AutoFilePlugin) {
@@ -55,26 +352,73 @@ export default class AutoFilePlugin extends Plugin {
     tracker: processTracker;
     private statusBarItem: HTMLElement;
     private ribbonIcon: HTMLElement;
+    private view: LimporterView | null = null;
 
     async onload() {
         await this.loadSettings();
-        this.ribbonIcon = this.addRibbonIcon(
-            'play', 
-            'play',
-            async () => {
-                console.log(await listFilesTree(this.app.vault, "", 5, true));
+        
+        // Register the view
+        this.registerView(
+            VIEW_TYPE,
+            (leaf) => (this.view = new LimporterView(leaf, this))
+        );
+
+        // In your plugin's onload() method
+// In your plugin's onload() method
+this.addRibbonIcon('dice', 'Test Process Notifier', () => {
+    const notifier = new InteractiveProcessNotifier(this.app);
+    
+    // Simulate processing steps
+    notifier.addStep("Starting test process");
+    setTimeout(() => notifier.addStep("Scanning vault for files"), 1000);
+    
+    // Add some test files after delay
+    setTimeout(() => {
+        const testFiles = this.app.vault.getMarkdownFiles().slice(0, 3);
+        testFiles.forEach(file => {
+            notifier.addFile(file);
+            notifier.addStep(`Added file: ${file.basename}`);
+        });
+        
+        notifier.addStep("Test complete!");
+    }, 2000);
+});
+
+    
+
+        this.addRibbonIcon('pen', 'Open Local Graph', async () => {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                new Notice('No active note to show local graph for');
+                return;
             }
-        );
+        
+            // Try to find existing local graph
+            const localGraphLeaves = this.app.workspace.getLeavesOfType('localgraph');
+            
+            if (localGraphLeaves.length > 0) {
+                // Reuse existing local graph
+                const leaf = localGraphLeaves[0];
+                (leaf.view as any).setFile(activeFile);
+                this.app.workspace.revealLeaf(leaf);
+            } else {
+                // Create new local graph
+                const leaf = this.app.workspace.getLeaf('split');
+                await leaf.setViewState({
+                    type: 'localgraph',
+                    state: { file: activeFile.path }
+                });
+                this.app.workspace.revealLeaf(leaf);
+            }
+        });
 
-        // Create ribbon icon
-        this.ribbonIcon = this.addRibbonIcon(
-            'bot-message-square', 
-            'Open lImporter',
-            () => new FileProcessorModal(this).open()
-        );
-        this.ribbonIcon.addClass('limporter-ribbon-icon');
+    this.ribbonIcon = this.addRibbonIcon(
+        'bot-message-square', 
+        'Open lImporter',
+        () => this.openView()
+    );
+    this.ribbonIcon.addClass('limporter-ribbon-icon');
 
-        // Status bar item
         this.statusBarItem = this.addStatusBarItem();
         this.statusBarItem.addClass('limporter-status-bar');
         this.statusBarItem.onClickEvent(() => {
@@ -82,6 +426,7 @@ export default class AutoFilePlugin extends Plugin {
             if (activeFile) this.openFileProcessor(activeFile);
         });
         setIcon(this.statusBarItem,"bot");
+
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(
                 this.app.vault.on("create", (file: TAbstractFile) => {
@@ -118,6 +463,28 @@ export default class AutoFilePlugin extends Plugin {
         this.addSettingTab(new AutoSettingTab(this.app, this));
     }
 
+    private async openView(): Promise<void> {
+        let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+        
+        if (!leaf) {
+            leaf = this.app.workspace.getRightLeaf(false);
+            await leaf?.setViewState({ type: VIEW_TYPE });
+        }
+        if (leaf) {
+            
+            this.app.workspace.revealLeaf(leaf);
+            this.view = leaf.view as LimporterView;
+        }
+    }
+
+
+    private async openFileProcessor(file: TFile): Promise<void> {
+        await this.openView();
+        if (this.view) {
+            await this.view.addFile(file);
+        }
+    }
+
     private updateStatusBar() {
         const activeFile = this.app.workspace.getActiveFile();
         if (!activeFile) {
@@ -141,10 +508,6 @@ export default class AutoFilePlugin extends Plugin {
 
     private isSupportedFile(file: TFile): boolean {
         return this.SupportedFiles().includes(file.extension.toLowerCase());
-    }
-
-    private openFileProcessor(file: TFile) {
-        new FileProcessorModal(this, file).open();
     }
     
     async loadSettings() {
@@ -181,322 +544,5 @@ class FileSuggestionModal extends FuzzySuggestModal<TFile> {
 
     onClose(): void {
         this.callback(null);
-    }
-}
-
-class FileProcessorModal extends Modal {
-    private plugin: AutoFilePlugin;
-    private processing = false;
-    private abortController?: AbortController | any;
-    private prompt = "";
-    private isVisible = false;
-    private fileItems: FileItem[] = [];
-    private currentPipeline: Pipeline|null = null;
-    private textAreaComponent?: TextAreaComponent; 
-    private adjustPromptArea: () => void;
-    
-    constructor(plugin: AutoFilePlugin, public file?: TFile) {
-        super(plugin.app);
-        this.plugin = plugin;
-    }
-
-    async onOpen() {
-        const { contentEl } = this;
-        contentEl.empty();
-        contentEl.addClass('limporter-modal')
-        // Initialize with primary file if provided
-        if (this.file) {
-            const primaryFile = await this.prepareFileData(this.file);
-            this.fileItems = [primaryFile];
-        }
-        
-        this.createHeader(contentEl);
-        // this.createTrashZone(contentEl);
-        const filesContainer = this.createFilesContainer(contentEl);
-        this.renderFileItems(filesContainer);
-        this.createFButtonContainer(contentEl);
-        
-        this.plugin.tracker = new processTracker(contentEl);        
-        this.createPButtonContainer(contentEl);
-    }
-
-    private createHeader(container: HTMLElement): void {
-        const headerEl = container.createDiv('limporter-header');
-        headerEl.createEl('h3', { 
-            cls: 'limporter-title',
-            text: 'Process with lImporter' 
-        });
-    }
-
-    // private createTrashZone(container: HTMLElement): void {
-    //     this.trashZone = container.createDiv('limporter-trash-zone');
-    //     setIcon(this.trashZone, 'trash-2');
-    //     // this.trashZone.style.display = 'none';
-    // }
-
-    private createFilesContainer(container: HTMLElement): HTMLElement {
-        return container.createDiv('limporter-files-container');
-    }
-
-    private createPButtonContainer(container: HTMLElement): void {
-        const buttonContainer = container.createDiv('limporter-button-container');
-
-        this.createPipelineDropdown(buttonContainer); 
-        this.createVisibilityButton(buttonContainer);
-        this.createProcessButton(buttonContainer);
-    }
-
-    private createFButtonContainer(container: HTMLElement): void {
-        const buttonContainer = container.createDiv('limporter-button-container');
-        
-        this.createAddButton(buttonContainer);
-    }
-
-    private async prepareFileData(file: TFile): Promise<FileItem> {
-        const arrayBuffer = await this.app.vault.readBinary(file);
-        const typeMap: Record<string, string> = {
-            mp3: 'audio/mpeg',
-            wav: 'audio/wav',
-            ogg: 'audio/ogg',
-            m4a: 'audio/mp4',
-            aac: 'audio/aac',
-            flac: 'audio/flac',
-            aiff: 'audio/aiff',
-            pdf: 'application/pdf'
-        };
-        const mime = typeMap[file.extension.toLowerCase()] || 'application/octet-stream';
-        const blob = new Blob([arrayBuffer], { type: mime });
-        return {
-            url: URL.createObjectURL(blob),
-            blob: blob,
-            title: file.name,
-            mimeType: mime,
-            uploaded: false,
-            uploadData: null
-        };
-    }
-
-    private renderFileItems(container: HTMLElement): void {
-        container.empty();
-        
-        this.fileItems.forEach((fileItem, index) => {
-            const fileEl = container.createDiv('limporter-file-item');
-            fileEl.dataset.index = index.toString();
-            
-            const fileInfoEl = fileEl.createDiv('limporter-file-info');
-            
-            
-            const iconEl = fileInfoEl.createDiv('limporter-file-icon');
-            setIcon(iconEl, fileItem.mimeType.includes('pdf') ? 'file-text' : 'file-audio');
-    
-            
-            const fileDetailsEl = fileInfoEl.createDiv('limporter-file-details');
-            fileDetailsEl.createEl('div', { 
-                cls: 'limporter-file-name',
-                text: fileItem.title 
-            });
-            fileDetailsEl.createEl('div', { 
-                cls: 'limporter-file-type',
-                text: fileItem.mimeType.includes('pdf') ? 'PDF Document' : 'Audio File' 
-            });
-
-            if (!fileItem.mimeType.includes('pdf')) {
-                fileEl.createEl('audio', {
-                    attr: {
-                        controls: 'true',
-                        src: fileItem.url,
-                        class: 'limporter-audio-player'
-                    }
-                });
-            }
-            
-            // Action container with BOTH drag handle and trash icon
-            const actionContainer = fileInfoEl.createDiv('limporter-action-container');
-            // Drag handle
-            // const dragHandle = actionContainer.createDiv('limporter-drag-handle');
-            // setIcon(dragHandle, 'grip-vertical'); // Using a grip icon
-            
-            // Trash icon (always visible)
-            const trashIcon = actionContainer.createDiv('limporter-trash-icon');
-            setIcon(trashIcon, 'trash-2');
-            
-            // Add this inside the file item loop
-            trashIcon.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const index = parseInt(fileEl.dataset.index || '0');
-                this.fileItems.splice(index, 1);
-                this.renderFileItems(container);
-                console.log(this.fileItems);
-            });
-
-        });
-
-        // Initialize SortableJS with trash zone support
-        new Sortable(container, {
-            animation: 150,
-            handle: '.limporter-file-icon', // Only the grip icon is draggable
-            filter: '.limporter-trash-icon', // Prevent dragging from trash icon
-            preventOnFilter: false, // Allow click events on filtered elements
-            onStart: () => {
-                // Visual feedback during drag
-                container.querySelectorAll('.limporter-file-item').forEach(el => {
-                    el.classList.add('sortable-active');
-                });
-            },
-            onEnd: () => {
-                // Clean up visual feedback
-                container.querySelectorAll('.limporter-file-item').forEach(el => {
-                    el.classList.remove('sortable-active');
-                });
-            }
-        });
-        
-    }
-
-    private createVisibilityButton(container: HTMLElement): void {
-        const button = container.createEl('button', { 
-            cls: 'limporter-button primary',
-            text: 'Show PROMPT'
-        });
-
-        const textAreaContainer = this.contentEl.createDiv('limporter-textarea-container');
-        textAreaContainer.style.display = 'none';
-        this.createMaterialTextArea(textAreaContainer);
-
-        button.addEventListener('click', () => {
-            this.isVisible = !this.isVisible;
-            button
-                .toggleClass('stop-mode', this.isVisible);
-            button.setText(this.isVisible ? 'Hide PROMPT' : 'Show PROMPT');
-            textAreaContainer.style.display = this.isVisible ? 'block' : 'none';
-            this.adjustPromptArea();
-        });
-    }
-
-    private createAddButton(container: HTMLElement): void {
-        const button = container.createEl('button', { 
-            cls: 'limporter-button primary',
-            text: 'Add File'
-        });
-
-        button.addEventListener('click', () => {
-            new FileSuggestionModal(this.app, this.plugin.SupportedFiles(), async (file) => {
-                if (file) {
-                    const newFileItem = await this.prepareFileData(file);
-                    this.fileItems.push(newFileItem);
-                    this.renderFileItems(
-                        this.contentEl.querySelector('.limporter-files-container')  as HTMLElement
-                    );
-                }
-            }).open();
-        });
-    }
-    private createPipelineDropdown(container: HTMLElement): void {
-        const pipelineOptions = [
-            { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
-            { id: 'direct_call', name: 'Direct Call', pipeline: () => new DirectPipe(this.plugin) },
-            // Add more pipelines here as needed
-        ];
-
-        const dropdownContainer = container.createDiv('limporter-dropdown-container');
-        
-        new Setting(dropdownContainer)
-            .setName('Pipeline:')
-            .addDropdown(dropdown => {
-                dropdown
-                    .addOption('', '- - -')
-                    .addOptions(Object.fromEntries(
-                        pipelineOptions.map(opt => [opt.id, opt.name])
-                    ))
-                    .onChange(async (value) => {
-                        if (value) {
-                            const selected = pipelineOptions.find(opt => opt.id === value);
-                            if (selected) {
-                                // console.log(value);
-                                this.currentPipeline = selected.pipeline();
-                                // Update the prompt with the pipeline's default
-                                this.prompt = this.currentPipeline.default_prompt;
-                                // Update the textarea if it exists
-                                if (this.textAreaComponent) {
-                                    this.textAreaComponent.setValue(this.prompt);
-                                }
-                                this.adjustPromptArea()
-                                // console.log(this.currentPipeline);
-                                // Enable the process button when a pipeline is selected
-                                // const processBtn = container.querySelector('.limporter-button') as HTMLButtonElement;
-                                // if (processBtn) processBtn.disabled = false;
-                            }
-                        }
-                    });
-            });
-    }
-
-
-    private createProcessButton(container: HTMLElement): void {
-        const button = container.createEl('button', { 
-            cls: 'limporter-button primary',
-            text: 'Process'
-        });
-        // button.disabled = true;
-
-        button.addEventListener('click', async () => {
-            if (this.processing) {
-                this.abortController?.abort();
-                button.disabled = true;
-                return;
-            }
-
-            this.plugin.tracker.resetTracker();
-            
-            if (!this.currentPipeline) {
-                const nopipe = this.plugin.tracker.appendStep("Pipeline Error", 'No pipeline selected', "test");
-                nopipe.updateState('error');
-                console.error('No pipeline selected');
-                return;
-            }
-            button.addClass('stop-mode');
-            button.setText('Stop');
-            this.abortController = new AbortController();
-            this.processing = true;
-            
-            
-            try {
-                const signal = this.abortController.signal;
-                await this.currentPipeline.call(this.prompt, this.fileItems, signal);
-            } catch (error) {
-                console.error(error);
-                const errorTrack = this.plugin.tracker.appendStep("General Error", error, 'x');
-                errorTrack.updateState("error", error);
-            } finally {
-                this.abortController = null;
-                button.removeClass('stop-mode');
-                button.setText('Process');
-                button.disabled = false;
-                this.processing = false;
-            }
-        });
-    }
-
-    private createMaterialTextArea(container: HTMLElement): void {
-        this.textAreaComponent = new TextAreaComponent(container)
-            .setPlaceholder("Type your message...")
-            .setValue("")
-            .onChange((value) => this.prompt = value);
-
-        const textAreaEl = this.textAreaComponent.inputEl;
-        textAreaEl.addClass("material-textarea");
-        
-        this.adjustPromptArea = () => {
-            textAreaEl.style.height = 'auto';
-            textAreaEl.style.height = `${textAreaEl.scrollHeight}px`;
-        };
-
-        this.adjustPromptArea();
-        textAreaEl.addEventListener('input', this.adjustPromptArea);
-    }
-
-    onClose() {
-        const { contentEl } = this;
-        contentEl.empty();
     }
 }
