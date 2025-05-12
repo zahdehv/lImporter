@@ -31,6 +31,8 @@ export function createObsidianTools(plugin: MyPlugin) {
         return new Promise(async (resolve, reject) => {
             const wrt_trk = tracker.appendStep("Write File", input.path, "file-edit");
             try {
+                if (input.path.includes(".lim")) throw new Error("Cannot write a .lim file");
+                ;
                 const prev = vault.getFiles().map((a) => a.path).sort();
                 const contentWithNewlines = input.content.replace(/\\n/g, '\n');
                 const folderPath = input.path.split('/').slice(0, -1).join('/');
@@ -66,6 +68,7 @@ export function createObsidianTools(plugin: MyPlugin) {
                         for (let j = 0; j < difff[i].value.length; j++) { files += `- ${difff[i].value[j]} ${suffix}\n`; }
                     }
                     wrt_trk.updateState("complete");
+                    tracker.appendFileByPath(input.path);
                     resolve(`El llamado a funcion se completo correctamente.\nResultado:\n${files}`);
 
                 } catch (writeError) {
@@ -135,6 +138,7 @@ export function createObsidianTools(plugin: MyPlugin) {
                     }
                     const fl_trk = tracker.appendStep(stepTitle, `Size: ${file.size} bytes`, "file-check");
                     fl_trk.updateState("complete"); // Mark as complete since read succeeded
+                    tracker.appendFileByPath(file.path);
                     return `File: ${file.path}\nSize: ${file.size} bytes\nLast Modified: ${file.lastModified}\nContent:\n${file.content}\n`;
                 }).join('\n---\n');
 
@@ -159,6 +163,8 @@ export function createObsidianTools(plugin: MyPlugin) {
         return new Promise(async (resolve, reject) => {
             const move_trk = tracker.appendStep("Move File", `${input.sourcePath} -> ${input.targetPath}`, "scissors");
             try {
+                if (input.sourcePath.includes(".lim")) throw new Error("Cannot move a .lim file");
+                ;
                 const file = vault.getAbstractFileByPath(input.sourcePath);
                 if (!file) {
                     const errorMsg = `File not found: ${input.sourcePath}`;
@@ -174,6 +180,7 @@ export function createObsidianTools(plugin: MyPlugin) {
 
                 await vault.rename(file, input.targetPath);
                 move_trk.updateState("complete");
+                tracker.appendFileByPath(input.targetPath);
                 resolve(`File moved successfully from ${input.sourcePath} to ${input.targetPath}`);
             } catch (error) {
                 move_trk.updateState("error", error);

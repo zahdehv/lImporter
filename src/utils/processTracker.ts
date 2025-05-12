@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { App, setIcon, TFile, Notice, WorkspaceLeaf } from "obsidian";
 
 // Represents a single step in the progress tracker UI
 export class stepItem {
@@ -19,20 +19,15 @@ export class stepItem {
     public updateState(status: 'pending' | 'in-progress' | 'complete' | 'error', message?: string, icon?: string) {
         if (!this.item) return; // Exit if the element doesn't exist
 
-        // Set the data attribute for CSS styling based on status
         this.item.dataset.status = status;
 
-        // Update the caption text if a message is provided
         if (message) this.updateCaption(message);
 
-        // Update the icon based on status or if a specific icon is provided
         const iconEl = this.item.querySelector('.limporter-step-icon');
 
         if (icon && iconEl) {
-            // Set a specific icon if provided
             setIcon(iconEl as HTMLElement, icon);
         } else if (iconEl) {
-            // Set default icons based on status
             switch (status) {
                 case 'complete':
                     setIcon(iconEl as HTMLElement, 'check');
@@ -41,7 +36,7 @@ export class stepItem {
                     setIcon(iconEl as HTMLElement, 'x');
                     break;
                 case 'pending':
-                case 'in-progress': // Use original icon for pending and in-progress
+                case 'in-progress':
                 default:
                     setIcon(iconEl as HTMLElement, this.oIcon);
                     break;
@@ -49,97 +44,162 @@ export class stepItem {
         }
     }
 
-    /**
-     * Updates the text content of the status caption element.
-     * @param caption - The new text for the caption.
-     */
     public updateCaption(caption: string) {
-        if (!this.item) return; // Exit if the element doesn't exist
-
-        const statusEl = this.item.querySelector('.limporter-step-status');
-        if (statusEl) statusEl.textContent = caption; // Update text content
-    }
-
-    /**
-     * Updates the icon. (Note: This seems redundant with updateState, maybe intended for something else?)
-     * Kept for compatibility, but might need review based on usage.
-     * @param caption - The text to set (likely a mistake, should be icon name?).
-     */
-    public updateIcon(caption: string) {
         if (!this.item) return;
-
-        // This function currently updates the *caption*, not the icon.
-        // Consider renaming or refactoring if icon update logic is needed here.
         const statusEl = this.item.querySelector('.limporter-step-status');
         if (statusEl) statusEl.textContent = caption;
+    }
+
+    // This method might be redundant or misnamed as it updates caption, not icon.
+    public updateIcon(caption: string) {
+        if (!this.item) return;
+        const statusEl = this.item.querySelector('.limporter-step-status');
+        if (statusEl) statusEl.textContent = caption; // Actually updates caption
     }
 }
 
 // Manages the overall progress tracking UI component
 export class processTracker {
-    private progressContainer: HTMLElement; // The main container for all steps
-    private steps: stepItem[] = []; // Array to hold all stepItem instances
-    private text: string = ""; // Seems unused, potentially for a description?
+    public progressContainer: HTMLElement; // Root element of the tracker UI, visibility managed externally
+    private stepsContainer: HTMLElement;    // Container for actual step items
+    private filesContainer: HTMLElement;    // Container for the files section
+    private filesListContainer: HTMLElement; // Specific list element for appended files
+    private steps: stepItem[] = [];
 
-    constructor(parentContainer: HTMLElement) {
-        // Create the main container div
-        this.progressContainer = parentContainer.createDiv('limporter-progress-container');
-        this.progressContainer.style.display = 'flex'; // Ensure container is visible
+    constructor(private app: App, parentContainerForTracker: HTMLElement) {
+        // processTracker builds its UI inside the parentContainerForTracker
+        this.progressContainer = parentContainerForTracker.createDiv('limporter-progress-container');
+        // Initial display style (e.g., 'flex' or 'none') is managed by LimporterView
 
-        // Add a descriptive paragraph (optional)
         this.progressContainer.createEl('p', {
             text: `This will process your file(s) and create structured notes based on its content.`,
-            cls: 'limporter-description' // Class for potential styling
+            cls: 'limporter-description'
         });
 
-        // NOTE: Removed click handler for toggling visibility
+        this.stepsContainer = this.progressContainer.createDiv('limporter-steps-display-container');
+        this.stepsContainer.style.display = 'flex'; // Internal layout
+        this.stepsContainer.style.flexDirection = 'column';
+        this.stepsContainer.style.gap = '0.1rem';
+
+        this.filesContainer = this.progressContainer.createDiv('limporter-files-tracker-container');
+        this.filesContainer.style.marginTop = '1rem';
+        this.filesContainer.createEl('h4', { text: 'Tracked Files:', cls: 'limporter-files-tracker-title' });
+        this.filesListContainer = this.filesContainer.createDiv('limporter-files-list');
+        this.filesListContainer.style.display = 'flex'; // Internal layout
+        this.filesListContainer.style.flexDirection = 'column';
+        this.filesListContainer.style.gap = '0.3rem';
     }
 
-    /**
-     * Resets the tracker, clearing all steps and resetting state.
-     */
     public resetTracker() {
-        this.steps = []; // Clear the steps array
-        this.progressContainer.empty(); // Remove all child elements from the container
-        this.progressContainer.style.display = 'flex'; // Ensure container is visible after reset
-        this.text = ""; // Reset text property (if used)
+        this.steps = [];
+        this.stepsContainer.empty();
+        this.filesListContainer.empty();
+        // Visibility of progressContainer is handled by LimporterView
     }
 
-    // NOTE: Removed toggleStepsVisibility method
-    // NOTE: Removed updateStepsVisibility method
-
-    /**
-     * Appends a new step to the progress tracker.
-     * @param label - The main label text for the step.
-     * @param message - The initial status message for the step.
-     * @param icon - The icon identifier string for the step.
-     * @returns The created stepItem instance.
-     */
     public appendStep(label: string, message: string, icon: string): stepItem {
-        // Create the div for the new step
-        const stepEl = this.progressContainer.createDiv('limporter-progress-step');
-        stepEl.dataset.status = 'pending'; // Initial status
+        const stepEl = this.stepsContainer.createDiv('limporter-progress-step');
+        stepEl.dataset.status = 'pending';
 
-        // Create and set the icon
         const iconContainer = stepEl.createDiv('limporter-step-icon');
         setIcon(iconContainer, icon);
 
-        // Create the content area for label and status
         const stepContent = stepEl.createDiv('limporter-step-content');
         const stepLabel = stepContent.createDiv('limporter-step-label');
-        stepLabel.textContent = label; // Set the label text
+        stepLabel.textContent = label;
 
-        const stepStatus = stepContent.createDiv('limporter-step-status');
-        stepStatus.textContent = 'Pending'; // Initial status text
+        stepContent.createDiv('limporter-step-status'); // Placeholder, updateState will fill it
 
-        // Create the stepItem object
         const stepItm = new stepItem(stepEl, icon);
-        this.steps.push(stepItm); // Add to the internal list
-
-        // NOTE: Removed call to updateStepsVisibility()
-
-        // Set the initial state to 'in-progress' with the provided message
+        this.steps.push(stepItm);
         stepItm.updateState("in-progress", message);
-        return stepItm; // Return the new step item
+        return stepItm;
+    }
+
+    public async appendFileByPath(filePath: string): Promise<void> {
+        if (!this.app) {
+            console.error("ProcessTracker: App instance is not available to resolve file path.");
+            new Notice("ProcessTracker error: Cannot resolve file path.");
+            return;
+        }
+        const abstractFile = this.app.vault.getAbstractFileByPath(filePath);
+        if (!abstractFile) {
+            new Notice(`Tracked File: Not found at path: ${filePath}`);
+            console.warn(`ProcessTracker: File not found at path: ${filePath}`);
+            return;
+        }
+        if (!(abstractFile instanceof TFile)) {
+            new Notice(`Tracked File: Item at ${filePath} is not a file.`);
+            console.warn(`ProcessTracker: Item at path ${filePath} is not a TFile.`);
+            return;
+        }
+        const file = abstractFile as TFile;
+        this.appendFile(file);
+    }
+
+    public appendFile(file: TFile): void {
+        const fileItemEl = this.filesListContainer.createDiv('limporter-tracked-file-item');
+        fileItemEl.setText(file.basename);
+        fileItemEl.addClass('clickable-icon');
+
+        fileItemEl.addEventListener('click', async () => {
+            // 1. Open and focus the clicked file in the main workspace
+            let fileDisplayLeaf: WorkspaceLeaf | null = null;
+            const markdownLeaves = this.app.workspace.getLeavesOfType("markdown");
+
+            // Try to find an existing leaf that isn't a sidebar or special view
+            // Or, use the current active leaf if it's a markdown view.
+            // Otherwise, get a new leaf.
+            if (this.app.workspace.activeLeaf && this.app.workspace.activeLeaf.view.getViewType() === 'markdown') {
+                fileDisplayLeaf = this.app.workspace.activeLeaf;
+            } else if (markdownLeaves.length > 0) {
+                fileDisplayLeaf = markdownLeaves[0]; // Fallback to the first available markdown leaf
+            } else {
+                fileDisplayLeaf = this.app.workspace.getLeaf(true); // Create a new leaf if none suitable
+            }
+
+            if (!fileDisplayLeaf) {
+                new Notice("Could not find or create a leaf to open the file.");
+                console.error("ProcessTracker: Could not obtain a suitable leaf for opening file.");
+                return;
+            }
+
+            await fileDisplayLeaf.openFile(file, { active: true }); // Open the file
+            this.app.workspace.setActiveLeaf(fileDisplayLeaf, { focus: true }); // Ensure it's the active leaf and focused
+
+            // new Notice(`Opened: ${file.basename}. Opening local graph...`);
+
+            // 2. Open/update the local graph for this now active file
+            let localGraphLeaf: WorkspaceLeaf | null = null;
+            const existingLocalGraphLeaves = this.app.workspace.getLeavesOfType('localgraph');
+
+            if (existingLocalGraphLeaves.length > 0) {
+                localGraphLeaf = existingLocalGraphLeaves[0];
+                this.app.workspace.revealLeaf(localGraphLeaf); // Ensure it's visible
+            } else {
+                localGraphLeaf = this.app.workspace.getRightLeaf(true); // Try to open in right split
+                if (!localGraphLeaf || localGraphLeaf === fileDisplayLeaf) { // If no right split or it's the same as file display
+                    localGraphLeaf = this.app.workspace.getLeaf(true); // Fallback to a new tab
+                }
+            }
+
+            if (localGraphLeaf) {
+                const view = localGraphLeaf.view;
+                // Try to use setFile if available, otherwise use setViewState
+                if (view && view.getViewType() === 'localgraph' && typeof (view as any).setFile === 'function') {
+                    (view as any).setFile(file); // Pass the TFile object
+                } else {
+                    await localGraphLeaf.setViewState({
+                        type: 'localgraph',
+                        state: { file: file.path }, // Use the path of the clicked file
+                        active: true, // Make the local graph leaf active
+                    });
+                }
+                this.app.workspace.revealLeaf(localGraphLeaf); // Ensure it's revealed
+            } else {
+                new Notice("Could not open or find/create a leaf for the local graph.");
+                console.error("ProcessTracker: Could not obtain a suitable leaf for the local graph.");
+            }
+        });
     }
 }

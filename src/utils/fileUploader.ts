@@ -4,6 +4,7 @@ export interface FileItem {
     url: string;
     blob: Blob;
     title: string;
+    path: string;
     mimeType: string;
     uploaded: boolean;
     uploadData: any | null; // Type 'any' can be refined if after-upload data structure is known
@@ -11,7 +12,7 @@ export interface FileItem {
 
 
 /**
- * Class to handle audio uploads to Google AI Files API.
+ * Class to handle t_file uploads to Google AI Files API.
  */
 export class FileUploader {
     private apiKey: string;
@@ -26,14 +27,14 @@ export class FileUploader {
     }
 
     /**
-     * Uploads an audio blob from an Obsidian blob URL to Google AI Files API.
+     * Uploads an t_file blob from an Obsidian blob URL to Google AI Files API.
      *
-     * @param blobUrl The Obsidian blob URL of the audio file.
+     * @param blobUrl The Obsidian blob URL of the t_file file.
      * @returns An object containing the upload response and the file name, or null if upload fails or API key is missing.
      */
-    async uploadFileBlob(audio: FileItem, signal: AbortSignal): Promise<{ uploadResponse: any, name: string } | null> {
+    async uploadFileBlob(t_file: FileItem, signal: AbortSignal): Promise<{ uploadResponse: any, name: string } | null> {
         //blobUrl: string, 
-        const blobUrl = audio.url;
+        const blobUrl = t_file.url;
 
         if (!this.apiKey) {
             throw new Error("Google AI File Manager not initialized. API Key missing.");
@@ -50,9 +51,9 @@ export class FileUploader {
 
         // Upload the downloaded data.
         const formData = new FormData();
-        const metadata = { file: { mimeType: audio.mimeType, displayName: audio.title } };
+        const metadata = { file: { mimeType: t_file.mimeType, displayName: t_file.path } };
         formData.append("metadata", new Blob([JSON.stringify(metadata)], { type: 'application/json' })); // Changed to 'type'
-        formData.append("file", new Blob([buffer], { type: audio.mimeType })); // Changed to 'type'
+        formData.append("file", new Blob([buffer], { type: t_file.mimeType })); // Changed to 'type'
         const res2 = await fetch(
             `https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart&key=${this.apiKey}`,
             { method: "post", body: formData, signal: signal }
@@ -70,8 +71,8 @@ export class FileUploader {
         // console.log(`Uploaded file ${uploadResponse.file.displayName} as: ${uploadResponse.file.uri}`);
         const name = uploadResponse.file.name;
 
-        audio.uploadData = uploadResponse;
-        audio.uploaded = true;
+        t_file.uploadData = uploadResponse;
+        t_file.uploaded = true;
 
         if (signal.aborted) {
             throw new Error("Aborted!");
