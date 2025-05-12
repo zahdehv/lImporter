@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, GenerativeModel, ChatSession, FunctionDeclaration } from '@google/generative-ai';
-import { FileItem, FileUploader } from '../../utils/fileUploader';
+import { FileItem, FileUploader } from '../utils/fileUploader';
 import { prompt_get_claims_instructions } from 'src/utils/promp';
 import AutoFilePlugin from 'src/main';
 import { trace } from 'console';
@@ -35,7 +35,9 @@ export class geminiPREP {
                 upld_trk.updateState("complete", "File uploaded succesfully!");
             } catch (error) {
                 console.error(error);
-                upld_trk.updateState("error", error);
+                upld_trk.updateState("error",  error); this.plugin.tracker.writeLog(`\`\`\`diff
+- ${ error}
+\`\`\``);
                 return null;
             }
             

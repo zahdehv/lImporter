@@ -1,13 +1,17 @@
-import { App, setIcon, TFile, Notice, WorkspaceLeaf } from "obsidian";
+import { App, setIcon, TFile, Notice, WorkspaceLeaf, MarkdownRenderer } from "obsidian";
+import AutoFilePlugin from "src/main";
+import { threadId } from "worker_threads";
 
 // Represents a single step in the progress tracker UI
 export class stepItem {
     private item: HTMLDivElement; // The main div element for the step
     private oIcon: string; // Original icon specified for the step
+    private wl: (a:string)=> void;
 
-    constructor(item: HTMLDivElement, icon: string) {
+    constructor(item: HTMLDivElement, icon: string, wl: (a:string) => void) {
         this.item = item;
         this.oIcon = icon;
+        this.wl = wl;
     }
 
     /**
@@ -34,6 +38,11 @@ export class stepItem {
                     break;
                 case 'error':
                     setIcon(iconEl as HTMLElement, 'x');
+                    if (message) {
+                        this.wl(`\`\`\`diff
+- ${message}
+\`\`\``);
+                    }
                     break;
                 case 'pending':
                 case 'in-progress':
@@ -62,39 +71,58 @@ export class stepItem {
 export class processTracker {
     public progressContainer: HTMLElement; // Root element of the tracker UI, visibility managed externally
     private stepsContainer: HTMLElement;    // Container for actual step items
-    private filesContainer: HTMLElement;    // Container for the files section
+    public filesContainer: HTMLElement;    // Container for the files section
     private filesListContainer: HTMLElement; // Specific list element for appended files
+    public logsContainer: HTMLElement;
+    public logsMDContainer: HTMLElement;
     private steps: stepItem[] = [];
+    private logs: string = "";
 
-    constructor(private app: App, parentContainerForTracker: HTMLElement) {
-        // processTracker builds its UI inside the parentContainerForTracker
-        this.progressContainer = parentContainerForTracker.createDiv('limporter-progress-container');
-        // Initial display style (e.g., 'flex' or 'none') is managed by LimporterView
-
-        this.progressContainer.createEl('p', {
-            text: `This will process your file(s) and create structured notes based on its content.`,
-            cls: 'limporter-description'
-        });
-
-        this.stepsContainer = this.progressContainer.createDiv('limporter-steps-display-container');
-        this.stepsContainer.style.display = 'flex'; // Internal layout
-        this.stepsContainer.style.flexDirection = 'column';
-        this.stepsContainer.style.gap = '0.1rem';
-
-        this.filesContainer = this.progressContainer.createDiv('limporter-files-tracker-container');
+    constructor(private plugin: AutoFilePlugin, parentContainerForTracker: HTMLElement) {
+        this.filesContainer = parentContainerForTracker.createDiv('limporter-progress-container');
         this.filesContainer.style.marginTop = '1rem';
         this.filesContainer.createEl('h4', { text: 'Tracked Files:', cls: 'limporter-files-tracker-title' });
         this.filesListContainer = this.filesContainer.createDiv('limporter-files-list');
         this.filesListContainer.style.display = 'flex'; // Internal layout
         this.filesListContainer.style.flexDirection = 'column';
         this.filesListContainer.style.gap = '0.3rem';
+        
+        // processTracker builds its UI inside the parentContainerForTracker
+        this.progressContainer = parentContainerForTracker.createDiv('limporter-progress-container');
+        // Initial display style (e.g., 'flex' or 'none') is managed by LimporterView
+        this.progressContainer.style.marginTop = '1rem';
+        // this.progressContainer.createEl('p', {
+            //     text: `Steps tracked:`,
+            //     cls: 'limporter-description'
+            // });
+            this.progressContainer.createEl('h4', { text: 'Tracked Steps:', cls: 'limporter-files-tracker-title' });
+            
+            this.stepsContainer = this.progressContainer.createDiv('limporter-steps-display-container');
+            this.stepsContainer.style.display = 'flex'; // Internal layout
+            this.stepsContainer.style.flexDirection = 'column';
+            this.stepsContainer.style.gap = '0.1rem';
+            
+            this.logsContainer = parentContainerForTracker.createDiv('limporter-progress-container');
+            this.logsContainer.style.marginTop = '1rem';
+            this.logsContainer.createEl('h4', { text: 'Logs:', cls: 'limporter-files-tracker-title' });
+            this.logsMDContainer = this.logsContainer.createDiv('limporter-files-list');
+        MarkdownRenderer.render(this.plugin.app, this.logs, this.logsMDContainer, "", this.plugin)
     }
-
+    
     public resetTracker() {
+        this.logs = "";
         this.steps = [];
         this.stepsContainer.empty();
+        // this.progressContainer.empty();
         this.filesListContainer.empty();
+        this.logsMDContainer.empty()
         // Visibility of progressContainer is handled by LimporterView
+    }
+    
+    public writeLog(log: string): void {
+        this.logs +=log+"\n\n---\n\n";
+        // console.log(this.logs);
+        MarkdownRenderer.render(this.plugin.app, this.logs, this.logsMDContainer, "", this.plugin)
     }
 
     public appendStep(label: string, message: string, icon: string): stepItem {
@@ -110,19 +138,19 @@ export class processTracker {
 
         stepContent.createDiv('limporter-step-status'); // Placeholder, updateState will fill it
 
-        const stepItm = new stepItem(stepEl, icon);
+        const stepItm = new stepItem(stepEl, icon, this.writeLog);
         this.steps.push(stepItm);
         stepItm.updateState("in-progress", message);
         return stepItm;
     }
 
     public async appendFileByPath(filePath: string): Promise<void> {
-        if (!this.app) {
+        if (!this.plugin.app) {
             console.error("ProcessTracker: App instance is not available to resolve file path.");
             new Notice("ProcessTracker error: Cannot resolve file path.");
             return;
         }
-        const abstractFile = this.app.vault.getAbstractFileByPath(filePath);
+        const abstractFile = this.plugin.app.vault.getAbstractFileByPath(filePath);
         if (!abstractFile) {
             new Notice(`Tracked File: Not found at path: ${filePath}`);
             console.warn(`ProcessTracker: File not found at path: ${filePath}`);
@@ -145,17 +173,17 @@ export class processTracker {
         fileItemEl.addEventListener('click', async () => {
             // 1. Open and focus the clicked file in the main workspace
             let fileDisplayLeaf: WorkspaceLeaf | null = null;
-            const markdownLeaves = this.app.workspace.getLeavesOfType("markdown");
+            const markdownLeaves = this.plugin.app.workspace.getLeavesOfType("markdown");
 
             // Try to find an existing leaf that isn't a sidebar or special view
             // Or, use the current active leaf if it's a markdown view.
             // Otherwise, get a new leaf.
-            if (this.app.workspace.activeLeaf && this.app.workspace.activeLeaf.view.getViewType() === 'markdown') {
-                fileDisplayLeaf = this.app.workspace.activeLeaf;
+            if (this.plugin.app.workspace.activeLeaf && this.plugin.app.workspace.activeLeaf.view.getViewType() === 'markdown') {
+                fileDisplayLeaf = this.plugin.app.workspace.activeLeaf;
             } else if (markdownLeaves.length > 0) {
                 fileDisplayLeaf = markdownLeaves[0]; // Fallback to the first available markdown leaf
             } else {
-                fileDisplayLeaf = this.app.workspace.getLeaf(true); // Create a new leaf if none suitable
+                fileDisplayLeaf = this.plugin.app.workspace.getLeaf(true); // Create a new leaf if none suitable
             }
 
             if (!fileDisplayLeaf) {
@@ -165,21 +193,21 @@ export class processTracker {
             }
 
             await fileDisplayLeaf.openFile(file, { active: true }); // Open the file
-            this.app.workspace.setActiveLeaf(fileDisplayLeaf, { focus: true }); // Ensure it's the active leaf and focused
+            this.plugin.app.workspace.setActiveLeaf(fileDisplayLeaf, { focus: true }); // Ensure it's the active leaf and focused
 
             // new Notice(`Opened: ${file.basename}. Opening local graph...`);
 
             // 2. Open/update the local graph for this now active file
             let localGraphLeaf: WorkspaceLeaf | null = null;
-            const existingLocalGraphLeaves = this.app.workspace.getLeavesOfType('localgraph');
+            const existingLocalGraphLeaves = this.plugin.app.workspace.getLeavesOfType('localgraph');
 
             if (existingLocalGraphLeaves.length > 0) {
                 localGraphLeaf = existingLocalGraphLeaves[0];
-                this.app.workspace.revealLeaf(localGraphLeaf); // Ensure it's visible
+                this.plugin.app.workspace.revealLeaf(localGraphLeaf); // Ensure it's visible
             } else {
-                localGraphLeaf = this.app.workspace.getRightLeaf(true); // Try to open in right split
+                localGraphLeaf = this.plugin.app.workspace.getRightLeaf(true); // Try to open in right split
                 if (!localGraphLeaf || localGraphLeaf === fileDisplayLeaf) { // If no right split or it's the same as file display
-                    localGraphLeaf = this.app.workspace.getLeaf(true); // Fallback to a new tab
+                    localGraphLeaf = this.plugin.app.workspace.getLeaf(true); // Fallback to a new tab
                 }
             }
 
@@ -195,7 +223,7 @@ export class processTracker {
                         active: true, // Make the local graph leaf active
                     });
                 }
-                this.app.workspace.revealLeaf(localGraphLeaf); // Ensure it's revealed
+                this.plugin.app.workspace.revealLeaf(localGraphLeaf); // Ensure it's revealed
             } else {
                 new Notice("Could not open or find/create a leaf for the local graph.");
                 console.error("ProcessTracker: Could not obtain a suitable leaf for the local graph.");

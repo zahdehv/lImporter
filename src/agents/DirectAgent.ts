@@ -9,7 +9,7 @@ import {
 } from "@langchain/langgraph/web";
 import MyPlugin from "../main";
 
-import { createObsidianTools } from "./utils/tools";
+import { createObsidianTools } from "../utils/tools";
 
 
 export class reActAgentDirect {

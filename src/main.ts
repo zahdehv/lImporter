@@ -1,10 +1,10 @@
 
-import { App, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TextAreaComponent, ItemView, WorkspaceLeaf, DropdownComponent, setIcon } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TextAreaComponent, ItemView, WorkspaceLeaf, DropdownComponent, setIcon, prepareFuzzySearch, FuzzySuggestModal } from 'obsidian';
 import { FileItem } from './utils/fileUploader';
-import { processTracker } from './utils/processTracker'; // Ensure this path is correct
-import { FuzzySuggestModal } from 'obsidian';
-import { ClaimInstPipe, DefaultPipe, DirectPipe, LitePipe, LiteTESTPipe, Pipeline } from './agents/pipelines';
-// import { InteractiveProcessNotifier } from './utils/process'; // Commented out if not used/defined
+import { processTracker } from './utils/tracker'; // Ensure this path is correct
+import { ClaimInstPipe, DefaultPipe, DirectPipe, LitePipe, LiteTESTPipe, Pipeline } from './utils/pipelines';
+
+import { listFilesTree } from './utils/fileLister';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -13,7 +13,6 @@ interface AutoPluginSettings {
     autoCapture_image: boolean;
     autoCapture_document: boolean;
     autoCapture_plain_text: boolean;
-    // Add more autoCapture settings here if new categories are introduced
 }
 
 const DEFAULT_SETTINGS: AutoPluginSettings = {
@@ -33,7 +32,9 @@ class LimporterView extends ItemView {
     private abortController?: AbortController | any;
     private prompt = "";
     private isConfigVisible = false;
-    private isProgressVisible = true;
+    private isProgressVisible = false;
+    private isLogVisible = false;
+    private isTrackedFilesVisible = false;
     private fileItems: FileItem[] = [];
     private currentPipeline: Pipeline | null = null;
     private textAreaComponent?: TextAreaComponent;
@@ -63,15 +64,21 @@ class LimporterView extends ItemView {
         containerEl.empty();
         containerEl.addClass('limporter-view');
 
-        const textAreaContainer = containerEl.createDiv('limporter-textarea-container');
+        const textAreaContainer = containerEl.createDiv('limporter-config-container');
         textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
         this.createPipelineDropdown(textAreaContainer);
         this.createMaterialTextArea(textAreaContainer);
 
         this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
-        this.plugin.tracker = new processTracker(this.app, this.trackerContainer);
+        this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
         if (this.plugin.tracker.progressContainer) {
             this.plugin.tracker.progressContainer.style.display = this.isProgressVisible ? 'flex' : 'none';
+        }
+        if (this.plugin.tracker.filesContainer) {
+            this.plugin.tracker.filesContainer.style.display = this.isTrackedFilesVisible ? 'flex' : 'none';
+        }
+        if (this.plugin.tracker.logsContainer) {
+            this.plugin.tracker.logsContainer.style.display = this.isLogVisible ? 'flex' : 'none';
         }
 
         const filesContainer = this.createFilesContainer(containerEl);
@@ -100,8 +107,9 @@ class LimporterView extends ItemView {
 
     private createButtonContainer(container: HTMLElement): void {
         const buttonContainer = container.createDiv('limporter-button-container');
-        this.createConfigVisibilityButton(buttonContainer);
-        this.createProgressVisibilityButton(buttonContainer);
+        const SbuttonContainer = buttonContainer.createDiv('limporter-sbutton-container');
+        this.createProgressVisibilityButton(SbuttonContainer);
+        this.createConfigVisibilityButton(SbuttonContainer);
         this.createProcessButton(buttonContainer);
     }
 
@@ -175,12 +183,13 @@ class LimporterView extends ItemView {
     private createConfigVisibilityButton(container: HTMLElement): void {
         const button = container.createEl('button', {
             cls: 'limporter-button secondary',
-            text: this.isConfigVisible ? 'Hide CONFIG' : 'Show CONFIG'
+            // text: this.isConfigVisible ? 'CONFIG' : 'CONFIG'
         });
-        const textAreaContainer = this.containerEl.querySelector('.limporter-textarea-container') as HTMLElement;
+        setIcon(button, 'settings');
+        const textAreaContainer = this.containerEl.querySelector('.limporter-config-container') as HTMLElement;
         button.addEventListener('click', () => {
             this.isConfigVisible = !this.isConfigVisible;
-            button.setText(this.isConfigVisible ? 'Hide CONFIG' : 'Show CONFIG');
+            // button.setText(this.isConfigVisible ? 'CONFIG' : 'CONFIG');
             button.toggleClass('toggled-on', this.isConfigVisible);
             if (textAreaContainer) {
                 textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
@@ -192,25 +201,59 @@ class LimporterView extends ItemView {
     }
 
     private createProgressVisibilityButton(container: HTMLElement): void {
-        const button = container.createEl('button', {
+        const buttonFiles = container.createEl('button', {
             cls: 'limporter-button secondary',
-            text: this.isProgressVisible ? 'Hide Progress' : 'Show Progress'
+            // text: this.isTrackedFilesVisible ? 'PROGRESS' : 'PROGRESS'
         });
-        button.addEventListener('click', () => {
+        setIcon(buttonFiles, 'file');
+        buttonFiles.addEventListener('click', () => {
+            this.isTrackedFilesVisible = !this.isTrackedFilesVisible;
+            // buttonFiles.setText(this.isTrackedFilesVisible ? 'PROGRESS' : 'PROGRESS');
+            // setIcon(buttonFiles, 'bug-play')
+            buttonFiles.toggleClass('toggled-on', this.isTrackedFilesVisible);
+            if (this.plugin.tracker && this.plugin.tracker.filesContainer) {
+                this.plugin.tracker.filesContainer.style.display = this.isTrackedFilesVisible ? 'flex' : 'none';
+            }
+        });
+
+        const buttonProgress = container.createEl('button', {
+            cls: 'limporter-button secondary',
+            // text: this.isProgressVisible ? 'PROGRESS' : 'PROGRESS'
+        });
+        setIcon(buttonProgress, 'bug-play');
+        buttonProgress.addEventListener('click', () => {
             this.isProgressVisible = !this.isProgressVisible;
-            button.setText(this.isProgressVisible ? 'Hide Progress' : 'Show Progress');
-            button.toggleClass('toggled-on', this.isProgressVisible);
+            // buttonProgress.setText(this.isProgressVisible ? 'PROGRESS' : 'PROGRESS');
+            // setIcon(buttonProgress, 'bug-play')
+            buttonProgress.toggleClass('toggled-on', this.isProgressVisible);
             if (this.plugin.tracker && this.plugin.tracker.progressContainer) {
                 this.plugin.tracker.progressContainer.style.display = this.isProgressVisible ? 'flex' : 'none';
             }
         });
+
+        const buttonLogs = container.createEl('button', {
+            cls: 'limporter-button secondary',
+            // text: this.isLogVisible ? 'PROGRESS' : 'PROGRESS'
+        });
+        setIcon(buttonLogs, 'logs');
+        buttonLogs.addEventListener('click', () => {
+            this.isLogVisible = !this.isLogVisible;
+            // buttonLogs.setText(this.isLogVisible ? 'PROGRESS' : 'PROGRESS');
+            // setIcon(buttonLogs, 'bug-play')
+            buttonLogs.toggleClass('toggled-on', this.isLogVisible);
+            if (this.plugin.tracker && this.plugin.tracker.logsContainer) {
+                this.plugin.tracker.logsContainer.style.display = this.isLogVisible ? 'flex' : 'none';
+            }
+        });
+
     }
 
     private createAddButton(container: HTMLElement): void {
         const button = container.createEl('button', {
-            cls: 'limporter-button primary',
-            text: 'Add File'
+            cls: 'limporter-button secondary',
+            // text: 'Add File'
         });
+        setIcon(button, 'plus');
         button.style.marginTop = "0.5rem";
         button.addEventListener('click', () => {
             new FileSuggestionModal(this.app, this.plugin.SupportedFiles(), async (file) => { // Uses plugin.SupportedFiles() which will be updated
@@ -254,8 +297,9 @@ class LimporterView extends ItemView {
     private createProcessButton(container: HTMLElement): void {
         const button = container.createEl('button', {
             cls: 'limporter-button primary',
-            text: 'Process'
+            // text: 'Process'
         });
+        setIcon(button, "play")
         button.addEventListener('click', async () => {
             if (this.processing) {
                 this.abortController?.abort();
@@ -266,7 +310,7 @@ class LimporterView extends ItemView {
                 this.plugin.tracker.resetTracker();
             } else {
                 console.error("Tracker not initialized for reset");
-                this.plugin.tracker = new processTracker(this.app, this.trackerContainer);
+                this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
             }
 
             if (!this.currentPipeline) {
@@ -276,7 +320,8 @@ class LimporterView extends ItemView {
                 return;
             }
             button.addClass('stop-mode');
-            button.setText('Stop');
+            // button.setText('Stop');
+            setIcon(button, 'square')
             this.abortController = new AbortController();
             this.processing = true;
             try {
@@ -290,7 +335,8 @@ class LimporterView extends ItemView {
             } finally {
                 this.abortController = null;
                 button.removeClass('stop-mode');
-                button.setText('Process');
+                // button.setText('Process');
+                setIcon(button, 'play')
                 button.disabled = false;
                 this.processing = false;
             }
@@ -374,7 +420,7 @@ class AutoSettingTab extends PluginSettingTab {
 
 export default class AutoFilePlugin extends Plugin {
     settings: AutoPluginSettings;
-    tracker!: processTracker; // Definite assignment assertion
+    tracker!: processTracker;
     private statusBarItem!: HTMLElement;
     private ribbonIcon!: HTMLElement;
     public view: LimporterView | null = null;
@@ -415,25 +461,45 @@ export default class AutoFilePlugin extends Plugin {
         );
 
         this.addRibbonIcon('pen', 'Open Local Graph', async () => {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (!activeFile) {
-                new Notice('No active note to show local graph for');
-                return;
-            }
-            const localGraphLeaves = this.app.workspace.getLeavesOfType('localgraph');
-            if (localGraphLeaves.length > 0) {
-                const leaf = localGraphLeaves[0];
-                if (leaf.view && typeof (leaf.view as any).setFile === 'function') {
-                    (leaf.view as any).setFile(activeFile);
-                } else { 
-                    await leaf.setViewState({ type: 'localgraph', state: { file: activeFile.path }, active: true });
-                }
-                this.app.workspace.revealLeaf(leaf);
-            } else {
-                const leaf = this.app.workspace.getLeaf('split'); 
-                await leaf.setViewState({ type: 'localgraph', state: { file: activeFile.path }, active: true });
-                this.app.workspace.revealLeaf(leaf);
-            }
+        //     const activeFile = this.app.workspace.getActiveFile();
+        //     if (!activeFile) {
+        //         new Notice('No active note to show local graph for');
+        //         return;
+        //     }
+        //    console.log(this.app.metadataCache.getFileCache(activeFile)?.frontmatter?.Title);
+        
+        // const fzz = prepareFuzzySearch("Computer  Sciences");
+        // console.log(fzz("asdasfaf ComputerScience bajabajjajajajaa"));
+
+        try {
+            const rootPath = '/'; // Or specify a subfolder like 'MyFolder'
+            const maxDepth = 2; // Keep depth shallow if including content
+            const showFiles = true;
+            const showContent = true; // <<< Set to true to include content
+            const contentLines = 50;   // <<< Max lines per file
+
+            console.log(`Generating tree for '${rootPath}', depth ${maxDepth}, files: ${showFiles}, content: ${showContent} (${contentLines} lines)`);
+
+            const treeString = await listFilesTree(
+                this.app,
+                rootPath,
+                maxDepth,
+                showFiles,
+                showContent, // Pass the flag
+                contentLines // Pass max lines
+            );
+
+            console.log(treeString); // Log to console
+            new Notice('Generated file tree with content! Check console (Ctrl+Shift+I).');
+
+            // Optional: Display in a modal or temporary file
+            // Be careful: Including content can make the output very large!
+            // await this.app.vault.create('temp-tree-output.md', treeString);
+
+        } catch (error) {
+            console.error("Failed to generate file tree:", error);
+            new Notice(`Error generating tree: ${error.message}`);
+        }
         });
 
         this.ribbonIcon = this.addRibbonIcon('bot-message-square', 'Open lImporter', () => this.openView());

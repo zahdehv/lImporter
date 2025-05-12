@@ -9,7 +9,7 @@ import {
 } from "@langchain/langgraph/web";
 import MyPlugin from "../main";
 
-import { createObsidianTools } from "./utils/tools";
+import { createObsidianTools } from "../utils/tools";
 
 
 export class reActDefaultAgent {
@@ -21,7 +21,7 @@ export class reActDefaultAgent {
 
         const {writeFile, readFiles, moveFile, getGhostReferences, listFiles} = createObsidianTools(plugin);
       
-        const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences, listFiles]; // Added listFiles here
+        const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences, listFiles];
             
      const llm = new ChatGoogleGenerativeAI({
       //  model: "gemini-2.0-flash-lite",
@@ -30,9 +30,6 @@ export class reActDefaultAgent {
         temperature: 0.6,
         maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
-        // streaming: true,
-        
-        // other params...
       }).bindTools(agent_tools);
 
     const toolNodeForGraph = new ToolNode(agent_tools);

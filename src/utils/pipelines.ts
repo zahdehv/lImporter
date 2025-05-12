@@ -1,14 +1,14 @@
 import AutoFilePlugin from "src/main";
 import { FileItem } from "src/utils/fileUploader";
 import { direct_default_prompt, lim_default_prompt, prompt_get_claims_instructions } from "src/utils/promp";
-import { geminiPREP } from "./utils/generatePromptExternal";
-import { reActAgentClaimI } from "./ClaimInstAgent";
-import { reActAgentDirect } from "./DirectAgent";
-import { MSGBLD } from "./utils/genMessageMultimodalLG";
-import { reActLiteAgent } from "./LiteDEF";
-import { reActLiteAgentTEST } from "./LiteTESTMEM";
-import { listFilesTree } from "src/utils/filelist";
-import { reActDefaultAgent } from "./DefaultAgent";
+import { geminiPREP } from "../niche/generatePromptExternal";
+import { reActAgentClaimI } from "../agents/ClaimInstAgent";
+import { reActAgentDirect } from "../agents/DirectAgent";
+import { MSGBLD } from "../niche/genMessageMultimodalLG";
+import { reActLiteAgent } from "../agents/LiteDEF";
+import { reActLiteAgentTEST } from "../agents/LiteTESTMEM";
+import { listFilesTree } from "src/utils/fileLister";
+import { reActDefaultAgent } from "../agents/DefaultAgent";
 
 export abstract class Pipeline {
     protected plugin: AutoFilePlugin;
@@ -34,7 +34,7 @@ export class DefaultPipe extends Pipeline {
     async call(prompt: string, files: FileItem[], signal: AbortSignal){
         const msgbld = new MSGBLD(this.plugin);
                 const msg = await msgbld.genPrompt(files, prompt, signal);
-                const tree = await listFilesTree(this.plugin.app.vault, "", 3, true);
+                const tree = await listFilesTree(this.plugin.app, "", 3, true, true, 23)
                 msg.push({ type: 'text', text: `The current structure is
 ${tree}` });
                 if (msg && !signal.aborted) {
@@ -124,7 +124,7 @@ export class LitePipe extends Pipeline {
     async call(prompt: string, files: FileItem[], signal: AbortSignal){
         const msgbld = new MSGBLD(this.plugin);
                 const msg = await msgbld.genPrompt(files, prompt, signal);
-                const tree = await listFilesTree(this.plugin.app.vault, "", 3, true);
+                const tree = await listFilesTree(this.plugin.app, "", 3, true, true, 23);
                 msg.push({ type: 'text', text: `The current structure is
 ${tree}` });
                 if (msg && !signal.aborted) {
