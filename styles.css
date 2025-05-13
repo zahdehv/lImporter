@@ -6,7 +6,7 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    background-color: var(--background-primary);
+    background-color: var(--background-secondary);
     gap: 1rem; /* Consistent spacing between elements */
     overflow-y: auto;
 }
