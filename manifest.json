@@ -1,7 +1,7 @@
 {
   "id": "lImporter",
   "name": "lImporter",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "minAppVersion": "0.15.0",
   "description": "importing notes with llm basic service",
   "author": "zahdehv",
