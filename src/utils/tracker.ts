@@ -42,9 +42,8 @@ export class stepItem {
                         this.pT.writeLog(`
 ### ERROR
 \`\`\`diff
-- ${message.trim()}
-\`\`\``);
-     
+- ${message}
+\`\`\``);   
 }
                     break;
                 case 'pending':

@@ -31,9 +31,7 @@ class LimporterView extends ItemView {
     private processing = false;
     private abortController?: AbortController | any;
     private isConfigVisible = false;
-    private isProgressVisible = false;
-    private isLogVisible = false;
-    private isTrackedFilesVisible = false;
+    private isFileVisible = true;
 
     // Add this to your class properties:
     private activeToggleView: 'files' | 'progress' | 'logs' | null = null;
@@ -77,9 +75,6 @@ class LimporterView extends ItemView {
         this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
         this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
 
-        const filesContainer = this.createFilesContainer(containerEl);
-        this.renderFileItems(filesContainer);
-
         this.createButtonContainer(containerEl);
 
         if (this.dropdown && this.dropdown.selectEl) {
@@ -104,6 +99,10 @@ class LimporterView extends ItemView {
     private createButtonContainer(container: HTMLElement): void {
         const buttonContainer = container.createDiv('limporter-button-container');
 
+        const filesContainer = this.createFilesContainer(buttonContainer);
+        filesContainer.style.display = this.isFileVisible ? 'flex' : 'none';
+        this.renderFileItems(filesContainer);
+
         const textAreaContainer = buttonContainer.createDiv('limporter-config-container');
         textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
         this.createPipelineDropdown(textAreaContainer);
@@ -114,7 +113,7 @@ class LimporterView extends ItemView {
 
         SbuttonContainer.createDiv({ cls: 'my-plugin-vertical-separator' });
 
-        this.createConfigVisibilityButton(SbuttonContainer);
+        this.createConfigFileVisibilityButton(SbuttonContainer);
         this.createProcessButton(buttonContainer);
     }
 
@@ -185,17 +184,34 @@ class LimporterView extends ItemView {
         this.createAddButton(container);
     }
 
-    private createConfigVisibilityButton(container: HTMLElement): void {
-        const button = container.createEl('button', {
+    private createConfigFileVisibilityButton(container: HTMLElement): void {
+        const buttonF = container.createEl('button', {
+            cls: 'limporter-button secondary',
+            // text: this.isFileVisible ? 'CONFIG' : 'CONFIG'
+        });
+        setIcon(buttonF, 'file-up');
+        buttonF.toggleClass('toggled-on', this.isFileVisible);
+        const filesContainer = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
+        buttonF.addEventListener('click', () => {
+            this.isFileVisible = !this.isFileVisible;
+            // buttonF.setText(this.isFileVisible ? 'CONFIG' : 'CONFIG');
+            buttonF.toggleClass('toggled-on', this.isFileVisible);
+            if (filesContainer) {
+                filesContainer.style.display = this.isFileVisible ? 'flex' : 'none';
+            }
+        });
+        
+        const buttonC = container.createEl('button', {
             cls: 'limporter-button secondary',
             // text: this.isConfigVisible ? 'CONFIG' : 'CONFIG'
         });
-        setIcon(button, 'settings');
+        setIcon(buttonC, 'settings');
+        buttonC.toggleClass('toggled-on', this.isConfigVisible);
         const textAreaContainer = this.containerEl.querySelector('.limporter-config-container') as HTMLElement;
-        button.addEventListener('click', () => {
+        buttonC.addEventListener('click', () => {
             this.isConfigVisible = !this.isConfigVisible;
-            // button.setText(this.isConfigVisible ? 'CONFIG' : 'CONFIG');
-            button.toggleClass('toggled-on', this.isConfigVisible);
+            // buttonC.setText(this.isConfigVisible ? 'CONFIG' : 'CONFIG');
+            buttonC.toggleClass('toggled-on', this.isConfigVisible);
             if (textAreaContainer) {
                 textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
             }
@@ -243,7 +259,7 @@ class LimporterView extends ItemView {
         this.viewButtons.files = container.createEl('button', {
             cls: 'limporter-button secondary',
         });
-        setIcon(this.viewButtons.files, 'file');
+        setIcon(this.viewButtons.files, 'file-down');
         this.viewButtons.files.addEventListener('click', () => {
             if (this.activeToggleView === 'files') {
                 updateToggleViews(null); // Clicked active button, so toggle all off
@@ -279,7 +295,7 @@ class LimporterView extends ItemView {
         });
     
         // Initialize all views to be hidden and buttons to be off
-        updateToggleViews(null); // Or set this.activeToggleView to its initial desired state
+        updateToggleViews("progress"); // Or set this.activeToggleView to its initial desired state
     }
     
 

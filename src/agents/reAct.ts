@@ -10,29 +10,23 @@ import {
 import MyPlugin from "../main";
 
 import { createObsidianTools } from "../utils/tools";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { ZodObject, ZodTypeAny } from "zod";
 
 
 export class reActAgent {
     public agent: CompiledStateGraph<any,any,any>;
-    // private plugin: MyPlugin;
 
-    constructor(plugin: MyPlugin, model: string) {
-        // this.plugin = plugin;
+    constructor(plugin: MyPlugin, model: string, tools: DynamicStructuredTool<ZodObject<{}, "strip", ZodTypeAny, {}, {}>>[]) {
 
-        const {writeFile, readFiles, moveFile, getGhostReferences, listFiles} = createObsidianTools(plugin);
-      
-        const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences, listFiles];
-            
      const llm = new ChatGoogleGenerativeAI({
-      //  model: "gemini-2.0-flash-lite",
-      //  model: "gemini-2.0-flash",
         model: model,
         temperature: 0.6,
         maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
-      }).bindTools(agent_tools);
+      }).bindTools(tools);
 
-    const toolNodeForGraph = new ToolNode(agent_tools);
+    const toolNodeForGraph = new ToolNode(tools);
   
     const shouldContinue = (state: typeof MessagesAnnotation.State) => {
         const { messages } = state;

@@ -1,12 +1,17 @@
-import { direct_default_prompt, lim_default_prompt, prompt_get_claims_instructions } from "src/utils/promp";
+import { lim_default_prompt } from "src/utils/promp";
 import AutoFilePlugin from "src/main";
 import { FileItem } from "src/utils/fileUploader";
 import { preProcessor } from "./preprocessInput";
 import { listFilesTree } from "src/utils/fileLister";
 import { reActAgent } from "src/agents/reAct";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { ZodObject, ZodTypeAny } from "zod";
+import { createObsidianTools } from "./tools";
 
-const buildReact = (plugin: AutoFilePlugin, model: string): (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> => {
-    const reAct = new reActAgent(plugin, model);
+
+
+const buildReactParameterized = (plugin: AutoFilePlugin, model: string, tools: DynamicStructuredTool<ZodObject<{}, "strip", ZodTypeAny, {}, {}>>[]): (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> => {
+    const reAct = new reActAgent(plugin, model, tools);
     const preprocessor = new preProcessor(plugin);
 
     const call = async (prompt: string, files: FileItem[], signal: AbortSignal) => {
@@ -27,8 +32,14 @@ const buildReact = (plugin: AutoFilePlugin, model: string): (prompt: string, fil
             answerStep.updateState("pending");
         }
     }
-
+    
     return call;
+}
+
+const buildReact = (plugin: AutoFilePlugin, model: string): (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> => {
+    const {writeFile, readFiles, moveFile, getGhostReferences, listFiles} = createObsidianTools(plugin);
+    const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences, listFiles];
+    return buildReactParameterized(plugin, model, agent_tools)
 }
 
 export const models = [
