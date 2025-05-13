@@ -2,7 +2,7 @@
 import { App, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TextAreaComponent, ItemView, WorkspaceLeaf, DropdownComponent, setIcon, prepareFuzzySearch, FuzzySuggestModal } from 'obsidian';
 import { FileItem } from './utils/fileUploader';
 import { processTracker } from './utils/tracker'; // Ensure this path is correct
-import { ClaimInstPipe, DefaultPipe, DirectPipe, LitePipe, LiteTESTPipe, Pipeline } from './utils/pipelines';
+import { ClaimInstPipe, DefaultPipe, DirectPipe, LitePipe, LiteTESTPipe, Pipeline, pipelineOptions } from './utils/pipelines';
 
 import { listFilesTree } from './utils/fileLister';
 
@@ -30,13 +30,23 @@ class LimporterView extends ItemView {
     private plugin: AutoFilePlugin;
     private processing = false;
     private abortController?: AbortController | any;
-    private prompt = "";
     private isConfigVisible = false;
     private isProgressVisible = false;
     private isLogVisible = false;
     private isTrackedFilesVisible = false;
+
+    // Add this to your class properties:
+    private activeToggleView: 'files' | 'progress' | 'logs' | null = null;
+    private viewButtons: {
+        files?: HTMLButtonElement;
+        progress?: HTMLButtonElement;
+        logs?: HTMLButtonElement;
+    } = {};
+
     private fileItems: FileItem[] = [];
-    private currentPipeline: Pipeline | null = null;
+    private currentModel = "gemini-2.5-flash-preview-04-17";
+    private currentPrompt = "";
+    private currentPipeline: (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> | null;
     private textAreaComponent?: TextAreaComponent;
     private adjustPromptArea: () => void;
     private dropdown: DropdownComponent;
@@ -63,11 +73,6 @@ class LimporterView extends ItemView {
         const { containerEl } = this;
         containerEl.empty();
         containerEl.addClass('limporter-view');
-
-        const textAreaContainer = containerEl.createDiv('limporter-config-container');
-        textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
-        this.createPipelineDropdown(textAreaContainer);
-        this.createMaterialTextArea(textAreaContainer);
 
         this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
         this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
@@ -107,8 +112,17 @@ class LimporterView extends ItemView {
 
     private createButtonContainer(container: HTMLElement): void {
         const buttonContainer = container.createDiv('limporter-button-container');
+
+        const textAreaContainer = buttonContainer.createDiv('limporter-config-container');
+        textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
+        this.createPipelineDropdown(textAreaContainer);
+        this.createMaterialTextArea(textAreaContainer);
+
         const SbuttonContainer = buttonContainer.createDiv('limporter-sbutton-container');
         this.createProgressVisibilityButton(SbuttonContainer);
+
+        SbuttonContainer.createDiv({ cls: 'my-plugin-vertical-separator' });
+
         this.createConfigVisibilityButton(SbuttonContainer);
         this.createProcessButton(buttonContainer);
     }
@@ -201,52 +215,82 @@ class LimporterView extends ItemView {
     }
 
     private createProgressVisibilityButton(container: HTMLElement): void {
-        const buttonFiles = container.createEl('button', {
+        // Helper function to update the state of all toggleable views
+        const updateToggleViews = (newActiveView: 'files' | 'progress' | 'logs' | null) => {
+            this.activeToggleView = newActiveView;
+    
+            const views = [
+                {
+                    key: 'files' as const,
+                    button: this.viewButtons.files,
+                    containerEl: this.plugin.tracker?.filesContainer,
+                },
+                {
+                    key: 'progress' as const,
+                    button: this.viewButtons.progress,
+                    containerEl: this.plugin.tracker?.progressContainer,
+                },
+                {
+                    key: 'logs' as const,
+                    button: this.viewButtons.logs,
+                    containerEl: this.plugin.tracker?.logsContainer,
+                },
+            ];
+    
+            for (const view of views) {
+                const isActive = this.activeToggleView === view.key;
+                if (view.button) {
+                    view.button.toggleClass('toggled-on', isActive);
+                }
+                if (view.containerEl) {
+                    view.containerEl.style.display = isActive ? 'flex' : 'none';
+                }
+            }
+        };
+    
+        // --- Files Button ---
+        this.viewButtons.files = container.createEl('button', {
             cls: 'limporter-button secondary',
-            // text: this.isTrackedFilesVisible ? 'PROGRESS' : 'PROGRESS'
         });
-        setIcon(buttonFiles, 'file');
-        buttonFiles.addEventListener('click', () => {
-            this.isTrackedFilesVisible = !this.isTrackedFilesVisible;
-            // buttonFiles.setText(this.isTrackedFilesVisible ? 'PROGRESS' : 'PROGRESS');
-            // setIcon(buttonFiles, 'bug-play')
-            buttonFiles.toggleClass('toggled-on', this.isTrackedFilesVisible);
-            if (this.plugin.tracker && this.plugin.tracker.filesContainer) {
-                this.plugin.tracker.filesContainer.style.display = this.isTrackedFilesVisible ? 'flex' : 'none';
+        setIcon(this.viewButtons.files, 'file');
+        this.viewButtons.files.addEventListener('click', () => {
+            if (this.activeToggleView === 'files') {
+                updateToggleViews(null); // Clicked active button, so toggle all off
+            } else {
+                updateToggleViews('files'); // Clicked inactive button, so set it as active
             }
         });
-
-        const buttonProgress = container.createEl('button', {
+    
+        // --- Progress Button ---
+        this.viewButtons.progress = container.createEl('button', {
             cls: 'limporter-button secondary',
-            // text: this.isProgressVisible ? 'PROGRESS' : 'PROGRESS'
         });
-        setIcon(buttonProgress, 'bug-play');
-        buttonProgress.addEventListener('click', () => {
-            this.isProgressVisible = !this.isProgressVisible;
-            // buttonProgress.setText(this.isProgressVisible ? 'PROGRESS' : 'PROGRESS');
-            // setIcon(buttonProgress, 'bug-play')
-            buttonProgress.toggleClass('toggled-on', this.isProgressVisible);
-            if (this.plugin.tracker && this.plugin.tracker.progressContainer) {
-                this.plugin.tracker.progressContainer.style.display = this.isProgressVisible ? 'flex' : 'none';
+        setIcon(this.viewButtons.progress, 'bug-play'); // Or your preferred icon for progress
+        this.viewButtons.progress.addEventListener('click', () => {
+            if (this.activeToggleView === 'progress') {
+                updateToggleViews(null);
+            } else {
+                updateToggleViews('progress');
             }
         });
-
-        const buttonLogs = container.createEl('button', {
+    
+        // --- Logs Button ---
+        this.viewButtons.logs = container.createEl('button', {
             cls: 'limporter-button secondary',
-            // text: this.isLogVisible ? 'PROGRESS' : 'PROGRESS'
         });
-        setIcon(buttonLogs, 'logs');
-        buttonLogs.addEventListener('click', () => {
-            this.isLogVisible = !this.isLogVisible;
-            // buttonLogs.setText(this.isLogVisible ? 'PROGRESS' : 'PROGRESS');
-            // setIcon(buttonLogs, 'bug-play')
-            buttonLogs.toggleClass('toggled-on', this.isLogVisible);
-            if (this.plugin.tracker && this.plugin.tracker.logsContainer) {
-                this.plugin.tracker.logsContainer.style.display = this.isLogVisible ? 'flex' : 'none';
+        setIcon(this.viewButtons.logs, 'logs'); // Or your preferred icon for logs
+        this.viewButtons.logs.addEventListener('click', () => {
+            if (this.activeToggleView === 'logs') {
+                updateToggleViews(null);
+            } else {
+                updateToggleViews('logs');
             }
         });
-
+    
+        // Initialize all views to be hidden and buttons to be off
+        updateToggleViews(null); // Or set this.activeToggleView to its initial desired state
     }
+    
 
     private createAddButton(container: HTMLElement): void {
         const button = container.createEl('button', {
@@ -265,14 +309,26 @@ class LimporterView extends ItemView {
     }
 
     private createPipelineDropdown(container: HTMLElement): void {
-        const pipelineOptions = [
-            { id: 'default_agent', name: 'Default Agent', pipeline: () => new DefaultPipe(this.plugin) },
-            { id: 'lite_direct', name: 'Lite Agent', pipeline: () => new LitePipe(this.plugin) },
-            { id: 'direct_call', name: 'Direct Call', pipeline: () => new DirectPipe(this.plugin) },
-            { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
-            { id: 'lite_test', name: 'Lite TEST', pipeline: () => new LiteTESTPipe(this.plugin) },
-        ];
         const dropdownContainer = container.createDiv('limporter-dropdown-container');
+
+        const models = [
+            {id: "gemini-2.5-flash-preview-04-17"},
+            {id: "gemini-2.0-flash"},
+            {id: "gemini-2.0-flash-lite"},
+        ]
+
+        new Setting(dropdownContainer)
+            .setName('Model:')
+            .addDropdown(dropdown => {
+                this.dropdown = dropdown
+                    .addOptions(Object.fromEntries(models.map(opt => [opt.id, opt.id])))
+                    .onChange(async (value) => {
+                        if (value) {
+                            const selected = models.find(opt => opt.id === value);
+                            if (selected) this.currentModel = selected.id;
+                        }
+                    });
+            });
         new Setting(dropdownContainer)
             .setName('Pipeline:')
             .addDropdown(dropdown => {
@@ -282,10 +338,10 @@ class LimporterView extends ItemView {
                         if (value) {
                             const selected = pipelineOptions.find(opt => opt.id === value);
                             if (selected) {
-                                this.currentPipeline = selected.pipeline();
-                                this.prompt = this.currentPipeline.default_prompt;
+                                this.currentPipeline = selected.buildPipeline(this.plugin, "gemini-2.0-flash");
+                                this.currentPrompt = selected.defaultPrompt;
                                 if (this.textAreaComponent) {
-                                    this.textAreaComponent.setValue(this.prompt);
+                                    this.textAreaComponent.setValue(this.currentPrompt);
                                     this.adjustPromptArea();
                                 }
                             }
@@ -326,7 +382,7 @@ class LimporterView extends ItemView {
             this.processing = true;
             try {
                 const signal = this.abortController.signal;
-                await this.currentPipeline.call(this.prompt, this.fileItems, signal);
+                await this.currentPipeline(this.currentPrompt, this.fileItems, signal);
             } catch (error: any) {
                 console.error(error);
                 const errorMsg = error instanceof Error ? error.message : String(error);
@@ -347,7 +403,7 @@ class LimporterView extends ItemView {
         this.textAreaComponent = new TextAreaComponent(container)
             .setPlaceholder("Type your message...")
             .setValue("")
-            .onChange((value) => this.prompt = value);
+            .onChange((value) => this.currentPrompt = value);
         const textAreaEl = this.textAreaComponent.inputEl;
         textAreaEl.addClass("material-textarea");
         this.adjustPromptArea = () => {

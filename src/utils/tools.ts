@@ -31,7 +31,11 @@ export function createObsidianTools(plugin: MyPlugin) {
         return new Promise(async (resolve, reject) => {
             const wrt_trk = tracker.appendStep("Write File", input.path, "file-edit");
             try {
-                if (input.path.includes(".lim")) throw new Error("Cannot write a .lim file");
+                if (input.path.includes(".lim")) {
+                    // throw new Error("Cannot write a .lim file");
+                    wrt_trk.updateState("error", "Cannot write a .lim file");
+                    reject(new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`));
+                }
 
                 const contentWithNewlines = input.content.replace(/\\n/g, '\n');
                 const newContent = contentWithNewlines.replace(/---\s/g, '---\n');
@@ -158,8 +162,13 @@ ${patch}
         return new Promise(async (resolve, reject) => {
             const move_trk = tracker.appendStep("Move File", `${input.sourcePath} -> ${input.targetPath}`, "scissors");
             try {
-                if (input.sourcePath.includes(".lim")) throw new Error("Cannot move a .lim file");
-                ;
+                if (input.sourcePath.includes(".lim")) {
+                    // throw new Error("Cannot move a .lim file");
+                    move_trk.updateState("error", "Cannot move a .lim file");
+                    reject(new Error("Cannot move a .lim file"));
+                    return;
+                }
+                
                 const file = vault.getAbstractFileByPath(input.sourcePath);
                 if (!file) {
                     const errorMsg = `File not found: ${input.sourcePath}`;

@@ -8,6 +8,7 @@
     flex-direction: column;
     background-color: var(--background-primary);
     gap: 1rem; /* Consistent spacing between elements */
+    overflow-y: auto;
 }
 
 /* ================= */
@@ -15,7 +16,7 @@
 /* ================= */
 .limporter-config-container {
     /* margin-top: auto; */
-    order: 3; /* First visually */
+    /* order: 3; First visually */
     /* margin: 0 0 1rem 0; */ /* Managed by main gap */
     background: var(--background-secondary);
     border-radius: 8px;
@@ -34,7 +35,7 @@
     font-family: inherit;
     color: var(--text-normal);
     line-height: 1.5;
-    max-height: 113px; /* Or adjust as needed */
+    max-height: 231px; /* Or adjust as needed */
     overflow-y: auto; /* Changed from scroll to auto */
 }
 
@@ -50,6 +51,7 @@
     background: var(--background-secondary); /* Already part of textarea-container */
     /* border-radius: 8px; */ /* Handled by parent */
     padding: 0.8rem 0; /* Adjust padding if it's inside another padded container */
+    display: flex; flex-direction: column; gap: 0.23rem;
     margin-bottom: 1rem;
     /* border: 1px solid var(--background-modifier-border); */ /* Handled by parent */
 }
@@ -95,7 +97,7 @@
     padding: 0.7rem;
     background: var(--background-secondary);
     border-radius: 8px;
-    max-height: 250px; /* Adjust as needed */
+    height: auto; /* Adjust as needed */
     overflow-y: auto;
     border: 1px solid var(--background-modifier-border);
     flex: 1; /* If inside a flex container like tracker-main-container and should grow */
@@ -110,6 +112,16 @@
 .limporter-steps-display-container {
     /* Styles for the container of step items, managed by processTracker.ts */
     display: flex; flex-direction: column; gap: 0.1rem;
+    /* max-height: 300px; */
+
+    flex-grow: 1;       /* Take up all available vertical space */
+    overflow-y: auto;   /* Enable vertical scrolling ONLY for this area */
+    min-height: 0;      /* Flexbox overflow fix/best practice */
+
+    /* --- Styling --- */
+    padding: 10px;
+    /* background-color: #f0f0f0; */
+
 }
 
 .limporter-progress-step {
@@ -222,8 +234,8 @@
 .limporter-files-container {
     order: 1; /* Third visually */
     /* flex: 1; Takes remaining available space if view is tall */
-    min-height: 10px; /* Ensure it's visible even if empty initially */
-    max-height: 300px; /* Or a percentage of viewport */
+    min-height: min-content; /* Ensure it's visible even if empty initially */
+    /* max-height: 300px; Or a percentage of viewport */
     /* height: 80px; */
     display: flex;
     flex-direction: column;
@@ -322,7 +334,7 @@
 /* BUTTON CONTAINER (bottom controls) */
 /* ================== */
 .limporter-button-container {
-    order: 4; /* Last visually */
+    order: 3; /* Last visually */
     margin-top: auto; /* Pushes to bottom if parent is flex column */
     display: flex;
     flex-direction: column; /* Buttons side-by-side */
@@ -451,3 +463,20 @@
     transform: scale(1.1);
     color: var(--interactive-accent);
 }
+
+.my-plugin-vertical-separator {
+    width: 1px; /* Thickness of the line */
+    background-color: var(--divider-color); /* Use Obsidian variable */
+    /* Or use a specific color: background-color: #cccccc; */
+  
+    /* Adjust vertical alignment if parent doesn't use align-items: stretch */
+    /* align-self: stretch; */ /* Can override parent's align-items */
+  
+    /* Add horizontal spacing */
+    margin-left: var(--size-4-2); /* e.g., 8px */
+    margin-right: var(--size-4-2);
+    /* Or use specific margins:
+       margin-left: 8px;
+       margin-right: 8px;
+    */
+  }

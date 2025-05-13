@@ -6,12 +6,12 @@ import { threadId } from "worker_threads";
 export class stepItem {
     private item: HTMLDivElement; // The main div element for the step
     private oIcon: string; // Original icon specified for the step
-    private wl: (a:string)=> void;
+    private pT: processTracker;
 
-    constructor(item: HTMLDivElement, icon: string, wl: (a:string) => void) {
+    constructor(item: HTMLDivElement, icon: string, pT: processTracker) {
         this.item = item;
         this.oIcon = icon;
-        this.wl = wl;
+        this.pT = pT;
     }
 
     /**
@@ -39,10 +39,13 @@ export class stepItem {
                 case 'error':
                     setIcon(iconEl as HTMLElement, 'x');
                     if (message) {
-                        this.wl(`\`\`\`diff
-- ${message}
+                        this.pT.writeLog(`
+### ERROR
+\`\`\`diff
+- ${message.trim()}
 \`\`\``);
-                    }
+     
+}
                     break;
                 case 'pending':
                 case 'in-progress':
@@ -77,9 +80,10 @@ export class processTracker {
     public logsMDContainer: HTMLElement;
     private steps: stepItem[] = [];
     private logs: string = "";
-
-    constructor(private plugin: AutoFilePlugin, parentContainerForTracker: HTMLElement) {
-        this.filesContainer = parentContainerForTracker.createDiv('limporter-progress-container');
+    private plugin;
+    constructor(plugin: AutoFilePlugin, parentContainerForTracker: HTMLElement) {
+        this.plugin = plugin;
+        this.filesContainer = parentContainerForTracker.createDiv('limporter-steps-display-container');
         this.filesContainer.style.marginTop = '1rem';
         this.filesContainer.createEl('h4', { text: 'Tracked Files:', cls: 'limporter-files-tracker-title' });
         this.filesListContainer = this.filesContainer.createDiv('limporter-files-list');
@@ -88,7 +92,7 @@ export class processTracker {
         this.filesListContainer.style.gap = '0.3rem';
         
         // processTracker builds its UI inside the parentContainerForTracker
-        this.progressContainer = parentContainerForTracker.createDiv('limporter-progress-container');
+        this.progressContainer = parentContainerForTracker.createDiv('limporter-steps-display-container');
         // Initial display style (e.g., 'flex' or 'none') is managed by LimporterView
         this.progressContainer.style.marginTop = '1rem';
         // this.progressContainer.createEl('p', {
@@ -102,7 +106,7 @@ export class processTracker {
             this.stepsContainer.style.flexDirection = 'column';
             this.stepsContainer.style.gap = '0.1rem';
             
-            this.logsContainer = parentContainerForTracker.createDiv('limporter-progress-container');
+            this.logsContainer = parentContainerForTracker.createDiv('limporter-steps-display-container');
             this.logsContainer.style.marginTop = '1rem';
             this.logsContainer.createEl('h4', { text: 'Logs:', cls: 'limporter-files-tracker-title' });
             this.logsMDContainer = this.logsContainer.createDiv('limporter-files-list');
@@ -138,7 +142,7 @@ export class processTracker {
 
         stepContent.createDiv('limporter-step-status'); // Placeholder, updateState will fill it
 
-        const stepItm = new stepItem(stepEl, icon, this.writeLog);
+        const stepItm = new stepItem(stepEl, icon, this);
         this.steps.push(stepItm);
         stepItm.updateState("in-progress", message);
         return stepItm;
@@ -205,9 +209,9 @@ export class processTracker {
                 localGraphLeaf = existingLocalGraphLeaves[0];
                 this.plugin.app.workspace.revealLeaf(localGraphLeaf); // Ensure it's visible
             } else {
-                localGraphLeaf = this.plugin.app.workspace.getRightLeaf(true); // Try to open in right split
+                localGraphLeaf = this.plugin.app.workspace.getRightLeaf(false); // Try to open in right split
                 if (!localGraphLeaf || localGraphLeaf === fileDisplayLeaf) { // If no right split or it's the same as file display
-                    localGraphLeaf = this.plugin.app.workspace.getLeaf(true); // Fallback to a new tab
+                    localGraphLeaf = this.plugin.app.workspace.getLeaf(false); // Fallback to a new tab
                 }
             }
 

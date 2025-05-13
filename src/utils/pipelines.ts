@@ -9,6 +9,7 @@ import { reActLiteAgent } from "../agents/LiteDEF";
 import { reActLiteAgentTEST } from "../agents/LiteTESTMEM";
 import { listFilesTree } from "src/utils/fileLister";
 import { reActDefaultAgent } from "../agents/DefaultAgent";
+import { reActAgent } from "src/agents/reAct";
 
 export abstract class Pipeline {
     protected plugin: AutoFilePlugin;
@@ -22,37 +23,6 @@ export abstract class Pipeline {
     async call(prompt: string, files: FileItem[], signal: AbortSignal){}
 }
 
-export class DefaultPipe extends Pipeline {
-    private preprocessor: MSGBLD;
-    private reAct: reActDefaultAgent;
-    constructor(plugin: AutoFilePlugin) {
-        super(plugin);
-        this.reAct = new reActDefaultAgent(this.plugin);
-        this.default_prompt = lim_default_prompt;
-        this.name = "default_pipeline"
-    }
-    async call(prompt: string, files: FileItem[], signal: AbortSignal){
-        const msgbld = new MSGBLD(this.plugin);
-                const msg = await msgbld.genPrompt(files, prompt, signal);
-                const tree = await listFilesTree(this.plugin.app, "", 3, true, true, 23)
-                msg.push({ type: 'text', text: `The current structure is
-${tree}` });
-                if (msg && !signal.aborted) {
-                    const finalState = await this.reAct.agent.invoke({
-                        messages: [{ role: "user", content: msg }],
-                    }, { recursionLimit: 113, signal });
-                          
-                    const answer = finalState.messages[finalState.messages.length - 1].content;
-                    const answerStep = this.plugin.tracker.appendStep(
-                        `Answer`, 
-                        answer, 
-                        "bot-message-square"
-                    );
-                    answerStep.updateState("pending");
-                }
-    }
-
-}
 
 export class ClaimInstPipe extends Pipeline {
     private preprocessor: geminiPREP;
@@ -172,3 +142,67 @@ export class LiteTESTPipe extends Pipeline {
     }
 
 }
+
+export class DefaultPipe extends Pipeline {
+    private preprocessor: MSGBLD;
+    private reAct: reActDefaultAgent;
+    constructor(plugin: AutoFilePlugin) {
+        super(plugin);
+        this.reAct = new reActDefaultAgent(this.plugin);
+        this.default_prompt = lim_default_prompt;
+        this.name = "default_pipeline"
+    }
+    async call(prompt: string, files: FileItem[], signal: AbortSignal){
+        const msgbld = new MSGBLD(this.plugin);
+                const msg = await msgbld.genPrompt(files, prompt, signal);
+                const tree = await listFilesTree(this.plugin.app, "", 3, true, true, 23)
+                msg.push({ type: 'text', text: tree });
+                if (msg && !signal.aborted) {
+                    const finalState = await this.reAct.agent.invoke({
+                        messages: [{ role: "user", content: msg }],
+                    }, { recursionLimit: 113, signal });
+                          
+                    const answer = finalState.messages[finalState.messages.length - 1].content;
+                    const answerStep = this.plugin.tracker.appendStep(
+                        `Answer`, 
+                        answer, 
+                        "bot-message-square"
+                    );
+                    answerStep.updateState("pending");
+                }
+    }
+
+}
+const buildReact = (plugin: AutoFilePlugin, model: string): (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> => {
+    const reAct = new reActAgent(plugin);
+    const preprocessor = new MSGBLD(plugin);
+
+    const call = async (prompt: string, files: FileItem[], signal: AbortSignal) => {
+        const msg = await preprocessor.genPrompt(files, prompt, signal);
+        const tree = await listFilesTree(plugin.app, "", 3, true, true, 23)
+        msg.push({ type: 'text', text: tree });
+        if (msg && !signal.aborted) {
+            const finalState = await reAct.agent.invoke({
+                messages: [{ role: "user", content: msg }],
+            }, { recursionLimit: 113, signal });
+                    
+            const answer = finalState.messages[finalState.messages.length - 1].content;
+            const answerStep = plugin.tracker.appendStep(
+                `Answer`, 
+                answer, 
+                "bot-message-square"
+            );
+            answerStep.updateState("pending");
+        }
+    }
+
+    return call;
+}
+
+export const pipelineOptions = [
+            { id: 'react', name: 'reAct Agent', defaultPrompt: lim_default_prompt, buildPipeline: buildReact },
+            // { id: 'lite_direct', name: 'Lite Agent', pipeline: () => new LitePipe(this.plugin) },
+            // { id: 'direct_call', name: 'Direct Call', pipeline: () => new DirectPipe(this.plugin) },
+            // { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
+            // { id: 'lite_test', name: 'Lite TEST', pipeline: () => new LiteTESTPipe(this.plugin) },
+        ];
