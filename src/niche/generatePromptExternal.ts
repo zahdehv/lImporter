@@ -1,21 +1,15 @@
 import { GoogleGenerativeAI, GenerativeModel, ChatSession, FunctionDeclaration } from '@google/generative-ai';
-import { FileItem, FileUploader } from './fileUploader';
-import { prompt_get_claims_instructions } from 'src/promp';
+import { FileItem, FileUploader } from '../utils/fileUploader';
+import { prompt_get_claims_instructions } from 'src/utils/promp';
 import AutoFilePlugin from 'src/main';
 import { trace } from 'console';
 
-export class ttsBase {
-    constructor() {}
-    public async transcribe(tfile: FileItem[], instruction: string, signal: AbortSignal): Promise<string|null> {
-        return "A";
-    }
-}
-export class ttsGeminiFL extends ttsBase {
+
+export class geminiPREP {
     private upldr: FileUploader;
     private model: GenerativeModel;
     private plugin: AutoFilePlugin
     constructor(plugin: AutoFilePlugin) {
-        super();
         this.plugin = plugin;
         const genAI = new GoogleGenerativeAI(plugin.settings.GOOGLE_API_KEY);
         
@@ -25,7 +19,7 @@ export class ttsGeminiFL extends ttsBase {
                 });
         this.upldr = new FileUploader(plugin.settings.GOOGLE_API_KEY);
     }
-    public async transcribe(tfiles: FileItem[], instruction: string, signal: AbortSignal): Promise<string|null> { // Update return type promise
+    public async preprocess(tfiles: FileItem[], instruction: string, signal: AbortSignal): Promise<string|null> { // Update return type promise
         // await sleep(2000000);
         const context = [];
         for (const tfile of tfiles) {
@@ -41,7 +35,9 @@ export class ttsGeminiFL extends ttsBase {
                 upld_trk.updateState("complete", "File uploaded succesfully!");
             } catch (error) {
                 console.error(error);
-                upld_trk.updateState("error", error);
+                upld_trk.updateState("error",  error); this.plugin.tracker.writeLog(`\`\`\`diff
+- ${ error}
+\`\`\``);
                 return null;
             }
             
