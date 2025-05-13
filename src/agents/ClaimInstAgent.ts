@@ -8,7 +8,7 @@ import {
     CompiledStateGraph
 } from "@langchain/langgraph/web";
 import MyPlugin from "../main";
-import { createObsidianTools } from "./utils/tools";
+import { createObsidianTools } from "../utils/tools";
 
 export class reActAgentClaimI {
     public agent: CompiledStateGraph<any,any,any>;

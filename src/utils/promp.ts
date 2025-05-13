@@ -1,3 +1,9 @@
+export const lim_default_prompt = `Sigue las siguientes instrucciones:
+1. En caso de existir algun archivo que contenga '.lim' en el nombre, debes revisar sus contenidos.
+2. De acuerdo a las instrucciones en ese archivo y los archivos en el contexto, debes crear o modificar notas.
+3. Debes extraer la informacion de esos archivos, no copiar/pegar lo q dicen
+4. Debes revisar antes de terminar el proceso que no existan referencias fantasmas.`
+
 // preproc prompt
 export const direct_default_prompt = `Crea una jerarquia de notas basado en el contenido.`;
 

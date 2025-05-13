@@ -12,7 +12,7 @@ import MyPlugin from "../main";
 import { createObsidianTools } from "../utils/tools";
 
 
-export class reActAgentDirect {
+export class reActDefaultAgent {
     public agent: CompiledStateGraph<any,any,any>;
     // private plugin: MyPlugin;
 
@@ -21,16 +21,15 @@ export class reActAgentDirect {
 
         const {writeFile, readFiles, moveFile, getGhostReferences, listFiles} = createObsidianTools(plugin);
       
-        const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences, listFiles]; // Added listFiles here
+        const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences, listFiles];
             
      const llm = new ChatGoogleGenerativeAI({
+      //  model: "gemini-2.0-flash-lite",
+      //  model: "gemini-2.0-flash",
         model: "gemini-2.5-flash-preview-04-17",
-        temperature: 0.3,
+        temperature: 0.6,
         maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
-        // streaming: true,
-        
-        // other params...
       }).bindTools(agent_tools);
 
     const toolNodeForGraph = new ToolNode(agent_tools);

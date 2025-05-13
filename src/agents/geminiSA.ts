@@ -1,6 +1,6 @@
 import { GoogleGenAI, Part, Type } from "@google/genai";
-import { FileItem } from "../../utils/fileUploader";
-import { processTracker } from "../../utils/processTracker";
+import { FileItem } from "../utils/fileUploader";
+import { processTracker } from "../utils/tracker";
 import { MarkdownRenderer } from "obsidian";
 // READ(embed with cornell idea) -> CREATE -> CHECK
 export class KsAgent {
@@ -73,10 +73,3 @@ export class KsAgent {
         }
 }
 }
-// Initialize the client
-
-
-// Specify the model (Gemini 2.5 Flash)
-
-// chat.getHistory(true);
-// Function to generate content

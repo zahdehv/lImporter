@@ -3,7 +3,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import * as Diff from 'diff';
-import MyPlugin from "../../main"; // Adjust path if needed
+import MyPlugin from "../main"; // Adjust path if needed
 import {
     write_file_description,
     write_file_path_description,
@@ -31,8 +31,10 @@ export function createObsidianTools(plugin: MyPlugin) {
         return new Promise(async (resolve, reject) => {
             const wrt_trk = tracker.appendStep("Write File", input.path, "file-edit");
             try {
-                const prev = vault.getFiles().map((a) => a.path).sort();
+                if (input.path.includes(".lim")) throw new Error("Cannot write a .lim file");
+
                 const contentWithNewlines = input.content.replace(/\\n/g, '\n');
+                const newContent = contentWithNewlines.replace(/---\s/g, '---\n');
                 const folderPath = input.path.split('/').slice(0, -1).join('/');
                 const filePath = input.path;
 
@@ -43,30 +45,25 @@ export function createObsidianTools(plugin: MyPlugin) {
                     }
                 }
 
-                const fileExists = await vault.adapter.exists(filePath);
-                // Removed unused existingContent and actionc for now
-                // let existingContent = '';
-                // let actionc: "change" | "create" | "delete" = 'create';
-                // if (fileExists) {
-                //     existingContent = await vault.adapter.read(filePath);
-                //     actionc = 'change';
-                // }
-
+                const fileExists = await vault.adapter.exists(filePath);                
+                
                 try {
-                    await vault.adapter.write(filePath, contentWithNewlines);
+                    let oldContent = "";
+                    if (fileExists) oldContent = await vault.adapter.read(filePath);
+                    await vault.adapter.write(filePath, newContent);
 
-                    const post = vault.getFiles().map((a) => a.path).sort();
-                    const difff = Diff.diffArrays(prev, post);
-
-                    let files = "";
-                    for (let i = 0; i < difff.length; i++) {
-                        let suffix = "";
-                        if (difff[i].removed) { suffix = "(file removed)"; }
-                        else if (difff[i].added) { suffix = "(file added)"; }
-                        for (let j = 0; j < difff[i].value.length; j++) { files += `- ${difff[i].value[j]} ${suffix}\n`; }
-                    }
+                    console.log('oldContent');
+                    console.log(oldContent);
+                    console.log('contentWithNewlines');
+                    console.log(newContent);
+                    const patch = Diff.createPatch(input.path, oldContent, newContent);
+                    console.log(patch);
+                    tracker.writeLog(`\`\`\`diff
+${patch}
+\`\`\``)
                     wrt_trk.updateState("complete");
-                    resolve(`El llamado a funcion se completo correctamente.\nResultado:\n${files}`);
+                    tracker.appendFileByPath(input.path);
+                    resolve(`El llamado a funcion se completo correctamente.`);
 
                 } catch (writeError) {
                     wrt_trk.updateState("error", writeError);
@@ -90,6 +87,7 @@ export function createObsidianTools(plugin: MyPlugin) {
     const readFiles = tool(async (input: { paths: string[] }) => {
         return new Promise(async (resolve, reject) => {
             const read_trk = tracker.appendStep("Read Files", "Match filenames", "file-search");
+           
             try {
                 const allFiles = vault.getFiles();
                 const matchedFiles = allFiles.filter(file => {
@@ -135,6 +133,7 @@ export function createObsidianTools(plugin: MyPlugin) {
                     }
                     const fl_trk = tracker.appendStep(stepTitle, `Size: ${file.size} bytes`, "file-check");
                     fl_trk.updateState("complete"); // Mark as complete since read succeeded
+                    if (plugin.settings.track_ReadFiles) tracker.appendFileByPath(file.path);
                     return `File: ${file.path}\nSize: ${file.size} bytes\nLast Modified: ${file.lastModified}\nContent:\n${file.content}\n`;
                 }).join('\n---\n');
 
@@ -159,6 +158,8 @@ export function createObsidianTools(plugin: MyPlugin) {
         return new Promise(async (resolve, reject) => {
             const move_trk = tracker.appendStep("Move File", `${input.sourcePath} -> ${input.targetPath}`, "scissors");
             try {
+                if (input.sourcePath.includes(".lim")) throw new Error("Cannot move a .lim file");
+                ;
                 const file = vault.getAbstractFileByPath(input.sourcePath);
                 if (!file) {
                     const errorMsg = `File not found: ${input.sourcePath}`;
@@ -174,6 +175,7 @@ export function createObsidianTools(plugin: MyPlugin) {
 
                 await vault.rename(file, input.targetPath);
                 move_trk.updateState("complete");
+                if (plugin.settings.track_ReadFiles) tracker.appendFileByPath(input.targetPath);
                 resolve(`File moved successfully from ${input.sourcePath} to ${input.targetPath}`);
             } catch (error) {
                 move_trk.updateState("error", error);
@@ -319,7 +321,7 @@ export function createObsidianTools(plugin: MyPlugin) {
     // --- Return the collection of tools ---
     return {
         writeFile,
-        readFiles,
+        readFiles, // Change to query
         moveFile,
         getGhostReferences,
         listFiles,
