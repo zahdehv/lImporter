@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, GenerativeModel, ChatSession, FunctionDeclaration } from '@google/generative-ai';
-import { FileItem, FileUploader } from '../utils/fileUploader';
+import { FileItem, FileUploader } from '../../utils/fileUploader';
 import { prompt_get_claims_instructions } from 'src/utils/promp';
 import AutoFilePlugin from 'src/main';
 import { trace } from 'console';

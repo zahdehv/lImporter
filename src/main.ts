@@ -2,9 +2,9 @@
 import { App, Notice, Plugin, PluginSettingTab, Setting, TAbstractFile, TFile, TextAreaComponent, ItemView, WorkspaceLeaf, DropdownComponent, setIcon, prepareFuzzySearch, FuzzySuggestModal } from 'obsidian';
 import { FileItem } from './utils/fileUploader';
 import { processTracker } from './utils/tracker'; // Ensure this path is correct
-import { ClaimInstPipe, DefaultPipe, DirectPipe, LitePipe, LiteTESTPipe, Pipeline, pipelineOptions } from './utils/pipelines';
+import { models, pipelineOptions } from './utils/pipelines';
 
-import { listFilesTree } from './utils/fileLister';
+// import { listFilesTree } from './utils/fileLister';
 
 interface AutoPluginSettings {
     GOOGLE_API_KEY: string;
@@ -76,15 +76,6 @@ class LimporterView extends ItemView {
 
         this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
         this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
-        if (this.plugin.tracker.progressContainer) {
-            this.plugin.tracker.progressContainer.style.display = this.isProgressVisible ? 'flex' : 'none';
-        }
-        if (this.plugin.tracker.filesContainer) {
-            this.plugin.tracker.filesContainer.style.display = this.isTrackedFilesVisible ? 'flex' : 'none';
-        }
-        if (this.plugin.tracker.logsContainer) {
-            this.plugin.tracker.logsContainer.style.display = this.isLogVisible ? 'flex' : 'none';
-        }
 
         const filesContainer = this.createFilesContainer(containerEl);
         this.renderFileItems(filesContainer);
@@ -311,12 +302,6 @@ class LimporterView extends ItemView {
     private createPipelineDropdown(container: HTMLElement): void {
         const dropdownContainer = container.createDiv('limporter-dropdown-container');
 
-        const models = [
-            {id: "gemini-2.5-flash-preview-04-17"},
-            {id: "gemini-2.0-flash"},
-            {id: "gemini-2.0-flash-lite"},
-        ]
-
         new Setting(dropdownContainer)
             .setName('Model:')
             .addDropdown(dropdown => {
@@ -338,7 +323,7 @@ class LimporterView extends ItemView {
                         if (value) {
                             const selected = pipelineOptions.find(opt => opt.id === value);
                             if (selected) {
-                                this.currentPipeline = selected.buildPipeline(this.plugin, "gemini-2.0-flash");
+                                this.currentPipeline = selected.buildPipeline(this.plugin, this.currentModel);
                                 this.currentPrompt = selected.defaultPrompt;
                                 if (this.textAreaComponent) {
                                     this.textAreaComponent.setValue(this.currentPrompt);
@@ -527,35 +512,36 @@ export default class AutoFilePlugin extends Plugin {
         // const fzz = prepareFuzzySearch("Computer  Sciences");
         // console.log(fzz("asdasfaf ComputerScience bajabajjajajajaa"));
 
-        try {
-            const rootPath = '/'; // Or specify a subfolder like 'MyFolder'
-            const maxDepth = 2; // Keep depth shallow if including content
-            const showFiles = true;
-            const showContent = true; // <<< Set to true to include content
-            const contentLines = 50;   // <<< Max lines per file
+        // try {
+        //     const rootPath = '/'; // Or specify a subfolder like 'MyFolder'
+        //     const maxDepth = 2; // Keep depth shallow if including content
+        //     const showFiles = true;
+        //     const showContent = true; // <<< Set to true to include content
+        //     const contentLines = 50;   // <<< Max lines per file
 
-            console.log(`Generating tree for '${rootPath}', depth ${maxDepth}, files: ${showFiles}, content: ${showContent} (${contentLines} lines)`);
+        //     console.log(`Generating tree for '${rootPath}', depth ${maxDepth}, files: ${showFiles}, content: ${showContent} (${contentLines} lines)`);
 
-            const treeString = await listFilesTree(
-                this.app,
-                rootPath,
-                maxDepth,
-                showFiles,
-                showContent, // Pass the flag
-                contentLines // Pass max lines
-            );
+        //     const treeString = await listFilesTree(
+        //         this.app,
+        //         rootPath,
+        //         maxDepth,
+        //         showFiles,
+        //         showContent, // Pass the flag
+        //         contentLines // Pass max lines
+        //     );
 
-            console.log(treeString); // Log to console
-            new Notice('Generated file tree with content! Check console (Ctrl+Shift+I).');
+        //     console.log(treeString); // Log to console
+        //     new Notice('Generated file tree with content! Check console (Ctrl+Shift+I).');
 
-            // Optional: Display in a modal or temporary file
-            // Be careful: Including content can make the output very large!
-            // await this.app.vault.create('temp-tree-output.md', treeString);
+        //     // Optional: Display in a modal or temporary file
+        //     // Be careful: Including content can make the output very large!
+        //     // await this.app.vault.create('temp-tree-output.md', treeString);
 
-        } catch (error) {
-            console.error("Failed to generate file tree:", error);
-            new Notice(`Error generating tree: ${error.message}`);
-        }
+        // } catch (error) {
+        //     console.error("Failed to generate file tree:", error);
+        //     new Notice(`Error generating tree: ${error.message}`);
+        // }
+        new Notice("Clicked test Button!!", 10)
         });
 
         this.ribbonIcon = this.addRibbonIcon('bot-message-square', 'Open lImporter', () => this.openView());

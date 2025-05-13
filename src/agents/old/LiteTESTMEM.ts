@@ -7,9 +7,9 @@ import {
     START,
     CompiledStateGraph
 } from "@langchain/langgraph/web";
-import MyPlugin from "../main";
+import MyPlugin from "../../main";
 
-import { createObsidianTools } from "../utils/tools";
+import { createObsidianTools } from "../../utils/tools";
 
 
 export class reActLiteAgentTEST {
