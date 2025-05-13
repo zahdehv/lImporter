@@ -292,8 +292,8 @@
 .limporter-file-name {
     font-weight: 600;
     margin-bottom: 0.3rem;
-    white-space: nowrap;
-    overflow: hidden;
+    white-space: pre-wrap;
+    overflow: auto;
     text-overflow: ellipsis;
     color: var(--text-normal);
 }

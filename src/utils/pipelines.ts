@@ -1,4 +1,3 @@
-import { lim_default_prompt } from "src/utils/promp";
 import AutoFilePlugin from "src/main";
 import { FileItem } from "src/utils/fileUploader";
 import { preProcessor } from "./preprocessInput";
@@ -19,6 +18,7 @@ const buildReactParameterized = (plugin: AutoFilePlugin, model: string, tools: D
         const tree = await listFilesTree(plugin.app, "", 3, true, true, 23)
         msg.push({ type: 'text', text: tree });
         if (msg && !signal.aborted) {
+            console.log("CALLING AGENT WITH MESSAGE:",msg);
             const finalState = await reAct.agent.invoke({
                 messages: [{ role: "user", content: msg }],
             }, { recursionLimit: 113, signal });
@@ -49,9 +49,22 @@ export const models = [
         ]
 
 export const pipelineOptions = [
-            { id: 'react', name: 'reAct Agent', defaultPrompt: lim_default_prompt, buildPipeline: buildReact },
+{   
+id: 'react', 
+name: 'reAct Default',
+defaultPrompt: `Sigue las siguientes instrucciones:
+1. Fijate en la estructura de archivos, particularmente en la informacion brindada en los '.lim'.
+2. De acuerdo a las instrucciones en esos archivos y los archivos en el contexto, debes crear o modificar notas.
+3. Debes extraer la informacion de esos archivos, no copiar/pegar lo q dicen
+4. Debes revisar antes de terminar el proceso que no existan referencias fantasmas.`, 
+buildPipeline: buildReact 
+},
+            
+            
+            
+            
             // { id: 'lite_direct', name: 'Lite Agent', pipeline: () => new LitePipe(this.plugin) },
             // { id: 'direct_call', name: 'Direct Call', pipeline: () => new DirectPipe(this.plugin) },
             // { id: 'claim_instructions', name: 'Claim Instructions', pipeline: () => new ClaimInstPipe(this.plugin) },
             // { id: 'lite_test', name: 'Lite TEST', pipeline: () => new LiteTESTPipe(this.plugin) },
-        ];
+];
