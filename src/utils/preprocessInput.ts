@@ -1,6 +1,6 @@
-import { FileItem } from "../utils/fileUploader";
+import { FileItem } from "./fileUploader";
 import { GoogleGenAI, Part } from "@google/genai";
-import { FileUploader } from "../utils/fileUploader";
+import { FileUploader } from "./fileUploader";
 import AutoFilePlugin from "../main";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -31,7 +31,7 @@ export class MsgBuilder {
         msg.push(prompt);}
 }
 
-export class MSGBLD {
+export class preProcessor {
     private upldr: FileUploader;
     private plugin: AutoFilePlugin
     constructor(plugin: AutoFilePlugin) {

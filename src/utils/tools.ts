@@ -4,13 +4,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import * as Diff from 'diff';
 import MyPlugin from "../main"; // Adjust path if needed
-import {
-    write_file_description,
-    write_file_path_description,
-    write_file_content_description,
-    prompt_ghost_references
-       } from "src/utils/promp"; // Adjust path if needed
-import { TAbstractFile, TFolder, Vault } from "obsidian"; // Import necessary Obsidian types
+import { TFolder } from "obsidian"; // Import necessary Obsidian types
 
 /**
  * Creates a collection of Obsidian-specific tools for LangChain agents.
@@ -31,7 +25,11 @@ export function createObsidianTools(plugin: MyPlugin) {
         return new Promise(async (resolve, reject) => {
             const wrt_trk = tracker.appendStep("Write File", input.path, "file-edit");
             try {
-                if (input.path.includes(".lim")) throw new Error("Cannot write a .lim file");
+                if (input.path.includes(".lim")) {
+                    // throw new Error("Cannot write a .lim file");
+                    wrt_trk.updateState("error", "Cannot write a .lim file");
+                    reject(new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`));
+                }
 
                 const contentWithNewlines = input.content.replace(/\\n/g, '\n');
                 const newContent = contentWithNewlines.replace(/---\s/g, '---\n');
@@ -77,10 +75,31 @@ ${patch}
         });
     }, {
         name: "writeFile",
-        description: write_file_description,
+        description: `Usado para crear archivos markdown(.md).`,
         schema: z.object({
-            path: z.string().describe(write_file_path_description),
-            content: z.string().describe(write_file_content_description),
+            path: z.string().describe(`Direccion para crear o modificar el archivo.
+Ejemplo de nombres (direccion) de archivo: 'arte_cubano.md' o amor/romance.md. 
+No usar acentos en el titulo. Si usas un nombre de archivo existente, lo modificaras, 
+usalo para rectificar errores en caso de ser necesario.
+File name cannot contain any of the following characters: * " \ / < > : | ?`),
+            content: z.string().describe(`Contenido a ser escrito en el archivo.
+Los archivos deben iniciar con el encabezado:
+---
+Title: "Here goes the Title"
+tags: 
+- tag1 (los tags no deben tener espacios)
+- tag2 (los tags no deben tener espacios)
+aliases:
+- alias1
+- alias2
+---
+
+Los links son de la forma [[nombre de archivo(no necesita incluir la direccion completa)|Nombre mostrado en la Nota]] y 
+debe ser incluido en el texto, no al final ni de forma incoherente, asi como no usar un solo bracket (e.g. [example]). 
+Este debe estar contenido en el texto si es posible. En caso de no serlo se puede incluir en un texto completo adicional 
+que explique la relacion al archivo.
+
+Puede usar todos los recursos disponibles del lenguaje Markdown.`),
         }),
     });
 
@@ -158,8 +177,13 @@ ${patch}
         return new Promise(async (resolve, reject) => {
             const move_trk = tracker.appendStep("Move File", `${input.sourcePath} -> ${input.targetPath}`, "scissors");
             try {
-                if (input.sourcePath.includes(".lim")) throw new Error("Cannot move a .lim file");
-                ;
+                if (input.sourcePath.includes(".lim")) {
+                    // throw new Error("Cannot move a .lim file");
+                    move_trk.updateState("error", "Cannot move a .lim file");
+                    reject(new Error("Cannot move a .lim file"));
+                    return;
+                }
+                
                 const file = vault.getAbstractFileByPath(input.sourcePath);
                 if (!file) {
                     const errorMsg = `File not found: ${input.sourcePath}`;
@@ -235,7 +259,12 @@ ${patch}
         });
     }, {
         name: "getGhostReferences",
-        description: prompt_ghost_references,
+        description: `Encuentra todos los enlaces no resueltos (ghost references)
+en la bóveda de Obsidian, y los archivos donde aparecen. 
+Debe ser usado al final para verificar que todo este bien conectado.
+
+Estos pueden ser resueltos creando el archivo faltante o renombrando archivos, 
+dado que el conflicto de enlace sea por errores de escritura`,
         schema: z.object({}) // No input arguments needed
     });
 

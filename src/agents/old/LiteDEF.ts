@@ -7,12 +7,12 @@ import {
     START,
     CompiledStateGraph
 } from "@langchain/langgraph/web";
-import MyPlugin from "../main";
+import MyPlugin from "../../main";
 
-import { createObsidianTools } from "../utils/tools";
+import { createObsidianTools } from "../../utils/tools";
 
 
-export class reActAgentDirect {
+export class reActLiteAgent {
     public agent: CompiledStateGraph<any,any,any>;
     // private plugin: MyPlugin;
 
@@ -24,7 +24,7 @@ export class reActAgentDirect {
         const agent_tools = [writeFile, readFiles, moveFile, getGhostReferences, listFiles]; // Added listFiles here
             
      const llm = new ChatGoogleGenerativeAI({
-        model: "gemini-2.5-flash-preview-04-17",
+        model: "gemini-2.0-flash-lite",
         temperature: 0.3,
         maxRetries: 7,
         apiKey: plugin.settings.GOOGLE_API_KEY,
