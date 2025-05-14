@@ -1,15 +1,14 @@
 
-import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf, setIcon, } from 'obsidian';
+import { Notice, Plugin, prepareFuzzySearch, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { processTracker } from './views/tracker'; // Ensure this path is correct
-import { VIEW_TYPE } from './views/view';
-import { LimporterView } from './views/view';
+import { VIEW_TYPE } from './views/lImporter';
+import { LimporterView } from './views/lImporter';
 import { DEFAULT_SETTINGS, AutoPluginSettings, AutoSettingTab } from './views/settings';
-// import { listFilesTree } from './utils/fileLister';
+import { queryVault, simpleQueryVault } from './utils/filesystem';
 
 export default class AutoFilePlugin extends Plugin {
     settings: AutoPluginSettings;
     tracker!: processTracker;
-    private statusBarItem!: HTMLElement;
     private ribbonIcon!: HTMLElement;
     public view: LimporterView | null = null;
 
@@ -48,59 +47,13 @@ export default class AutoFilePlugin extends Plugin {
             (leaf) => (this.view = new LimporterView(leaf, this))
         );
 
-        this.addRibbonIcon('pen', 'Open Local Graph', async () => {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (!activeFile) {
-                new Notice('No active note to show local graph for');
-                return;
-            }
-           console.log(this.app.metadataCache.getFileCache(activeFile)?.frontmatter);
-        
-        // const fzz = prepareFuzzySearch("Computer  Sciences");
-        // console.log(fzz("asdasfaf ComputerScience bajabajjajajajaa"));
-
-        // try {
-        //     const rootPath = '/'; // Or specify a subfolder like 'MyFolder'
-        //     const maxDepth = 2; // Keep depth shallow if including content
-        //     const showFiles = true;
-        //     const showContent = true; // <<< Set to true to include content
-        //     const contentLines = 50;   // <<< Max lines per file
-
-        //     console.log(`Generating tree for '${rootPath}', depth ${maxDepth}, files: ${showFiles}, content: ${showContent} (${contentLines} lines)`);
-
-        //     const treeString = await listFilesTree(
-        //         this.app,
-        //         rootPath,
-        //         maxDepth,
-        //         showFiles,
-        //         showContent, // Pass the flag
-        //         contentLines // Pass max lines
-        //     );
-
-        //     console.log(treeString); // Log to console
-        //     new Notice('Generated file tree with content! Check console (Ctrl+Shift+I).');
-
-        //     // Optional: Display in a modal or temporary file
-        //     // Be careful: Including content can make the output very large!
-        //     // await this.app.vault.create('temp-tree-output.md', treeString);
-
-        // } catch (error) {
-        //     console.error("Failed to generate file tree:", error);
-        //     new Notice(`Error generating tree: ${error.message}`);
-        // }
+        this.addRibbonIcon('pen', 'TEST', async () => {
+            console.log([1,2,3].slice(0,));
         new Notice("Clicked test Button!!", 10)
         });
 
         this.ribbonIcon = this.addRibbonIcon('bot-message-square', 'Open lImporter', () => this.openView());
         this.ribbonIcon.addClass('limporter-ribbon-icon');
-
-        this.statusBarItem = this.addStatusBarItem();
-        this.statusBarItem.addClass('limporter-status-bar');
-        this.statusBarItem.onClickEvent(() => {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (activeFile) this.openFileProcessor(activeFile);
-        });
-        setIcon(this.statusBarItem, "bot");
 
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
@@ -133,15 +86,7 @@ export default class AutoFilePlugin extends Plugin {
                 }
             }));
         });
-        this.updateStatusBar();
-        this.registerEvent(this.app.workspace.on('file-open', () => this.updateStatusBar()));
-        this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.updateStatusBar()));
-        this.registerEvent(this.app.vault.on('modify', (file) => {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (activeFile?.path === file.path) {
-                this.updateStatusBar();
-            }
-        }));
+    
         this.addSettingTab(new AutoSettingTab(this.app, this));
     }
 
@@ -167,20 +112,6 @@ export default class AutoFilePlugin extends Plugin {
             await this.view.addFile(file);
         } else {
             new Notice("lImporter view could not be opened or found.");
-        }
-    }
-
-    private updateStatusBar() {
-        const activeFile = this.app.workspace.getActiveFile();
-        if (!this.statusBarItem) return; 
-        if (!activeFile) {
-            this.statusBarItem.hide();
-            return;
-        }
-        if (this.isSupportedFile(activeFile)) { // isSupportedFile uses all extensions
-            this.statusBarItem.show();
-        } else {
-            this.statusBarItem.hide();
         }
     }
 

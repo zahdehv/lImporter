@@ -1,4 +1,4 @@
-import { FileItem } from "../utils/fileUploader";
+import { FileItem } from "../utils/uploader";
 import AutoFilePlugin from "../main";
 import { ItemView } from "obsidian";
 import { models, pipelineOptions } from '../utils/pipelines';
@@ -23,7 +23,7 @@ export class LimporterView extends ItemView {
     } = {};
 
     private fileItems: FileItem[] = [];
-    private currentModel = "gemini-2.5-flash-preview-04-17";
+    private currentModel = models[0].id;
     private currentPrompt = "";
     private currentPipeline: (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> | null;
     private textAreaComponent?: TextAreaComponent;
@@ -52,6 +52,9 @@ export class LimporterView extends ItemView {
         const { containerEl } = this;
         containerEl.empty();
         containerEl.addClass('limporter-view');
+
+        const header = containerEl.createEl('h3');
+        header.textContent = "lImporter";
 
         this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
         this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);

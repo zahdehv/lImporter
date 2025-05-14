@@ -125,10 +125,11 @@ export class processTracker {
     public writeLog(log: string): void {
         this.logs +=log+"\n\n---\n\n";
         // console.log(this.logs);
+        this.logsMDContainer.empty(); // To save to a file, must keep the full log!
         MarkdownRenderer.render(this.plugin.app, this.logs, this.logsMDContainer, "", this.plugin)
     }
 
-    public appendStep(label: string, message: string, icon: string): stepItem {
+    public appendStep(label: string, message: string, icon: string, status?: 'pending' | 'in-progress' | 'complete' | 'error'): stepItem {
         const stepEl = this.stepsContainer.createDiv('limporter-progress-step');
         stepEl.dataset.status = 'pending';
 
@@ -143,7 +144,9 @@ export class processTracker {
 
         const stepItm = new stepItem(stepEl, icon, this);
         this.steps.push(stepItm);
-        stepItm.updateState("in-progress", message);
+        if (!status)stepItm.updateState("in-progress", message);
+        else stepItm.updateState(status, message);
+        
         return stepItm;
     }
 

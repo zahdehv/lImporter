@@ -2,9 +2,8 @@
 
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import * as Diff from 'diff';
 import MyPlugin from "../main"; // Adjust path if needed
-import { TFolder } from "obsidian"; // Import necessary Obsidian types
+import { listFilesTree, writeFileMD } from "./filesystem";
 
 /**
  * Creates a collection of Obsidian-specific tools for LangChain agents.
@@ -25,48 +24,15 @@ export function createObsidianTools(plugin: MyPlugin) {
         return new Promise(async (resolve, reject) => {
             const wrt_trk = tracker.appendStep("Write File", input.path, "file-edit");
             try {
-                if (input.path.includes(".lim")) {
-                    // throw new Error("Cannot write a .lim file");
-                    wrt_trk.updateState("error", "Cannot write a .lim file");
-                    reject(new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`));
-                }
-
-                const contentWithNewlines = input.content.replace(/\\n/g, '\n');
-                const newContent = contentWithNewlines.replace(/---\s/g, '---\n');
-                const folderPath = input.path.split('/').slice(0, -1).join('/');
-                const filePath = input.path;
-
-                if (folderPath) {
-                    const folderExists = await vault.adapter.exists(folderPath);
-                    if (!folderExists) {
-                        await vault.createFolder(folderPath);
-                    }
-                }
-
-                const fileExists = await vault.adapter.exists(filePath);                
+                const diff = await writeFileMD(plugin.app, input.path, input.content);
+                if (diff) tracker.writeLog(diff);
+                else reject(new Error("Error writing file"));
                 
-                try {
-                    let oldContent = "";
-                    if (fileExists) oldContent = await vault.adapter.read(filePath);
-                    await vault.adapter.write(filePath, newContent);
+                wrt_trk.updateState("complete");
+                tracker.appendFileByPath(input.path);
+                resolve(`El llamado a funcion se completo correctamente.`);
 
-                    console.log('oldContent');
-                    console.log(oldContent);
-                    console.log('contentWithNewlines');
-                    console.log(newContent);
-                    const patch = Diff.createPatch(input.path, oldContent, newContent);
-                    console.log(patch);
-                    tracker.writeLog(`\`\`\`diff
-${patch}
-\`\`\``)
-                    wrt_trk.updateState("complete");
-                    tracker.appendFileByPath(input.path);
-                    resolve(`El llamado a funcion se completo correctamente.`);
-
-                } catch (writeError) {
-                    wrt_trk.updateState("error", writeError);
-                    reject(new Error(`Error al escribir archivo: ${writeError}`));
-                }
+                
             } catch (error) {
                 console.error("Error preparing file write:", error);
                 wrt_trk.updateState("error", error);
@@ -85,13 +51,13 @@ File name cannot contain any of the following characters: * " \ / < > : | ?`),
             content: z.string().describe(`Contenido a ser escrito en el archivo.
 Los archivos deben iniciar con el encabezado:
 ---
-Title: "Here goes the Title"
 tags: 
-- tag1 (los tags no deben tener espacios)
-- tag2 (los tags no deben tener espacios)
-aliases:
-- alias1
-- alias2
+- PrimerTag (los tags representan los conceptos (entidades conceptuales) que aparecen en el documento | los tags no deben tener espacios)
+- SegundoTag (los tags representan los conceptos (entidades conceptuales) que aparecen en el documento | los tags no deben tener espacios)
+keypoints:
+- Primer punto clave, conteniendo un hecho o informacion clave mencionado en el documento
+- Segundo punto clave, conteniendo un hecho o informacion clave mencionado en el documento
+- Tercer punto clave, conteniendo un hecho o informacion de soporte mencionado en el documento
 ---
 
 Los links son de la forma [[nombre de archivo(no necesita incluir la direccion completa)|Nombre mostrado en la Nota]] y 
@@ -273,62 +239,10 @@ dado que el conflicto de enlace sea por errores de escritura`,
             const list_trk = tracker.appendStep("List Directory", `Path: ${input.rootPath}, Depth: ${input.depth}`, "folder-tree");
             try {
                 const { rootPath, depth, includeFiles } = input;
-                let normalizedPath = rootPath.trim();
-                if (normalizedPath === '/' || normalizedPath === '') {
-                    normalizedPath = '/';
-                } else {
-                    if (normalizedPath.endsWith('/') && normalizedPath.length > 1) {
-                        normalizedPath = normalizedPath.slice(0, -1);
-                    }
-                }
-
-                const rootNode = vault.getAbstractFileByPath(normalizedPath);
-
-                if (!rootNode) {
-                    const errorMsg = `Root path not found: ${normalizedPath}`;
-                    list_trk.updateState("error", errorMsg);
-                    reject(new Error(errorMsg));
-                    return;
-                }
-
-                if (!(rootNode instanceof TFolder)) {
-                    const errorMsg = `Root path is not a folder: ${normalizedPath}`;
-                    list_trk.updateState("error", errorMsg);
-                    reject(new Error(errorMsg));
-                    return;
-                }
-
-                let treeOutputString = `${normalizedPath === '/' ? '.' : rootNode.name}\n`;
-
-                const buildTree = async (folder: TFolder, currentDepth: number, prefix: string) => {
-                    if (currentDepth > depth) { return; }
-
-                    const children = folder.children.sort((a, b) => {
-                        const aIsFolder = a instanceof TFolder;
-                        const bIsFolder = b instanceof TFolder;
-                        if (aIsFolder !== bIsFolder) { return aIsFolder ? -1 : 1; }
-                        return a.name.localeCompare(b.name);
-                    });
-
-                    const itemsToList = includeFiles ? children : children.filter(child => child instanceof TFolder);
-
-                    for (let i = 0; i < itemsToList.length; i++) {
-                        const child = itemsToList[i];
-                        const isLast = i === itemsToList.length - 1;
-                        const connector = isLast ? "└───" : "├───";
-                        const childPrefix = prefix + (isLast ? "    " : "│   ");
-                        treeOutputString += `${prefix}${connector}${child.name}\n`;
-                        if (child instanceof TFolder) {
-                            await buildTree(child, currentDepth + 1, childPrefix);
-                        }
-                    }
-                };
-
-                await buildTree(rootNode, 1, "");
-
-                const finalResult = `Directory structure for '${normalizedPath}' (depth ${depth}, ${includeFiles ? 'including' : 'excluding'} files):\n\`\`\`\n${treeOutputString}\`\`\``;
-                console.log("listFiles Tool Output:\n", finalResult); // Keep verification log
-                list_trk.updateState("complete", `Listed structure for ${normalizedPath}`);
+                
+                const finalResult = await listFilesTree(plugin.app, rootPath, depth, includeFiles, true, 23);
+                list_trk.updateState("complete", `Listed structure for ${rootPath}`);
+                tracker.writeLog(finalResult);
                 resolve(finalResult);
 
             } catch (error) {
