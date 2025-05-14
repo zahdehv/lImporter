@@ -48,8 +48,13 @@ export default class AutoFilePlugin extends Plugin {
         );
 
         this.addRibbonIcon('pen', 'TEST', async () => {
-            console.log([1,2,3].slice(0,));
-        new Notice("Clicked test Button!!", 10)
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                new Notice('No active note to show local graph for');
+                return;
+            }
+            
+        new Notice(activeFile.name)
         });
 
         this.ribbonIcon = this.addRibbonIcon('bot-message-square', 'Open lImporter', () => this.openView());

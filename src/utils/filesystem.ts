@@ -76,11 +76,11 @@ export async function listFilesTree(
                 try {
                     const tags = fileCache? getAllTags(fileCache): [];
                     if (tags && tags.length>0) {
-                        tagStr+= " -> TAGS:"
+                        tagStr+= "-> TAGS:"
                         for (let index = 0; index < tags.length; index++) tagStr += " "+tags[index];
                     }} catch (error) {}
 
-                output += `${prefix}${connector}${child.name}${tagStr}\n`;
+                output += `${prefix}${connector}${child.name}${(child instanceof TFile)?` (link con [[${child.name}|{texto visible del link}]])`:""} ${tagStr}\n`;
 
                 // --- START CONTENT/KEYPOINTS HANDLING ---
                 if (child instanceof TFile && showFileDetails) {
@@ -227,7 +227,7 @@ export async function queryVault(app: App, query: string[]): Promise<string> {
             try {
                 const content = await vault.cachedRead(file);
                 // const sanitizedPath = _sanitizeXmlAttribute(file.path);
-                results.push(`<file path='${file.path}'>\n${content}\n</file>`);
+                results.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>\n${content}\n</file>`);
             } catch (e) {
                 console.error(`Error reading file ${file.path} for query result:`, e);
             }
@@ -306,7 +306,7 @@ export async function simpleQueryVault(app: App, queryString: string): Promise<s
             try {
                 const content = await vault.cachedRead(file);
                 // Following your latest queryVault, not sanitizing path or content for XML
-                results.push(`<file path='${file.path}'>\n${content}\n</file>`);
+                results.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>\n${content}\n</file>`);
             } catch (e) {
                 console.error(`Error reading file ${file.path} for query result:`, e);
             }

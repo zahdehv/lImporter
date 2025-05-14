@@ -135,7 +135,7 @@ Los queries resultaron en los archivos:
 ${fileContents}
 \`\`\`
 
-Escribe ahora el nuevo archivo, que debe ser .md y tener el formato correcto:
+Escribe ahora los archivos necesarios, que debe ser .md y tener el formato correcto:
             
 Los archivos deben iniciar con el encabezado:
 ---
@@ -154,24 +154,43 @@ keypoints:
 config: {abortSignal: signal,
     responseMimeType: 'application/json',
     responseSchema: {
-        type: Type.OBJECT,
-        required: ["content", "path"],
-        properties: {
-          content: {
-            type: Type.STRING,
-          },
-          path: {
-            type: Type.STRING,
+      type: Type.OBJECT,
+      required: ["write_files"],
+      properties: {
+        write_files: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            required: ["path", "content"],
+            properties: {
+              path: {
+                type: Type.STRING,
+              },
+              content: {
+                type: Type.STRING,
+              },
+            },
           },
         },
-      },                    
+      },
+    },
+                    
     }});
 
-        const write = JSON.parse(r_write.text? r_write.text: "{'path':'', content: ''}");
-        await writeFileMD(plugin.app, write.path, write.content);
-        plugin.tracker.appendFileByPath(write.path);
+    if (r_write.text) {   
+        const write_files = JSON.parse(r_write.text).write_files;
+        for (let index = 0; index < write_files.length; index++) {
+          const write = write_files[index];
+          
+          const wrote = await writeFileMD(plugin.app, write.path, write.content);
+          if (wrote) plugin.tracker.writeLog(`# File wrote '${write.path}'
+
+${wrote}`);
+          plugin.tracker.appendFileByPath(write.path);
+        }
         
-        t_write.updateState('complete', `Wrote 1 file!`)
+        t_write.updateState('complete', `Wrote ${write_files.length} file(s)!`)
+      }
         }
         else t_extraction.updateState('error', 'Data not found!');
         
@@ -185,11 +204,23 @@ export const models = [
     {id: "gemini-2.0-flash-lite"},
     {id: "gemini-2.0-flash"},
     {id: "gemini-2.5-flash-preview-04-17"},
-        ]
+        ];
 
 export const pipelineOptions = [
 {   
-id: 'react', 
+id: 'gemini_ke', 
+name: 'Gemini KE',
+defaultPrompt: `El usuario te ha ofrecido informacion de una boveda en Obsidian, y un conjunto de archivos a procesar, debes:
+1. Extraer instrucciones:
+    - De los archivos '.lim' en la jerarquia de archivos (tree view)
+    - De los archivos, potencialmente algun audio contenga instrucciones
+2. Extraer CLAIMS que aparezcan en los archivos A PROCESAR.
+3. Extraer conceptos que aparezcan en los claims, que potencialmente vienen desde los archivos A PROCESAR
+4. Construir un conjunto de queries (son texto, sin usar ningun operador logico) para revisar notas existentes relevantes y no duplicar contenido`, 
+buildPipeline: buildGemini 
+},
+{
+id: 'react_ke', 
 name: 'reAct KE',
 defaultPrompt: `Sigue las siguientes instrucciones:
 1. Fijate en la estructura de archivos, particularmente en la informacion brindada en los '.lim'.
@@ -197,17 +228,5 @@ defaultPrompt: `Sigue las siguientes instrucciones:
 3. Debes extraer la informacion de esos archivos, no copiar/pegar lo q dicen
 4. Debes revisar antes de terminar el proceso que no existan referencias fantasmas.`, 
 buildPipeline: buildReact 
-},
-{   
-id: 'geminiP1', 
-name: 'Gemini KE',
-defaultPrompt: `El usuario te ha ofrecido informacion de una boveda en Obsidian, y un conjunto de archivos a procesar, debes:
-1. Extraer instrucciones:
-    - De los archivos '.lim' en la jerarquia de archivos (tree view)
-    - De los archivos, potencialmente algun audio contenga instrucciones
-2. Extraer CLAIMS que aparezcan en los archivos
-3. Extraer conceptos que aparezcan en los claims, que potencialmente vienen desde los archivos
-4. Construir un conjunto de queries (son texto, sin usar ningun operador logico)`, 
-buildPipeline: buildGemini 
 },
 ];

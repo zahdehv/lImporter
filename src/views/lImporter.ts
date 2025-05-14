@@ -1,6 +1,6 @@
 import { FileItem } from "../utils/uploader";
 import AutoFilePlugin from "../main";
-import { ItemView } from "obsidian";
+import { ItemView, Notice } from "obsidian";
 import { models, pipelineOptions } from '../utils/pipelines';
 import { FileSuggestionModal } from "./fileSuggestion";
 import { setIcon, Setting, TFile, TextAreaComponent, DropdownComponent, WorkspaceLeaf } from "obsidian";
@@ -23,8 +23,11 @@ export class LimporterView extends ItemView {
     } = {};
 
     private fileItems: FileItem[] = [];
+
+    private currentAgent = pipelineOptions[0].name;
     private currentModel = models[0].id;
-    private currentPrompt = "";
+    private currentPrompt = pipelineOptions[0].defaultPrompt;
+    private pipelineStarter: (plugin: AutoFilePlugin, model: string) => (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> = pipelineOptions[0].buildPipeline;
     private currentPipeline: (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> | null;
     private textAreaComponent?: TextAreaComponent;
     private adjustPromptArea: () => void;
@@ -53,17 +56,28 @@ export class LimporterView extends ItemView {
         containerEl.empty();
         containerEl.addClass('limporter-view');
 
-        const header = containerEl.createEl('h3');
-        header.textContent = "lImporter";
+        const header = containerEl.createEl('h3', { cls: 'limporter-header', text: 'lImporter' });
 
         this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
         this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
 
         this.createButtonContainer(containerEl);
 
-        if (this.dropdown && this.dropdown.selectEl) {
-            (this.dropdown.selectEl as HTMLSelectElement).dispatchEvent(new Event('change'));
-        }
+        this.loadAgent();
+
+    }
+
+    private loadAgent(){
+
+        new Notice(`Loaded agent
+name: ${this.currentAgent}
+model: ${this.currentModel}`);
+
+        this.currentPipeline = this.pipelineStarter(this.plugin, this.currentModel);
+            if (this.textAreaComponent) {
+                this.textAreaComponent.setValue(this.currentPrompt);
+                this.adjustPromptArea();
+            }
     }
 
     async addFile(file: TFile) {
@@ -91,6 +105,15 @@ export class LimporterView extends ItemView {
         textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
         this.createPipelineDropdown(textAreaContainer);
         this.createMaterialTextArea(textAreaContainer);
+        const button = textAreaContainer.createEl('button', {
+            cls: 'limporter-button secondary',
+            // text: this.isFileVisible ? 'CONFIG' : 'CONFIG'
+        });
+        // setIcon(buttonF, 'file-up');
+        button.setText("Load Agent");
+        button.addEventListener('click', () => {
+            this.loadAgent();
+        });
 
         const SbuttonContainer = buttonContainer.createDiv('limporter-sbutton-container');
         this.createProgressVisibilityButton(SbuttonContainer);
@@ -303,18 +326,6 @@ export class LimporterView extends ItemView {
         const dropdownContainer = container.createDiv('limporter-dropdown-container');
 
         new Setting(dropdownContainer)
-            .setName('Model:')
-            .addDropdown(dropdown => {
-                this.dropdown = dropdown
-                    .addOptions(Object.fromEntries(models.map(opt => [opt.id, opt.id])))
-                    .onChange(async (value) => {
-                        if (value) {
-                            const selected = models.find(opt => opt.id === value);
-                            if (selected) this.currentModel = selected.id;
-                        }
-                    });
-            });
-        new Setting(dropdownContainer)
             .setName('Pipeline:')
             .addDropdown(dropdown => {
                 this.dropdown = dropdown
@@ -323,13 +334,27 @@ export class LimporterView extends ItemView {
                         if (value) {
                             const selected = pipelineOptions.find(opt => opt.id === value);
                             if (selected) {
-                                this.currentPipeline = selected.buildPipeline(this.plugin, this.currentModel);
+                                this.pipelineStarter = selected.buildPipeline;
                                 this.currentPrompt = selected.defaultPrompt;
+                                this.currentAgent = selected.name;
                                 if (this.textAreaComponent) {
                                     this.textAreaComponent.setValue(this.currentPrompt);
                                     this.adjustPromptArea();
                                 }
                             }
+                        }
+                    });
+            });
+
+            new Setting(dropdownContainer)
+            .setName('Model:')
+            .addDropdown(dropdown => {
+                dropdown
+                    .addOptions(Object.fromEntries(models.map(opt => [opt.id, opt.id])))
+                    .onChange(async (value) => {
+                        if (value) {
+                            const selected = models.find(opt => opt.id === value);
+                            if (selected) this.currentModel = selected.id;
                         }
                     });
             });
@@ -340,7 +365,7 @@ export class LimporterView extends ItemView {
             cls: 'limporter-button primary',
             // text: 'Process'
         });
-        setIcon(button, "play")
+        setIcon(button, "corner-down-left")
         button.addEventListener('click', async () => {
             if (this.processing) {
                 this.abortController?.abort();
@@ -362,7 +387,7 @@ export class LimporterView extends ItemView {
             }
             button.addClass('stop-mode');
             // button.setText('Stop');
-            setIcon(button, 'square')
+            setIcon(button, 'stop-circle')
             this.abortController = new AbortController();
             this.processing = true;
             try {
@@ -377,7 +402,7 @@ export class LimporterView extends ItemView {
                 this.abortController = null;
                 button.removeClass('stop-mode');
                 // button.setText('Process');
-                setIcon(button, 'play')
+                setIcon(button, 'corner-down-left')
                 button.disabled = false;
                 this.processing = false;
             }

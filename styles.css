@@ -9,7 +9,11 @@
     /* background-color: var(--background-primary); */
     background-color: var(--background-secondary);
     gap: 1rem; /* Consistent spacing between elements */
-    overflow-y: auto;
+    /* overflow-y: auto; */
+}
+.limporter-header {
+    align-self: center;
+    /* background-color: aqua; */
 }
 
 /* ================= */
@@ -17,7 +21,7 @@
 /* ================= */
 .limporter-config-container {
     /* margin-top: auto; */
-    /* order: 3; First visually */
+    order: 4;
     /* margin: 0 0 1rem 0; */ /* Managed by main gap */
     background: var(--background-secondary);
     border-radius: 8px;
@@ -78,10 +82,11 @@
 /* MAIN TRACKER WRAPPER (for ordering) */
 /* ================= */
 .limporter-tracker-main-container {
-    /* order: 2; Second visually */
+    order: 2; /*Second visually*/
     display: flex; /* To make its child (progressContainer) fill it if needed */
     flex-direction: column;
     /* min-height: 100px; */ /* Example: ensure it has some space */
+    overflow-y: auto;
 }
 
 /* ================= */
@@ -233,7 +238,7 @@
 /* UPLOADED FILES CONTAINER (main file list) */
 /* ================= */
 .limporter-files-container {
-    /* order: 1; Third visually */
+    order: 3; 
     /* flex: 1; Takes remaining available space if view is tall */
     min-height: min-content; /* Ensure it's visible even if empty initially */
     /* max-height: 300px; Or a percentage of viewport */
@@ -336,8 +341,8 @@
 /* BUTTON CONTAINER (bottom controls) */
 /* ================== */
 .limporter-button-container {
-    /* order: 3; Last visually */
-    margin-top: auto; /* Pushes to bottom if parent is flex column */
+    order: 1; /*Last visually*/
+    /* margin-top: auto; Pushes to bottom if parent is flex column */
     display: flex;
     flex-direction: column; /* Buttons side-by-side */
     flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
@@ -348,6 +353,8 @@
 }
 
 .limporter-sbutton-container {
+    align-self: center;
+    order: 2;
     /* margin-top: auto; Pushes to bottom if parent is flex column */
     display: flex;
     flex-direction: row; /* Buttons side-by-side */
