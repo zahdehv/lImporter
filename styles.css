@@ -590,5 +590,14 @@
   }
   
   .chat-send-button {
+    background-color: #ff0000; /* Example blue */
+  color: white;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 5px;
+  font-family: Arial, Helvetica, sans-serif; /* Common sans-serif fonts */
+  font-size: 16px;
+  text-align: center;
+  cursor: pointer; /* Still good to indicate it's clickable */
     /* The button will align itself with the bottom of the textarea due to align-items: flex-end on parent */
   }

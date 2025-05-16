@@ -1,54 +1,14 @@
 import AutoFilePlugin from "src/main";
-import { createGeminiPreprocessor, createLangGraphPreprocessor, Rmedia, Rtext } from "../utils/preprocessors";
-import { listFilesTree, writeFileMD } from "src/utils/filesystem";
-import { createReActAgent } from "src/agents/reAct";
+import { createGeminiPreprocessor, createLangGraphPreprocessor, Rmedia, Rtext } from "../utils/messages";
+import { createObsidianTools, createReActAgent } from "src/agents/reAct";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { ZodObject, ZodTypeAny } from "zod";
-import { createObsidianTools } from "src/agents/reAct";
-import { GoogleGenAI, Part, Type } from "@google/genai";
-import { FileItem } from "src/utils/filesystem";
+import { GoogleGenAI, Part } from "@google/genai";
+import { FileItem, listFilesTree } from "src/utils/files";
 import { react_starter_prompt } from "./promp";
 import { createPromptChainItems } from "./promptChain";
 
-const buildReactParameterized = (plugin: AutoFilePlugin, model: string, tools: DynamicStructuredTool<ZodObject<{}, "strip", ZodTypeAny, {}, {}>>[]): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
-    const reAct = createReActAgent(plugin, model, tools);
-    const ai = new GoogleGenAI({apiKey: plugin.settings.GOOGLE_API_KEY});
-    const preprocessor = createLangGraphPreprocessor(plugin, ai);
-
-    const sendMessage = async (files: FileItem[], signal: AbortSignal) => {
-        console.warn("entered send");
-        const tree = await listFilesTree(plugin.app, "", 3, true, true, 23)
-        console.warn("listed tree");
-        const p: (Rtext|Rmedia)[] = [{ type: 'text', text: tree }]
-        console.warn("listed call prep");
-        const s = await preprocessor(files, signal);
-        console.warn("end prep");
-        
-        const msg = p.concat(s);
-        msg.push({ type: 'text', text: react_starter_prompt });
-        
-        if (msg) { //} && !signal.aborted) {
-            console.warn("call react");
-            const finalState = await reAct.invoke({
-                messages: [{ role: "user", content: msg }],
-            }, { recursionLimit: 113, signal });
-            console.warn("end react");
-                    
-            const answer:any = finalState.messages[finalState.messages.length - 1].content;
-            console.log('## answer\n\n'+ answer);
-        }
-    }
-    
-    return sendMessage;
-}
-
-const buildReact = (plugin: AutoFilePlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
-    const {writeFile, moveFile, getGhostReferences, listFiles} = createObsidianTools(plugin);
-    const agent_tools = [writeFile, moveFile, getGhostReferences, listFiles];
-    return buildReactParameterized(plugin, model, agent_tools)
-}
-
-const buildGemini = (plugin: AutoFilePlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
+const buildPromptChain = (plugin: AutoFilePlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
     const ai = new GoogleGenAI({apiKey: plugin.settings.GOOGLE_API_KEY});
     const preprocessor = createGeminiPreprocessor(plugin, ai);
     
@@ -98,17 +58,49 @@ ${readContents}
     return sendMessage;
 }
 
+const buildReactParameterized = (plugin: AutoFilePlugin, model: string, tools: DynamicStructuredTool<ZodObject<{}, "strip", ZodTypeAny, {}, {}>>[]): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
+    const reAct = createReActAgent(plugin, model, tools);
+    const ai = new GoogleGenAI({apiKey: plugin.settings.GOOGLE_API_KEY});
+    const preprocessor = createLangGraphPreprocessor(plugin, ai);
+
+    const sendMessage = async (files: FileItem[], signal: AbortSignal) => {
+        const tree = await listFilesTree(plugin.app, "", 3, true, true, 23)
+        const p: (Rtext|Rmedia)[] = [{ type: 'text', text: tree }]
+        const s = await preprocessor(files, signal);
+        
+        const msg = p.concat(s);
+        msg.push({ type: 'text', text: react_starter_prompt });
+        
+        if (msg) { //} && !signal.aborted) {
+            const finalState = await reAct.invoke({
+                messages: [{ role: "user", content: msg }],
+            }, { recursionLimit: 113, signal });
+                    
+            const answer:any = finalState.messages[finalState.messages.length - 1].content;
+            console.log('## answer\n\n'+ answer);
+        }
+    }
+    
+    return sendMessage;
+}
+
+const buildReact = (plugin: AutoFilePlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
+    const {writeFile, moveFile, getGhostReferences, listFiles} = createObsidianTools(plugin);
+    const agent_tools = [writeFile, moveFile, getGhostReferences, listFiles];
+    return buildReactParameterized(plugin, model, agent_tools)
+}
+
 export const models = [
-    {id: "gemini-2.0-flash"},
-    {id: "gemini-2.0-flash-lite"},
     {id: "gemini-2.5-flash-preview-04-17"},
+    {id: "gemini-2.0-flash-lite"},
+    {id: "gemini-2.0-flash"},
         ];
 
 export const pipelineOptions = [
 {   
 id: 'gemini_ke', 
 name: 'Gemini KE',
-buildPipeline: buildGemini 
+buildPipeline: buildPromptChain 
 },
 {
 id: 'react_ke', 

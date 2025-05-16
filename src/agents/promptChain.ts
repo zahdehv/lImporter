@@ -1,6 +1,6 @@
 import { Chat, Part, Type } from "@google/genai";
 import AutoFilePlugin from "src/main";
-import { simpleQueryVault, writeFileMD} from "src/utils/filesystem";
+import { simpleQueryVault, writeFileMD} from "src/utils/files";
 import { gem_extract_prompt, gem_write_prompt } from "./promp";
 
 export const createPromptChainItems = (plugin: AutoFilePlugin,  chat: Chat, signal: AbortSignal) => {

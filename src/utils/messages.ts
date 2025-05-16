@@ -1,6 +1,7 @@
-import { FileItem } from "./filesystem";
+import { FileItem, upload_file } from "./files";
 import { GoogleGenAI, Part } from "@google/genai";
 import AutoFilePlugin from "../main";
+import { sign } from "crypto";
 
 export const createGeminiPreprocessor = (plugin: AutoFilePlugin, ai: GoogleGenAI) => {
     const preProcess = async (tfiles: FileItem[], signal: AbortSignal) => {
@@ -9,18 +10,14 @@ export const createGeminiPreprocessor = (plugin: AutoFilePlugin, ai: GoogleGenAI
         
         msg.push({text: "A continuacion los archivos que deben ser procesados:" });
         for (const tfile of tfiles) {
-            if (!tfile.uploaded) {
-                const response = await ai.files.upload({file: tfile.blob, config:{abortSignal: signal, displayName: tfile.path, mimeType: tfile.mimeType}});
-                tfile.file = (response.name && response.mimeType &&response.uri)?{name: response.name, mimeType: response.mimeType, uri: response.uri}: null;
-                tfile.uploaded = true
-            }
-            if (signal.aborted) throw new Error("OP Aborted!");
-            if (tfile.file) msg.push(
+            if (!tfile.cloud_file) await upload_file(plugin.app, tfile, ai, signal);
+            // if (signal.aborted) throw new Error("OP Aborted!");
+            if (tfile.cloud_file) msg.push(
                 {
                     fileData: 
                     {
-                        fileUri: tfile.file.uri, 
-                        mimeType: tfile.file.mimeType
+                        fileUri: tfile.cloud_file.uri, 
+                        mimeType: tfile.cloud_file.mimeType
                     }
                 });
         }
@@ -42,24 +39,19 @@ export interface Rmedia {
 }
 
 export const createLangGraphPreprocessor = (plugin: AutoFilePlugin, ai: GoogleGenAI) => {
-    
     const preProcess = async (tfiles: FileItem[], signal: AbortSignal): Promise<(Rtext|Rmedia)[]> => {
 
         const context: (Rtext|Rmedia)[] = [];
 
         context.push({ type: 'text', text: "A continuacion los archivos que deben ser procesados:" });
         for (const tfile of tfiles) {
-            if (!tfile.uploaded) {
-                const response = await ai.files.upload({file: tfile.blob, config:{abortSignal: signal, displayName: tfile.path, mimeType: tfile.mimeType}});
-                tfile.file = (response.name && response.mimeType &&response.uri)?{name: response.name, mimeType: response.mimeType, uri: response.uri}: null;
-                tfile.uploaded = true
-            }
+            if (!tfile.cloud_file) await upload_file(plugin.app, tfile, ai, signal);
             // if (signal.aborted) throw new Error("OP Aborted!");
-            if (tfile.file) context.push(
+            if (tfile.cloud_file) context.push(
                 {
                     type: 'media',
-                    mimeType: tfile.file.mimeType,
-                    fileUri: tfile.file.uri,
+                    mimeType: tfile.cloud_file.mimeType,
+                    fileUri: tfile.cloud_file.uri,
                 },
             );
         }

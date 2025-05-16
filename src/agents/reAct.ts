@@ -5,7 +5,7 @@ import MyPlugin from "../main";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { tool } from "@langchain/core/tools";
 import { z, ZodObject, ZodTypeAny } from "zod";
-import { captureGhosts, listFilesTree, writeFileMD } from "../utils/filesystem";
+import { captureGhosts, listFilesTree, writeFileMD } from "../utils/files";
 import { get_ghosts_description, list_files_depth, list_files_description, list_files_includeFiles, list_files_root, move_file_description, move_file_destination, move_file_source, write_content, write_description, write_path } from "./promp";
 
 

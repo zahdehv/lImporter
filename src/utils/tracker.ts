@@ -1,6 +1,7 @@
 
 import { setIcon, TFile, Notice, WorkspaceLeaf, MarkdownRenderer } from "obsidian";
 import AutoFilePlugin from "src/main";
+import { writeFileMD } from "./files";
 
 const getMessageParts = (...args: any[]) => {
     const messageParts = args.map(arg => {
@@ -17,46 +18,80 @@ const getMessageParts = (...args: any[]) => {
     return messageParts;
 }
 
-const replaceConsole = (writemd: (log: string) => void) => {
+const replaceConsole = (writemd: (log: string) => void, clearlg: ()=>void, debug_enabled: boolean) => {
+    const clear = console.clear
+    console.clear = ()=>{
+        clear();
+        clearlg();
+    }
+
+    if (debug_enabled) {
+        
+        const debug = console.debug;
+        console.debug = (...args: any[]): void => {
+    
+            debug("additional debug");
+            debug(...args);
+    
+            const messageParts = getMessageParts(...args);
+            
+            const combinedMessage = messageParts.join(' ');
+            // or bug
+            writemd("> [!tldr]+ [debug] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
+        };
+    }
+
+    const info = console.info;
+    console.info = (...args: any[]): void => {
+
+        info("additional info");
+        info(...args);
+
+        const messageParts = getMessageParts(...args);
+        
+        const combinedMessage = messageParts.join(' ');
+        
+        writemd("> [!info]+ [info] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
+    };
 
     const log = console.log;
-        console.log = (...args: any[]): void => {
+    console.log = (...args: any[]): void => {
 
-            log("additional log");
-            log(...args);
+        log("additional log");
+        log(...args);
 
-            const messageParts = getMessageParts(...args);
-            
-            const combinedMessage = messageParts.join(' ');
-            
-            writemd("> [!info]+ [log] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
-        };
+        const messageParts = getMessageParts(...args);
+        
+        const combinedMessage = messageParts.join(' ');
+        
+        writemd("> [!quote]+ [log] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
+    };
 
     const error = console.error;
-        console.error = (...args: any[]): void => {
+    console.error = (...args: any[]): void => {
 
-            error("additional error");
-            error(...args);
+        error("additional error");
+        error(...args);
 
-            const messageParts = getMessageParts(...args);
-            
-            const combinedMessage = messageParts.join(' ');
-            
-            writemd("> [!fail]+ [error] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
-        };
+        const messageParts = getMessageParts(...args);
+        
+        const combinedMessage = messageParts.join(' ');
+        
+        writemd("> [!fail]+ [error] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
+    };
         
     const warn = console.warn;
-        console.warn = (...args: any[]): void => {
+    console.warn = (...args: any[]): void => {
 
-            warn("additional warn");
-            warn(...args);
+        warn("additional warn");
+        warn(...args);
 
-            const messageParts = getMessageParts(...args);
-            
-            const combinedMessage = messageParts.join(' ');
-            
-            writemd("> [!warning]+ [warn] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
-        };
+        const messageParts = getMessageParts(...args);
+        
+        const combinedMessage = messageParts.join(' ');
+        
+        writemd("> [!warning]+ [warn] [" + new Date().toISOString() + "]\n" + combinedMessage.split("\n").map((value)=> {return "> " + value}).join("\n"));
+    };
 }
 
 // Type for the object representing a single step item
@@ -126,13 +161,14 @@ export type ProcessTrackerInstance = {
     appendFile: (filePath: string) => Promise<void>;
     setInProgressStepsToError: (errorMessage?: string) => void;
     getSignal: () => AbortSignal;
+    saveLogs: ()=> void;
 };
 
 // Factory function to create and manage the overall progress tracking UI component
 export const createProcessTracker = (pluginInstance: AutoFilePlugin, parentContainerForTracker: HTMLElement): ProcessTrackerInstance => {
     // Internal state variables
     let steps: StepItemInstance[] = [];
-    let logs: string = "";
+    let logs: string[] = [];
     const plugin = pluginInstance; // Capture the plugin instance
 
     // DOM Elements (created once when createProcessTracker is called)
@@ -159,18 +195,34 @@ export const createProcessTracker = (pluginInstance: AutoFilePlugin, parentConta
 
     // Internal lambda for writing logs
     const writeLog = (logEntry: string): void => {
-        logs += logEntry + "\n\n";
-        logsMDContainer.empty(); // To save to a file, must keep the full log!
-        MarkdownRenderer.render(plugin.app, logs, logsMDContainer, "/", plugin);
+        logs.push(logEntry);
+        // logsMDContainer.empty(); // To save to a file, must keep the full log!
+        MarkdownRenderer.render(plugin.app, logEntry, logsMDContainer, "/", plugin);
     };
 
+    const saveLogs = async () => {
+        await writeFileMD(plugin.app, "_logs/"+new Date().toDateString(), logs.join("\n\n"))
+    }
+
+    const button = logsContainer.createEl('button', {
+        cls: 'limporter-button secondary',
+    });
+    button.setText("Save logs");
+    button.addEventListener('click', () => {
+        saveLogs();
+    });
+
+    const clearLogs = () => {
+        logs = [];
+        logsMDContainer.empty();
+    }
     // Initialize console replacement to use our logging function
-    replaceConsole(writeLog);
+    replaceConsole(writeLog, clearLogs, plugin.settings.display_debug_messages);
 
     // Internal lambda for appending a file item to the UI
     const appendFileItem = (file: TFile): void => {
         const fileItemEl = filesListContainer.createDiv('limporter-tracked-file-item');
-        fileItemEl.setText(file.basename);
+        fileItemEl.setText(file.path);
         fileItemEl.addClass('clickable-icon');
 
         fileItemEl.addEventListener('click', async () => {
@@ -194,35 +246,37 @@ export const createProcessTracker = (pluginInstance: AutoFilePlugin, parentConta
             await fileDisplayLeaf.openFile(file, { active: true });
             plugin.app.workspace.setActiveLeaf(fileDisplayLeaf, { focus: true });
 
-            let localGraphLeaf: WorkspaceLeaf | null = null;
-            const existingLocalGraphLeaves = plugin.app.workspace.getLeavesOfType('localgraph');
+            if (plugin.settings.load_graph_when_clicking_created_file) {
+                let localGraphLeaf: WorkspaceLeaf | null = null;
+                const existingLocalGraphLeaves = plugin.app.workspace.getLeavesOfType('localgraph');
 
-            if (existingLocalGraphLeaves.length > 0) {
-                localGraphLeaf = existingLocalGraphLeaves[0];
-                plugin.app.workspace.revealLeaf(localGraphLeaf);
-            } else {
-                // localGraphLeaf = plugin.app.workspace.getLeftLeaf(true);
-                // localGraphLeaf = plugin.app.workspace.getLeftLeaf(false);
-                if (!localGraphLeaf || localGraphLeaf === fileDisplayLeaf) {
-                    localGraphLeaf = plugin.app.workspace.getLeaf(false);
-                }
-            }
-
-            if (localGraphLeaf) {
-                const view = localGraphLeaf.view;
-                if (view && view.getViewType() === 'localgraph' && typeof (view as any).setFile === 'function') {
-                    (view as any).setFile(file);
+                if (existingLocalGraphLeaves.length > 0) {
+                    localGraphLeaf = existingLocalGraphLeaves[0];
+                    plugin.app.workspace.revealLeaf(localGraphLeaf);
                 } else {
-                    await localGraphLeaf.setViewState({
-                        type: 'localgraph',
-                        state: { file: file.path },
-                        active: true,
-                    });
+                    // localGraphLeaf = plugin.app.workspace.getLeftLeaf(true);
+                    // localGraphLeaf = plugin.app.workspace.getLeftLeaf(false);
+                    if (!localGraphLeaf || localGraphLeaf === fileDisplayLeaf) {
+                        localGraphLeaf = plugin.app.workspace.getLeaf(false);
+                    }
                 }
-                plugin.app.workspace.revealLeaf(localGraphLeaf);
-            } else {
-                new Notice("Could not open or find/create a leaf for the local graph.");
-                console.error("ProcessTracker: Could not obtain a suitable leaf for the local graph.");
+
+                if (localGraphLeaf) {
+                    const view = localGraphLeaf.view;
+                    if (view && view.getViewType() === 'localgraph' && typeof (view as any).setFile === 'function') {
+                        (view as any).setFile(file);
+                    } else {
+                        await localGraphLeaf.setViewState({
+                            type: 'localgraph',
+                            state: { file: file.path },
+                            active: true,
+                        });
+                    }
+                    plugin.app.workspace.revealLeaf(localGraphLeaf);
+                } else {
+                    new Notice("Could not open or find/create a leaf for the local graph.");
+                    console.error("ProcessTracker: Could not obtain a suitable leaf for the local graph.");
+                }
             }
         });
     };
@@ -303,6 +357,7 @@ export const createProcessTracker = (pluginInstance: AutoFilePlugin, parentConta
         appendStep,
         appendFile,
         setInProgressStepsToError,
-        getSignal
+        getSignal,
+        saveLogs
     };
 };

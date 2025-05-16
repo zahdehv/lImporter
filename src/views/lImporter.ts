@@ -1,15 +1,17 @@
-import { FileItem } from "src/utils/filesystem";
+import { FileItem, prepareFileData } from "src/utils/files";
 import AutoFilePlugin from "../main";
 import { ItemView, Notice } from "obsidian";
 import { models, pipelineOptions } from '../agents/pipelines';
-import { FileSuggestionModal } from "./fileSuggestion";
+import { FileSuggestionModal } from "../utils/fileSuggestion";
 import { setIcon, Setting, TFile, TextAreaComponent, DropdownComponent, WorkspaceLeaf } from "obsidian";
-import { createProcessTracker } from "./tracker";
+import { createProcessTracker } from "../utils/tracker";
 export const VIEW_TYPE = "limporter-view";
 
 const original_log = console.log;
 const original_error = console.error;
 const original_warn = console.warn;
+// const original_info = console.info;
+// const original_info = console.;
 
 export class LimporterView extends ItemView {
     private plugin: AutoFilePlugin;
@@ -80,7 +82,7 @@ model: ${this.currentModel}`);
     }
 
     async addFile(file: TFile) {
-        const newFileItem = await this.prepareFileData(file);
+        const newFileItem = await prepareFileData(file);
         this.fileItems.push(newFileItem);
         const filesContainerEl = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
         if (filesContainerEl) {
@@ -120,36 +122,6 @@ model: ${this.currentModel}`);
         this.createProcessButton(buttonContainer);
     }
 
-    public async prepareFileData(file: TFile): Promise<FileItem> {
-        const arrayBuffer = await this.app.vault.readBinary(file);
-        const typeMap: Record<string, string> = {
-            mp3: 'audio/mpeg',
-            wav: 'audio/wav',
-            ogg: 'audio/ogg',
-            m4a: 'audio/mp4',
-            aac: 'audio/aac',
-            flac: 'audio/flac',
-            aiff: 'audio/aiff',
-            png: 'image/png',
-            jpg: 'image/jpg',
-            jpeg: 'image/jpeg',
-            pdf: 'application/pdf',
-            md: 'text/markdown',
-            txt: 'text/plain',
-        };
-        const mime = typeMap[file.extension.toLowerCase()] || 'application/octet-stream';
-        const blob = new Blob([arrayBuffer], { type: mime });
-        return {
-            url: URL.createObjectURL(blob),
-            blob: blob,
-            title: file.name,
-            path: file.path,
-            mimeType: mime,
-            uploaded: false,
-            file: null
-        };
-    }
-
     private renderFileItems(container: HTMLElement): void {
         container.empty();
         this.fileItems.forEach((fileItem, index) => {
@@ -172,7 +144,7 @@ model: ${this.currentModel}`);
             fileDetailsEl.createEl('div', { cls: 'limporter-file-type', text: fileTypeDescription });
 
             if (!fileItem.mimeType.includes('pdf') && !fileItem.mimeType.includes('markdown')) {
-                fileEl.createEl('audio', { attr: { controls: 'true', src: fileItem.url, class: 'limporter-audio-player' } });
+                fileEl.createEl('audio', { attr: { controls: 'true', src: URL.createObjectURL(fileItem.blob), class: 'limporter-audio-player' } });
             }
             const actionContainer = fileInfoEl.createDiv('limporter-action-container');
             const trashIcon = actionContainer.createDiv('limporter-trash-icon');

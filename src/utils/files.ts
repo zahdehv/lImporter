@@ -1,15 +1,7 @@
 import { App, TFolder, TFile, getAllTags, prepareFuzzySearch } from 'obsidian'; // Import App
 import * as Diff from 'diff';
+import { GoogleGenAI } from '@google/genai';
 
-export interface FileItem {
-    url: string;
-    blob: Blob;
-    title: string;
-    path: string;
-    mimeType: string;
-    uploaded: boolean;
-    file: {name: string, mimeType: string, uri: string} | null; // Type 'any' can be refined if after-upload data structure is known
-}
 
 /**
  * Generates a string representation of a directory tree structure within the Obsidian vault.
@@ -370,4 +362,120 @@ export const captureGhosts = (app: App) => {
         }
     }
     return ghostRefs;
+}
+
+//CLOUD
+export interface FileItem {
+    blob: Blob;
+    title: string;
+    path: string;
+    mimeType: string;
+    local_file: TFile; // Type 'any' can be refined if after-upload data structure is known
+    cloud_file: {name: string, mimeType: string, uri: string} | null; // Type 'any' can be refined if after-upload data structure is known
+
+}
+
+export async function prepareFileData(file: TFile): Promise<FileItem> {
+        const arrayBuffer = await this.app.vault.readBinary(file);
+        const typeMap: Record<string, string> = {
+            mp3: 'audio/mpeg',
+            wav: 'audio/wav',
+            ogg: 'audio/ogg',
+            m4a: 'audio/mp4',
+            aac: 'audio/aac',
+            flac: 'audio/flac',
+            aiff: 'audio/aiff',
+            png: 'image/png',
+            jpg: 'image/jpg',
+            jpeg: 'image/jpeg',
+            pdf: 'application/pdf',
+            md: 'text/markdown',
+            txt: 'text/plain',
+            gif: 'image/gif',
+            mp4: 'video/mp4',
+            mov: 'video/quicktime',
+        };
+        
+        const mime = typeMap[file.extension.toLowerCase()] || 'application/octet-stream';
+        const blob = new Blob([arrayBuffer], { type: mime });
+        return {
+            blob: blob,
+            title: file.name,
+            path: file.path,
+            mimeType: mime,
+            local_file: file,
+            cloud_file: null
+        };
+    }
+
+
+async function findFileBySha256(genAI: GoogleGenAI, localSha256:string) {
+    // console.log(`Searching for file with SHA256: ${localSha256}`);
+    try {
+        // The `files` manager is available directly on the genAI instance
+        const listFilesResponse = await genAI.files.list({config: {
+            pageSize: 100, // Adjust as needed, max 100
+        }});
+        // const files = listFilesResponse.files || []; // Ensure files is an array
+
+        for await(const remoteFile of listFilesResponse) {
+            // console.log(remoteFile.displayName, remoteFile.sha256Hash);
+            if (remoteFile.sha256Hash === localSha256) {
+                // console.log(`File found on Gemini with SHA256: ${localSha256}, Name: ${remoteFile.name}, URI: ${remoteFile.uri}`);
+                return remoteFile; // Found the file
+            }
+        }
+
+        console.log(`No file found with SHA256: ${localSha256}`);
+        return null; // File not found
+    } catch (error) {
+        console.error("Error listing files on Gemini:", error);
+        throw error; // Re-throw to be handled by the caller
+    }
+}
+
+
+async function getChecksumSha256(blob: Blob): Promise<string> {
+    const uint8Array = new Uint8Array(await blob.arrayBuffer());
+    const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+    return hashArray.map((h) => h.toString(16).padStart(2, '0')).join('');
+}
+
+  
+export async function upload_file(app: App, file: FileItem, ai: GoogleGenAI, signal: AbortSignal) {
+    try {
+        // 1. Read file content from Obsidian
+        const fileContentArrayBuffer = await app.vault.readBinary(file.local_file);
+
+        // 2. Calculate its SHA-256 hash
+        const mimeType = file.mimeType;
+        const blob = new Blob([fileContentArrayBuffer], { type: mimeType });
+        const SHA256b64 = btoa(await getChecksumSha256(blob));
+
+        // 3. Check if a file with the same SHA-256 hash already exists
+        let geminiFile = await findFileBySha256(ai, SHA256b64);
+
+        if (geminiFile) {
+            console.log(`File "${file.title}" (SHA256: ${SHA256b64}) already exists on Gemini as "${geminiFile.name}". URI: ${geminiFile.uri}`);
+            file.cloud_file = (geminiFile.name && geminiFile.mimeType &&geminiFile.uri)?{name: geminiFile.name, mimeType: geminiFile.mimeType, uri: geminiFile.uri}: null;    
+            
+            return geminiFile;
+        } else {
+            
+            console.log(`File "${file.title}" (SHA256: ${SHA256b64}) not found on Gemini. Uploading...`);           
+            
+            geminiFile = await ai.files.upload({file: file.blob, config:{abortSignal: signal, displayName: file.path, mimeType: file.mimeType}});
+            file.cloud_file = (geminiFile.name && geminiFile.mimeType &&geminiFile.uri)?{name: geminiFile.name, mimeType: geminiFile.mimeType, uri: geminiFile.uri}: null;    
+            
+            console.log(`File "${file.title}" uploaded successfully. Name: ${geminiFile.name}, URI: ${geminiFile.uri}`);
+            // new Notice(`File "${tfile.name}" uploaded successfully to Gemini.`); // Obsidian notification
+            return geminiFile;
+        }
+    } catch (error) {
+        console.error(`Error processing file "${file.title}" for Gemini:`, error);
+        // new Notice(`Error processing file "${tfile.name}": ${error.message}`); // Obsidian notification
+        return null;
+    }
 }

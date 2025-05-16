@@ -1,4 +1,6 @@
+import { Chat, GoogleGenAI } from "@google/genai";
 import { ItemView, WorkspaceLeaf, setIcon, MarkdownRenderer } from "obsidian";
+import AutoFilePlugin from "src/main";
 
 // Unique identifier for this view type
 export const CHAT_VIEW_TYPE = "ai-chat-view";
@@ -19,13 +21,22 @@ export const CHAT_VIEW_TYPE = "ai-chat-view";
 // .chat-send-button - The send button
 
 export class ChatView extends ItemView {
+    private plugin: AutoFilePlugin;
+    
     private messagesContainer: HTMLElement;
     private inputEl: HTMLTextAreaElement;
+    
+    private ai: GoogleGenAI;
+    private chat: Chat;
+    
     // private sendButton: HTMLButtonElement; // Reference not strictly needed if only event is attached
 
-    constructor(leaf: WorkspaceLeaf) {
+    constructor(leaf: WorkspaceLeaf, plugin: AutoFilePlugin) {
         super(leaf);
+        this.plugin = plugin;
         this.icon = "messages-square"; // Set the icon for the view tab
+        this.ai = new GoogleGenAI({apiKey: this.plugin.settings.GOOGLE_API_KEY});
+        this.chat = this.ai.chats.create({model:"gemini-2.5-flash-preview-04-17"});
     }
 
     getViewType(): string {
@@ -63,7 +74,7 @@ export class ChatView extends ItemView {
 
         const sendButton = inputArea.createEl("button", {
             text: "Send",
-            cls: "mod-cta chat-send-button" // "mod-cta" for primary action styling
+            cls: "chat-send-button" // "mod-cta" for primary action styling
         });
         setIcon(sendButton, "send");
 

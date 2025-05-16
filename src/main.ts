@@ -3,8 +3,9 @@ import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE } from './views/lImporter';
 import { LimporterView } from './views/lImporter';
 import { DEFAULT_SETTINGS, AutoPluginSettings, AutoSettingTab } from './views/settings';
-import { ProcessTrackerInstance } from './views/tracker';
+import { ProcessTrackerInstance } from './utils/tracker';
 import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
+import { upload_file } from './utils/files';
 
 export default class AutoFilePlugin extends Plugin {
     settings: AutoPluginSettings;
@@ -46,7 +47,7 @@ export default class AutoFilePlugin extends Plugin {
         //CHAT ADDITIONAL
         this.registerView(
             CHAT_VIEW_TYPE,
-            (leaf: WorkspaceLeaf) => new ChatView(leaf)
+            (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
         );
 
         // 2. Add a Ribbon Icon to open the Chat View
@@ -61,11 +62,44 @@ export default class AutoFilePlugin extends Plugin {
         );
 
         //TESTRIBBON
-        // this.addRibbonIcon('pen', 'TEST', async () => {
-        //     console.log("a\n\nb\nc");            
-        //     console.warn("a\n\nb\nc");            
-        //     console.error("a\n\nb\nc");            
-        // });
+        this.addRibbonIcon('experiment', 'TEST', async () => {
+            // console.log(new Date().);
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                new Notice('No active note to show local graph for');
+                return;
+            }
+            // upload_file(this.app, );      
+            // const ai = new GoogleGenAI({apiKey: this.settings.GOOGLE_API_KEY});
+            // const listResponse = await ai.files.list({config: {'pageSize': 100}});
+            // for await (const file of listResponse) {
+            //     if (file.name){
+            //         const data = await ai.files.get({name: file.name})
+            //         const cloudHash = data.sha256Hash;
+            //         if (cloudHash) {
+            //             // const res = compareTFileHash(activeFile, this.app, cloudHash);
+            //             // console.log((await res).match);
+            //         }
+            //         // ai.files.delete({name: file.name});
+
+            //     }
+            // }
+
+            // const a = this.app.metadataCache.fileToLinktext(activeFile, activeFile.path);
+            // const b = this.app.metadataCache.getFileCache(activeFile);
+            // const text = await this.app.vault.read(activeFile);
+            // console.log(a);
+            // console.log(b);
+            // console.log(b?.embeds);
+            // console.log(text);
+            // console.log(b?.frontmatter);
+            // console.log(b?.listItems);
+            // if (b?.links){
+            //     this.app.metadataCache.getFirstLinkpathDest
+            // console.log(this.app.metadataCache.getFirstLinkpathDest(b?.links[0].link));}
+            // console.log(b?.referenceLinks);
+            // console.log(b?./);
+        });
 
         this.ribbonIcon = this.addRibbonIcon('bot-message-square', 'Open lImporter', () => this.openView());
         this.ribbonIcon.addClass('limporter-ribbon-icon');
