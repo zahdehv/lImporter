@@ -489,3 +489,106 @@
        margin-right: 8px;
     */
   }
+
+/* .callout[data-callout="zdv"] {
+--callout-color: 255, 0, 0;
+--callout-icon: snap-to-object;
+} */
+
+/* styles.css for the AI Chat View */
+
+.chat-view-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Fill the available height of the leaf */
+    padding: var(--size-4-2) var(--size-4-3); /* Use Obsidian's spacing variables */
+    box-sizing: border-box;
+  }
+  
+  .chat-view-container h4 {
+    margin-top: 0;
+    margin-bottom: var(--size-4-2);
+    text-align: center;
+    color: var(--text-normal);
+  }
+  
+  .chat-messages-container {
+    flex-grow: 1; /* Allow this area to take up available space */
+    overflow-y: auto; /* Enable vertical scrolling */
+    border: 1px solid var(--background-modifier-border);
+    padding: var(--size-4-2);
+    margin-bottom: var(--size-4-2);
+    border-radius: var(--radius-m);
+    background-color: var(--background-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-4-2); /* Space between messages */
+  }
+  
+  .chat-message {
+    padding: var(--size-4-1) var(--size-4-2);
+    border-radius: var(--radius-s);
+    max-width: 85%; /* Messages don't take full width */
+    word-wrap: break-word; /* Break long words */
+    line-height: var(--line-height-normal);
+  }
+  
+  .chat-message .chat-message-sender { /* If you add sender spans */
+    font-weight: bold;
+    margin-right: var(--size-4-1);
+    display: block;
+    font-size: 0.9em;
+    color: var(--text-muted);
+    margin-bottom: var(--size-4-1);
+  }
+  
+  .chat-message .chat-message-text {
+     white-space: pre-wrap; /* Preserve whitespace and newlines from text content */
+  }
+  .chat-message .chat-message-text p:first-child {
+      margin-top: 0;
+  }
+  .chat-message .chat-message-text p:last-child {
+      margin-bottom: 0;
+  }
+  
+  
+  .user-message {
+    background-color: var(--interactive-accent); /* User messages in accent color */
+    color: var(--text-on-accent);
+    align-self: flex-end; /* Align user messages to the right */
+    margin-left: auto; /* Push to right */
+    border-radius: var(--radius-m) var(--radius-m) var(--radius-s) var(--radius-m); /* Slightly different rounding */
+  }
+  
+  .ai-message {
+    background-color: var(--background-primary-alt); /* AI messages with a different background */
+    color: var(--text-normal);
+    align-self: flex-start; /* Align AI messages to the left */
+    margin-right: auto; /* Push to left */
+    border-radius: var(--radius-m) var(--radius-m) var(--radius-m) var(--radius-s);
+  }
+  
+  .chat-input-area {
+    display: flex;
+    gap: var(--size-4-2); /* Space between textarea and button */
+    align-items: flex-end; /* Align button with bottom of (potentially multi-line) textarea */
+  }
+  
+  .chat-input-textarea {
+    flex-grow: 1;
+    min-height: calc(var(--line-height-normal) * 1em + 2 * var(--size-4-2) + 2px); /* Approx height for one line text + padding + border */
+    max-height: 150px; /* Max height before textarea itself scrolls */
+    resize: none; /* Disable manual resizing by user */
+    padding: var(--size-4-2);
+    border-radius: var(--radius-m);
+    border: 1px solid var(--background-modifier-border);
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    line-height: var(--line-height-normal);
+    font-family: inherit;
+  }
+  
+  .chat-send-button {
+    /* The button will align itself with the bottom of the textarea due to align-items: flex-end on parent */
+  }

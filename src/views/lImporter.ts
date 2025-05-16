@@ -1,11 +1,15 @@
-import { FileItem } from "../utils/uploader";
+import { FileItem } from "src/utils/filesystem";
 import AutoFilePlugin from "../main";
 import { ItemView, Notice } from "obsidian";
-import { models, pipelineOptions } from '../utils/pipelines';
+import { models, pipelineOptions } from '../agents/pipelines';
 import { FileSuggestionModal } from "./fileSuggestion";
 import { setIcon, Setting, TFile, TextAreaComponent, DropdownComponent, WorkspaceLeaf } from "obsidian";
-import { processTracker } from "./tracker";
+import { createProcessTracker } from "./tracker";
 export const VIEW_TYPE = "limporter-view";
+
+const original_log = console.log;
+const original_error = console.error;
+const original_warn = console.warn;
 
 export class LimporterView extends ItemView {
     private plugin: AutoFilePlugin;
@@ -26,12 +30,9 @@ export class LimporterView extends ItemView {
 
     private currentAgent = pipelineOptions[0].name;
     private currentModel = models[0].id;
-    private currentPrompt = pipelineOptions[0].defaultPrompt;
-    private pipelineStarter: (plugin: AutoFilePlugin, model: string) => (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> = pipelineOptions[0].buildPipeline;
-    private currentPipeline: (prompt: string, files: FileItem[], signal: AbortSignal) => Promise<void> | null;
-    private textAreaComponent?: TextAreaComponent;
-    private adjustPromptArea: () => void;
-    private dropdown: DropdownComponent;
+    private pipelineStarter: (plugin: AutoFilePlugin, model: string) => (files: FileItem[], signal: AbortSignal) => Promise<void> = pipelineOptions[0].buildPipeline;
+    private currentPipeline: (files: FileItem[], signal: AbortSignal) => Promise<void> | null;
+
     private trackerContainer: HTMLElement; // Container for the processTracker's UI
 
     constructor(leaf: WorkspaceLeaf, plugin: AutoFilePlugin) {
@@ -52,6 +53,8 @@ export class LimporterView extends ItemView {
     }
 
     async onOpen() {
+      console.warn("xdxd");
+
         const { containerEl } = this;
         containerEl.empty();
         containerEl.addClass('limporter-view');
@@ -59,7 +62,7 @@ export class LimporterView extends ItemView {
         const header = containerEl.createEl('h3', { cls: 'limporter-header', text: 'lImporter' });
 
         this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
-        this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
+        this.plugin.tracker = createProcessTracker(this.plugin, this.trackerContainer);
 
         this.createButtonContainer(containerEl);
 
@@ -74,10 +77,6 @@ name: ${this.currentAgent}
 model: ${this.currentModel}`);
 
         this.currentPipeline = this.pipelineStarter(this.plugin, this.currentModel);
-            if (this.textAreaComponent) {
-                this.textAreaComponent.setValue(this.currentPrompt);
-                this.adjustPromptArea();
-            }
     }
 
     async addFile(file: TFile) {
@@ -101,15 +100,12 @@ model: ${this.currentModel}`);
         filesContainer.style.display = this.isFileVisible ? 'flex' : 'none';
         this.renderFileItems(filesContainer);
 
-        const textAreaContainer = buttonContainer.createDiv('limporter-config-container');
-        textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
-        this.createPipelineDropdown(textAreaContainer);
-        this.createMaterialTextArea(textAreaContainer);
-        const button = textAreaContainer.createEl('button', {
+        const configContainer = buttonContainer.createDiv('limporter-config-container');
+        configContainer.style.display = this.isConfigVisible ? 'block' : 'none';
+        this.createPipelineDropdown(configContainer);
+        const button = configContainer.createEl('button', {
             cls: 'limporter-button secondary',
-            // text: this.isFileVisible ? 'CONFIG' : 'CONFIG'
         });
-        // setIcon(buttonF, 'file-up');
         button.setText("Load Agent");
         button.addEventListener('click', () => {
             this.loadAgent();
@@ -150,7 +146,7 @@ model: ${this.currentModel}`);
             path: file.path,
             mimeType: mime,
             uploaded: false,
-            uploadData: null
+            file: null
         };
     }
 
@@ -194,14 +190,12 @@ model: ${this.currentModel}`);
     private createConfigFileVisibilityButton(container: HTMLElement): void {
         const buttonF = container.createEl('button', {
             cls: 'limporter-button secondary',
-            // text: this.isFileVisible ? 'CONFIG' : 'CONFIG'
         });
         setIcon(buttonF, 'file-up');
         buttonF.toggleClass('toggled-on', this.isFileVisible);
         const filesContainer = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
         buttonF.addEventListener('click', () => {
             this.isFileVisible = !this.isFileVisible;
-            // buttonF.setText(this.isFileVisible ? 'CONFIG' : 'CONFIG');
             buttonF.toggleClass('toggled-on', this.isFileVisible);
             if (filesContainer) {
                 filesContainer.style.display = this.isFileVisible ? 'flex' : 'none';
@@ -210,20 +204,15 @@ model: ${this.currentModel}`);
         
         const buttonC = container.createEl('button', {
             cls: 'limporter-button secondary',
-            // text: this.isConfigVisible ? 'CONFIG' : 'CONFIG'
         });
         setIcon(buttonC, 'settings');
         buttonC.toggleClass('toggled-on', this.isConfigVisible);
-        const textAreaContainer = this.containerEl.querySelector('.limporter-config-container') as HTMLElement;
+        const configContainer = this.containerEl.querySelector('.limporter-config-container') as HTMLElement;
         buttonC.addEventListener('click', () => {
             this.isConfigVisible = !this.isConfigVisible;
-            // buttonC.setText(this.isConfigVisible ? 'CONFIG' : 'CONFIG');
             buttonC.toggleClass('toggled-on', this.isConfigVisible);
-            if (textAreaContainer) {
-                textAreaContainer.style.display = this.isConfigVisible ? 'block' : 'none';
-            }
-            if (this.isConfigVisible && this.textAreaComponent) {
-                this.adjustPromptArea();
+            if (configContainer) {
+                configContainer.style.display = this.isConfigVisible ? 'block' : 'none';
             }
         });
     }
@@ -301,7 +290,6 @@ model: ${this.currentModel}`);
             }
         });
     
-        // Initialize all views to be hidden and buttons to be off
         updateToggleViews("progress"); // Or set this.activeToggleView to its initial desired state
     }
     
@@ -309,7 +297,6 @@ model: ${this.currentModel}`);
     private createAddButton(container: HTMLElement): void {
         const button = container.createEl('button', {
             cls: 'limporter-button secondary',
-            // text: 'Add File'
         });
         setIcon(button, 'plus');
         button.style.marginTop = "0.5rem";
@@ -328,19 +315,14 @@ model: ${this.currentModel}`);
         new Setting(dropdownContainer)
             .setName('Pipeline:')
             .addDropdown(dropdown => {
-                this.dropdown = dropdown
+                dropdown
                     .addOptions(Object.fromEntries(pipelineOptions.map(opt => [opt.id, opt.name])))
                     .onChange(async (value) => {
                         if (value) {
                             const selected = pipelineOptions.find(opt => opt.id === value);
                             if (selected) {
                                 this.pipelineStarter = selected.buildPipeline;
-                                this.currentPrompt = selected.defaultPrompt;
                                 this.currentAgent = selected.name;
-                                if (this.textAreaComponent) {
-                                    this.textAreaComponent.setValue(this.currentPrompt);
-                                    this.adjustPromptArea();
-                                }
                             }
                         }
                     });
@@ -363,45 +345,38 @@ model: ${this.currentModel}`);
     private createProcessButton(container: HTMLElement): void {
         const button = container.createEl('button', {
             cls: 'limporter-button primary',
-            // text: 'Process'
         });
         setIcon(button, "corner-down-left")
         button.addEventListener('click', async () => {
-            if (this.processing) {
-                this.abortController?.abort();
-                button.disabled = true;
-                return;
-            }
-            if (this.plugin.tracker) {
-                this.plugin.tracker.resetTracker();
-            } else {
-                console.error("Tracker not initialized for reset");
-                this.plugin.tracker = new processTracker(this.plugin, this.trackerContainer);
-            }
-
-            if (!this.currentPipeline) {
-                const nopipe = this.plugin.tracker.appendStep("Pipeline Error", 'No pipeline selected', "alert-triangle");
-                nopipe.updateState('error');
-                console.error('No pipeline selected');
-                return;
-            }
-            button.addClass('stop-mode');
-            // button.setText('Stop');
-            setIcon(button, 'stop-circle')
-            this.abortController = new AbortController();
-            this.processing = true;
+            //THE ONLY TRY
             try {
-                const signal = this.abortController.signal;
-                await this.currentPipeline(this.currentPrompt, this.fileItems, signal);
+                if (this.processing) {
+                    this.abortController?.abort();
+                    button.disabled = true;
+                    return;
+                }
+                if (this.plugin.tracker) {
+                    this.plugin.tracker.resetTracker();
+                } else {
+                    this.plugin.tracker = createProcessTracker(this.plugin, this.trackerContainer);
+                }
+                if (!this.currentPipeline) throw new Error('No pipeline selected');
+                button.addClass('stop-mode');
+                setIcon(button, 'stop-circle')
+                this.abortController = new AbortController();
+                this.processing = true;
+                const signal: AbortSignal = this.abortController.signal;
+                signal.onabort = (ev: Event): any => {throw new Error("ABORTION BUAJAJAJA");}
+                
+                await this.currentPipeline(this.fileItems, signal);
             } catch (error: any) {
-                console.error(error);
+                // console.warn(error);
                 const errorMsg = error instanceof Error ? error.message : String(error);
-                const errorTrack = this.plugin.tracker.appendStep("General Error", errorMsg, 'x');
-                errorTrack.updateState("error", errorMsg);
+                console.error(errorMsg);
+                this.plugin.tracker.setInProgressStepsToError(errorMsg);
             } finally {
                 this.abortController = null;
                 button.removeClass('stop-mode');
-                // button.setText('Process');
                 setIcon(button, 'corner-down-left')
                 button.disabled = false;
                 this.processing = false;
@@ -409,24 +384,9 @@ model: ${this.currentModel}`);
         });
     }
 
-    private createMaterialTextArea(container: HTMLElement): void {
-        this.textAreaComponent = new TextAreaComponent(container)
-            .setPlaceholder("Type your message...")
-            .setValue("")
-            .onChange((value) => this.currentPrompt = value);
-        const textAreaEl = this.textAreaComponent.inputEl;
-        textAreaEl.addClass("material-textarea");
-        this.adjustPromptArea = () => {
-            textAreaEl.style.height = 'auto';
-            textAreaEl.style.height = `${textAreaEl.scrollHeight}px`;
-        };
-        textAreaEl.addEventListener('input', this.adjustPromptArea);
-        if (this.isConfigVisible) {
-            this.adjustPromptArea();
-        }
-    }
-
     async onClose() {
-        // Clean up any resources if needed
+        console.log = original_log;
+        console.error = original_error;
+        console.warn = original_warn;
     }
 }

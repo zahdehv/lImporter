@@ -1,14 +1,14 @@
 
-import { Notice, Plugin, prepareFuzzySearch, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
-import { processTracker } from './views/tracker'; // Ensure this path is correct
+import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE } from './views/lImporter';
 import { LimporterView } from './views/lImporter';
 import { DEFAULT_SETTINGS, AutoPluginSettings, AutoSettingTab } from './views/settings';
-import { queryVault, simpleQueryVault } from './utils/filesystem';
+import { ProcessTrackerInstance } from './views/tracker';
+import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
 
 export default class AutoFilePlugin extends Plugin {
     settings: AutoPluginSettings;
-    tracker!: processTracker;
+    tracker!: ProcessTrackerInstance;
     private ribbonIcon!: HTMLElement;
     public view: LimporterView | null = null;
 
@@ -42,20 +42,30 @@ export default class AutoFilePlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
+
+        //CHAT ADDITIONAL
+        this.registerView(
+            CHAT_VIEW_TYPE,
+            (leaf: WorkspaceLeaf) => new ChatView(leaf)
+        );
+
+        // 2. Add a Ribbon Icon to open the Chat View
+        this.addRibbonIcon("messages-square", "Open AI Chat", () => {
+            this.activateChatView();
+        });
+
+
         this.registerView(
             VIEW_TYPE,
             (leaf) => (this.view = new LimporterView(leaf, this))
         );
 
-        this.addRibbonIcon('pen', 'TEST', async () => {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (!activeFile) {
-                new Notice('No active note to show local graph for');
-                return;
-            }
-            
-        new Notice(activeFile.name)
-        });
+        //TESTRIBBON
+        // this.addRibbonIcon('pen', 'TEST', async () => {
+        //     console.log("a\n\nb\nc");            
+        //     console.warn("a\n\nb\nc");            
+        //     console.error("a\n\nb\nc");            
+        // });
 
         this.ribbonIcon = this.addRibbonIcon('bot-message-square', 'Open lImporter', () => this.openView());
         this.ribbonIcon.addClass('limporter-ribbon-icon');
@@ -150,4 +160,35 @@ export default class AutoFilePlugin extends Plugin {
     async saveSettings() {
         await this.saveData(this.settings);
     }
+
+    async activateChatView() {
+        const { workspace } = this.app;
+
+        let leaf: WorkspaceLeaf | null = null;
+        const leaves = workspace.getLeavesOfType(CHAT_VIEW_TYPE);
+
+        if (leaves.length > 0) {
+            // A leaf with our view already exists, use that
+            leaf = leaves[0];
+        } else {
+            // No existing leaf, create a new one
+            // Try to open in the right sidebar, or a new tab if that fails
+            leaf = workspace.getRightLeaf(false); // Get a leaf in the right sidebar, don't split if it's already there
+            if (!leaf) { 
+                // Fallback to a new leaf in the main workspace if right sidebar is not available or suitable
+                leaf = workspace.getLeaf(true); // 'true' for new tab, or 'false' for splitting current
+            }
+            if (leaf) { // Ensure leaf was successfully created
+                await leaf.setViewState({ type: CHAT_VIEW_TYPE, active: true });
+            }
+        }
+
+        // Reveal the leaf and make it active
+        if (leaf) {
+            workspace.revealLeaf(leaf);
+        } else {
+            console.error("AI Chat Plugin: Could not create or find a leaf for the chat view.");
+        }
+    }
+
 }

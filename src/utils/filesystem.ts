@@ -1,6 +1,16 @@
 import { App, TFolder, TFile, getAllTags, prepareFuzzySearch } from 'obsidian'; // Import App
 import * as Diff from 'diff';
 
+export interface FileItem {
+    url: string;
+    blob: Blob;
+    title: string;
+    path: string;
+    mimeType: string;
+    uploaded: boolean;
+    file: {name: string, mimeType: string, uri: string} | null; // Type 'any' can be refined if after-upload data structure is known
+}
+
 /**
  * Generates a string representation of a directory tree structure within the Obsidian vault.
  * It can optionally include:
@@ -24,135 +34,128 @@ export async function listFilesTree(
     showFileDetails: boolean = false,
     maxContentLines: number = 10
 ): Promise<string> {
-    try {
-        const vault = app.vault; // Get vault from app
+    const vault = app.vault; // Get vault from app
 
-        let normalizedPath = rootPath.trim();
-        if (normalizedPath === '/' || normalizedPath === '') {
-            normalizedPath = '/';
-        } else {
-            if (normalizedPath.endsWith('/') && normalizedPath.length > 1) {
-                normalizedPath = normalizedPath.slice(0, -1);
+    let normalizedPath = rootPath.trim();
+    if (normalizedPath === '/' || normalizedPath === '') {
+        normalizedPath = '/';
+    } else {
+        if (normalizedPath.endsWith('/') && normalizedPath.length > 1) {
+            normalizedPath = normalizedPath.slice(0, -1);
+        }
+    }
+
+    // Use app.vault here
+    const rootNode = vault.getAbstractFileByPath(normalizedPath);
+
+    if (!rootNode) {
+        throw new Error(`Root path not found: ${normalizedPath}`);
+    }
+    if (!(rootNode instanceof TFolder)) {
+        throw new Error(`Root path is not a folder: ${normalizedPath}`);
+    }
+
+    let output = `${normalizedPath === '/' ? '.' : rootNode.name}\n`;
+
+    const buildTree = async (folder: TFolder, currentDepth: number, prefix: string) => {
+        if (currentDepth > depth) {
+            return;
+        }
+
+        const children = folder.children.sort((a, b) => {
+            const aIsFolder = a instanceof TFolder;
+            const bIsFolder = b instanceof TFolder;
+            if (aIsFolder !== bIsFolder) {
+                return aIsFolder ? -1 : 1;
             }
-        }
+            return a.name.localeCompare(b.name);
+        });
 
-        // Use app.vault here
-        const rootNode = vault.getAbstractFileByPath(normalizedPath);
+        const itemsToList = includeFiles ? children : children.filter(child => child instanceof TFolder);
 
-        if (!rootNode) {
-            throw new Error(`Root path not found: ${normalizedPath}`);
-        }
-        if (!(rootNode instanceof TFolder)) {
-            throw new Error(`Root path is not a folder: ${normalizedPath}`);
-        }
+        for (let i = 0; i < itemsToList.length; i++) {
+            const child = itemsToList[i];
+            const isLast = i === itemsToList.length - 1;
+            const connector = isLast ? "└───" : "├───";
+            const childPrefix = prefix + (isLast ? "    " : "│   ");
 
-        let output = `${normalizedPath === '/' ? '.' : rootNode.name}\n`;
-
-        const buildTree = async (folder: TFolder, currentDepth: number, prefix: string) => {
-            if (currentDepth > depth) {
-                return;
+            const fileCache = (child instanceof TFile)? app.metadataCache.getFileCache(child): null;
+            // Tags
+            let tagStr = "";
+            const tags = fileCache? getAllTags(fileCache): [];
+            if (tags && tags.length>0) {
+                tagStr+= "-> TAGS:"
+                for (let index = 0; index < tags.length; index++) tagStr += " "+tags[index];
             }
 
-            const children = folder.children.sort((a, b) => {
-                const aIsFolder = a instanceof TFolder;
-                const bIsFolder = b instanceof TFolder;
-                if (aIsFolder !== bIsFolder) {
-                    return aIsFolder ? -1 : 1;
-                }
-                return a.name.localeCompare(b.name);
-            });
+            output += `${prefix}${connector}${child.name}${(child instanceof TFile)?` (link con [[${child.name}|{texto visible del link}]])`:""} ${tagStr}\n`;
 
-            const itemsToList = includeFiles ? children : children.filter(child => child instanceof TFolder);
+            // --- START CONTENT/KEYPOINTS HANDLING ---
+            if (child instanceof TFile && showFileDetails) {
+                const fileNameLower = child.name.toLowerCase();
 
-            for (let i = 0; i < itemsToList.length; i++) {
-                const child = itemsToList[i];
-                const isLast = i === itemsToList.length - 1;
-                const connector = isLast ? "└───" : "├───";
-                const childPrefix = prefix + (isLast ? "    " : "│   ");
+                // Condition 1: File name contains '.lim'
+                if (fileNameLower.includes('.lim')) {
+                    try {
+                        // Use app.vault here
+                        const content = await vault.read(child);
+                        const lines = content.split('\n');
+                        const lineCount = lines.length;
+                        const linesToShow = lines.slice(0, maxContentLines);
 
-                const fileCache = (child instanceof TFile)? app.metadataCache.getFileCache(child): null;
-                // Tags
-                let tagStr = "";
-                try {
-                    const tags = fileCache? getAllTags(fileCache): [];
-                    if (tags && tags.length>0) {
-                        tagStr+= "-> TAGS:"
-                        for (let index = 0; index < tags.length; index++) tagStr += " "+tags[index];
-                    }} catch (error) {}
-
-                output += `${prefix}${connector}${child.name}${(child instanceof TFile)?` (link con [[${child.name}|{texto visible del link}]])`:""} ${tagStr}\n`;
-
-                // --- START CONTENT/KEYPOINTS HANDLING ---
-                if (child instanceof TFile && showFileDetails) {
-                    const fileNameLower = child.name.toLowerCase();
-
-                    // Condition 1: File name contains '.lim'
-                    if (fileNameLower.includes('.lim')) {
-                        try {
-                            // Use app.vault here
-                            const content = await vault.read(child);
-                            const lines = content.split('\n');
-                            const lineCount = lines.length;
-                            const linesToShow = lines.slice(0, maxContentLines);
-
-                            for (const line of linesToShow) {
-                                output += `${childPrefix}  ${line}\n`;
-                            }
-                            if (lineCount > maxContentLines) {
-                                output += `${childPrefix}  [...]\n`;
-                            }
-                        } catch (readError) {
-                            console.error(`Error reading .lim file ${child.path}:`, readError);
-                            output += `${childPrefix}  [Error reading .lim content]\n`;
+                        for (const line of linesToShow) {
+                            output += `${childPrefix}  ${line}\n`;
                         }
+                        if (lineCount > maxContentLines) {
+                            output += `${childPrefix}  [...]\n`;
+                        }
+                    } catch (readError) {
+                        console.error(`Error reading .lim file ${child.path}:`, readError);
+                        output += `${childPrefix}  [Error reading .lim content]\n`;
                     }
-                    // Condition 2: File is .md (and not a .lim file, implicitly by order)
-                    else if (child.extension?.toLowerCase() === 'md') {
-                        try {
-                            // Use app.metadataCache directly here << CORRECTED
+                }
+                // Condition 2: File is .md (and not a .lim file, implicitly by order)
+                else if (child.extension?.toLowerCase() === 'md') {
+                    try {
+                        // Use app.metadataCache directly here << CORRECTED
 
-                            if (fileCache?.frontmatter?.keypoints && Array.isArray(fileCache.frontmatter.keypoints)) {
-                                const keypoints = fileCache.frontmatter.keypoints as any[];
-                                if (keypoints.length > 0) {
-                                    output += `${childPrefix}  Keypoints:\n`;
-                                    for (const point of keypoints) {
-                                        output += `${childPrefix}    - ${String(point)}\n`;
-                                    }
-                                } else {
-                                    output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
+                        if (fileCache?.frontmatter?.keypoints && Array.isArray(fileCache.frontmatter.keypoints)) {
+                            const keypoints = fileCache.frontmatter.keypoints as any[];
+                            if (keypoints.length > 0) {
+                                output += `${childPrefix}  Keypoints:\n`;
+                                for (const point of keypoints) {
+                                    output += `${childPrefix}    - ${String(point)}\n`;
                                 }
                             } else {
                                 output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
                             }
-                        } catch (fmError) {
-                            console.error(`Error accessing frontmatter for ${child.path}:`, fmError);
+                        } else {
                             output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
                         }
+                    } catch (fmError) {
+                        console.error(`Error accessing frontmatter for ${child.path}:`, fmError);
+                        output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
                     }
                 }
-                // --- END CONTENT/KEYPOINTS HANDLING ---
-
-                if (child instanceof TFolder) {
-                   await buildTree(child, currentDepth + 1, childPrefix);
-                }
             }
-        };
+            // --- END CONTENT/KEYPOINTS HANDLING ---
 
-        await buildTree(rootNode, 1, "");
-
-        const fileInclusion = includeFiles ? 'including' : 'excluding';
-        let detailDisplay = 'excluding file details';
-        if (showFileDetails) {
-            detailDisplay = `showing details (.lim content up to ${maxContentLines} lines / .md keypoints)`;
+            if (child instanceof TFolder) {
+                await buildTree(child, currentDepth + 1, childPrefix);
+            }
         }
-        const title = `Directory structure for '${normalizedPath}' (depth ${depth}, ${fileInclusion} files, ${detailDisplay}):`;
+    };
 
-        return `${title}\n\`\`\`\n${output}\`\`\``;
+    await buildTree(rootNode, 1, "");
 
-    } catch (error) {
-        console.error("Error listing files tree:", error);
-        throw new Error(`Error listing directory structure: ${error.message || error}`);
+    const fileInclusion = includeFiles ? 'including' : 'excluding';
+    let detailDisplay = 'excluding file details';
+    if (showFileDetails) {
+        detailDisplay = `showing details (.lim content up to ${maxContentLines} lines / .md keypoints)`;
     }
+    const title = `Directory structure for '${normalizedPath}' (depth ${depth}, ${fileInclusion} files, ${detailDisplay}):`;
+
+    return `${title}\n\`\`\`\n${output}\`\`\``;
 }
 
 
@@ -318,36 +321,53 @@ export async function simpleQueryVault(app: App, queryString: string): Promise<s
 
 export async function writeFileMD(app:App, path: string, content: string): Promise<string|null> {
     const vault = app.vault;
-    try {
-        if (path.includes(".lim")) {
-            // throw new Error("Cannot write a .lim file");
-            throw new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`);
+   
+    if (path.includes(".lim")) {
+        // throw new Error("Cannot write a .lim file");
+        throw new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`);
+    }
+
+    const fileExists = await vault.adapter.exists(path); 
+
+    const contentWithNewlines = content.replace(/\\n/g, '\n');
+    const newContent = contentWithNewlines.replace(/---\s/g, '---\n');
+    const folderPath = path.split('/').slice(0, -1).join('/');
+    const filePath = path;
+
+    if (folderPath) {
+        const folderExists = await vault.adapter.exists(folderPath);
+        if (!folderExists) {
+            await vault.createFolder(folderPath);
         }
+    }
+    const oldContent = fileExists? await vault.adapter.read(filePath):"";
+    await vault.adapter.write(filePath, newContent);
 
-        const fileExists = await vault.adapter.exists(path); 
-
-        const contentWithNewlines = content.replace(/\\n/g, '\n');
-        const newContent = contentWithNewlines.replace(/---\s/g, '---\n');
-        const folderPath = path.split('/').slice(0, -1).join('/');
-        const filePath = path;
-
-        if (folderPath) {
-            const folderExists = await vault.adapter.exists(folderPath);
-            if (!folderExists) {
-                await vault.createFolder(folderPath);
-            }
-        }
-        const oldContent = fileExists? await vault.adapter.read(filePath):"";
-        await vault.adapter.write(filePath, newContent);
-
-        const patch = Diff.createPatch(path, oldContent, newContent);
-        return `\`\`\`diff
+    const patch = Diff.createPatch(path, oldContent, newContent);
+    
+    return `\`\`\`diff
 ${patch}
 \`\`\``
 
-        
-    } catch (error) {
-        console.error("Error preparing file write:", error);
-        return null;
+}
+
+export const captureGhosts = (app: App) => {
+    const files = app.vault.getMarkdownFiles();
+    const ghostRefs: { sourceFile: string, unresolvedLink: string }[] = [];
+    const metadataCache = app.metadataCache; // Get cache from plugin
+
+    for (const file of files) {
+        const links = metadataCache.getFileCache(file)?.links || [];
+
+        for (const link of links) {
+            const linkedFile = metadataCache.getFirstLinkpathDest(link.link, file.path);
+            if (!linkedFile) {
+                ghostRefs.push({
+                    sourceFile: file.path,
+                    unresolvedLink: link.link
+                });
+            }
+        }
     }
+    return ghostRefs;
 }
