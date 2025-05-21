@@ -1,20 +1,21 @@
 import { FileItem, prepareFileData } from "src/utils/files";
-import AutoFilePlugin from "../main";
+import lImporterPlugin from "../main";
 import { ItemView, Notice } from "obsidian";
 import { models, pipelineOptions } from '../agents/pipelines';
 import { FileSuggestionModal } from "../utils/fileSuggestion";
 import { setIcon, Setting, TFile, TextAreaComponent, DropdownComponent, WorkspaceLeaf } from "obsidian";
 import { createProcessTracker } from "../utils/tracker";
-export const VIEW_TYPE = "limporter-view";
+export const LIMPORT_VIEW_TYPE = "limporter-view";
 
 const original_log = console.log;
 const original_error = console.error;
 const original_warn = console.warn;
-// const original_info = console.info;
-// const original_info = console.;
+const original_info = console.info;
+const original_debug = console.debug;
+const original_clear = console.clear;
 
 export class LimporterView extends ItemView {
-    private plugin: AutoFilePlugin;
+    private plugin: lImporterPlugin;
     private processing = false;
     private abortController?: AbortController | any;
     private isConfigVisible = false;
@@ -32,18 +33,18 @@ export class LimporterView extends ItemView {
 
     private currentAgent = pipelineOptions[0].name;
     private currentModel = models[0].id;
-    private pipelineStarter: (plugin: AutoFilePlugin, model: string) => (files: FileItem[], signal: AbortSignal) => Promise<void> = pipelineOptions[0].buildPipeline;
+    private pipelineStarter: (plugin: lImporterPlugin, model: string) => (files: FileItem[], signal: AbortSignal) => Promise<void> = pipelineOptions[0].buildPipeline;
     private currentPipeline: (files: FileItem[], signal: AbortSignal) => Promise<void> | null;
 
     private trackerContainer: HTMLElement; // Container for the processTracker's UI
 
-    constructor(leaf: WorkspaceLeaf, plugin: AutoFilePlugin) {
+    constructor(leaf: WorkspaceLeaf, plugin: lImporterPlugin) {
         super(leaf);
         this.plugin = plugin;
     }
 
     getViewType(): string {
-        return VIEW_TYPE;
+        return LIMPORT_VIEW_TYPE;
     }
 
     getDisplayText(): string {
@@ -51,7 +52,7 @@ export class LimporterView extends ItemView {
     }
 
     getIcon(): string {
-        return "bot-message-square";
+        return "import";
     }
 
     async onOpen() {
@@ -360,5 +361,8 @@ model: ${this.currentModel}`);
         console.log = original_log;
         console.error = original_error;
         console.warn = original_warn;
+        console.info = original_info;
+        console.debug = original_debug;
+        console.clear = original_clear;
     }
 }

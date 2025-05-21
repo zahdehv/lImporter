@@ -1,33 +1,8 @@
-import { FileItem, upload_file } from "./files";
-import { GoogleGenAI, Part } from "@google/genai";
-import AutoFilePlugin from "../main";
-import { sign } from "crypto";
+import { FileItem, listFilesTree, upload_file } from "./files"; // Assuming upload_file is correctly imported
+import { createPartFromText, createPartFromUri, GoogleGenAI, Part } from "@google/genai";
+import lImporterPlugin from "../main";
 
-export const createGeminiPreprocessor = (plugin: AutoFilePlugin, ai: GoogleGenAI) => {
-    const preProcess = async (tfiles: FileItem[], signal: AbortSignal) => {
-        
-        const msg: (Part|string)[] = []
-        
-        msg.push({text: "A continuacion los archivos que deben ser procesados:" });
-        for (const tfile of tfiles) {
-            if (!tfile.cloud_file) await upload_file(plugin.app, tfile, ai, signal);
-            // if (signal.aborted) throw new Error("OP Aborted!");
-            if (tfile.cloud_file) msg.push(
-                {
-                    fileData: 
-                    {
-                        fileUri: tfile.cloud_file.uri, 
-                        mimeType: tfile.cloud_file.mimeType
-                    }
-                });
-        }
-        
-        return msg;
-    }
-    return preProcess;
-}
-
-// Those are for the input scheme of LG
+// Those are for the input scheme of LangGraph (LG)
 export interface Rtext {
     type: "text",
     text: string,
@@ -38,25 +13,52 @@ export interface Rmedia {
     fileUri: string,
 }
 
-export const createLangGraphPreprocessor = (plugin: AutoFilePlugin, ai: GoogleGenAI) => {
-    const preProcess = async (tfiles: FileItem[], signal: AbortSignal): Promise<(Rtext|Rmedia)[]> => {
-
-        const context: (Rtext|Rmedia)[] = [];
-
-        context.push({ type: 'text', text: "A continuacion los archivos que deben ser procesados:" });
-        for (const tfile of tfiles) {
-            if (!tfile.cloud_file) await upload_file(plugin.app, tfile, ai, signal);
-            // if (signal.aborted) throw new Error("OP Aborted!");
-            if (tfile.cloud_file) context.push(
-                {
-                    type: 'media',
-                    mimeType: tfile.cloud_file.mimeType,
-                    fileUri: tfile.cloud_file.uri,
-                },
-            );
-        }
-
-        return context;
-    }
-    return preProcess
+interface Formatters<OutputType> {
+    formatText: (text: string) => OutputType;
+    formatMedia: (cloudFile: {mimeType: string, uri: string}) => OutputType;
 }
+
+export const createMessageslIm = <OutputType>(plugin: lImporterPlugin, ai: GoogleGenAI, formatters: Formatters<OutputType> ) => {
+    const preProcess = async (tfiles: FileItem[], signal: AbortSignal): Promise<OutputType[]> => {
+        const messages : OutputType[] = [];
+        const tree = await listFilesTree(plugin.app, "", 3, true, true, 23);
+        
+        messages.push(formatters.formatText("<|VAULT DIRECTORY TREE|>"));
+        messages.push(formatters.formatText(tree));
+        messages.push(formatters.formatText("<|FILES TO PROCESS|>"));
+
+        for (const tfile of tfiles) {
+            if (signal.aborted) throw new Error("Operation Aborted!"); // Check signal before long operations
+            
+            if (!tfile.cloud_file) {
+                await upload_file(plugin.app, tfile, ai, signal);
+                // Re-check signal after await, as it might have been aborted during the upload
+                if (signal.aborted) throw new Error("Operation Aborted during file upload!");
+            }
+            
+            if (tfile.cloud_file) {
+                messages.push(formatters.formatMedia(tfile.cloud_file));
+            }
+        }
+        
+        return messages;
+    }
+    return preProcess;
+}
+
+export const geminiFormatters: Formatters<Part|string> = {
+    formatText: (text: string): Part => (createPartFromText(text)),
+    formatMedia: (cloudFile: {mimeType: string, uri: string}): Part => (createPartFromUri(cloudFile.uri, cloudFile.mimeType))
+};
+
+export const langGraphFormatters: Formatters<Rtext|Rmedia> = {
+    formatText: (text: string): Rtext => ({
+        type: 'text',
+        text: text,
+    }),
+    formatMedia: (cloudFile: {mimeType: string, uri: string}): Rmedia => ({
+        type: 'media',
+        mimeType: cloudFile.mimeType,
+        fileUri: cloudFile.uri,
+    })
+};

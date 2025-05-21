@@ -1,14 +1,14 @@
 
-import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
-import { VIEW_TYPE } from './views/lImporter';
+import { MarkdownView, Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
+import { LIMPORT_VIEW_TYPE } from './views/lImporter';
 import { LimporterView } from './views/lImporter';
-import { DEFAULT_SETTINGS, AutoPluginSettings, AutoSettingTab } from './views/settings';
+import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
 import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
 import { upload_file } from './utils/files';
 
-export default class AutoFilePlugin extends Plugin {
-    settings: AutoPluginSettings;
+export default class lImporterPlugin extends Plugin {
+    settings: lImporterSettings;
     tracker!: ProcessTrackerInstance;
     private ribbonIcon!: HTMLElement;
     public view: LimporterView | null = null;
@@ -16,6 +16,10 @@ export default class AutoFilePlugin extends Plugin {
     // Defines categories of supported files and their extensions
     public getSupportedFileTypesConfig(): { [key: string]: { extensions: string[], description: string } } {
         return {
+            document: { 
+                extensions: ["pdf"], 
+                description: "Document files" 
+            },
             audio: { 
                 extensions: ["mp3", "wav", "ogg", "m4a", "aac", "flac", "aiff"], 
                 description: "Audio files" 
@@ -24,9 +28,9 @@ export default class AutoFilePlugin extends Plugin {
                 extensions: ["png", "jpg", "jpeg"],
                 description: "Image files"
             },
-            document: { 
-                extensions: ["pdf"], 
-                description: "Document files" 
+            video: { 
+                extensions: ["mp4", "mov"], 
+                description: "Video files" 
             },
             plain_text: { 
                 extensions: ["md", "txt"], 
@@ -51,57 +55,19 @@ export default class AutoFilePlugin extends Plugin {
         );
 
         // 2. Add a Ribbon Icon to open the Chat View
-        this.addRibbonIcon("messages-square", "Open AI Chat", () => {
+        const chatRibbon = this.addRibbonIcon("bot-message-square", "Open AI Chat", () => {
             this.activateChatView();
         });
+        chatRibbon.addClass('limporter-ribbon-icon');
 
 
         this.registerView(
-            VIEW_TYPE,
+            LIMPORT_VIEW_TYPE,
             (leaf) => (this.view = new LimporterView(leaf, this))
         );
 
-        //TESTRIBBON
-        this.addRibbonIcon('experiment', 'TEST', async () => {
-            // console.log(new Date().);
-            const activeFile = this.app.workspace.getActiveFile();
-            if (!activeFile) {
-                new Notice('No active note to show local graph for');
-                return;
-            }
-            // upload_file(this.app, );      
-            // const ai = new GoogleGenAI({apiKey: this.settings.GOOGLE_API_KEY});
-            // const listResponse = await ai.files.list({config: {'pageSize': 100}});
-            // for await (const file of listResponse) {
-            //     if (file.name){
-            //         const data = await ai.files.get({name: file.name})
-            //         const cloudHash = data.sha256Hash;
-            //         if (cloudHash) {
-            //             // const res = compareTFileHash(activeFile, this.app, cloudHash);
-            //             // console.log((await res).match);
-            //         }
-            //         // ai.files.delete({name: file.name});
 
-            //     }
-            // }
-
-            // const a = this.app.metadataCache.fileToLinktext(activeFile, activeFile.path);
-            // const b = this.app.metadataCache.getFileCache(activeFile);
-            // const text = await this.app.vault.read(activeFile);
-            // console.log(a);
-            // console.log(b);
-            // console.log(b?.embeds);
-            // console.log(text);
-            // console.log(b?.frontmatter);
-            // console.log(b?.listItems);
-            // if (b?.links){
-            //     this.app.metadataCache.getFirstLinkpathDest
-            // console.log(this.app.metadataCache.getFirstLinkpathDest(b?.links[0].link));}
-            // console.log(b?.referenceLinks);
-            // console.log(b?./);
-        });
-
-        this.ribbonIcon = this.addRibbonIcon('bot-message-square', 'Open lImporter', () => this.openView());
+        this.ribbonIcon = this.addRibbonIcon('import', 'lImporter', () => this.openView());
         this.ribbonIcon.addClass('limporter-ribbon-icon');
 
         this.app.workspace.onLayoutReady(() => {
@@ -113,7 +79,7 @@ export default class AutoFilePlugin extends Plugin {
 
                     for (const typeKey in fileTypeConfigs) {
                         if (fileTypeConfigs[typeKey].extensions.includes(extension)) {
-                            const settingKey = `autoCapture_${typeKey}` as keyof AutoPluginSettings;
+                            const settingKey = `autoCapture_${typeKey}` as keyof lImporterSettings;
                             // Check if the setting for this file type is true
                             if (this.settings[settingKey] === true) {
                                 shouldAutoCapture = true;
@@ -130,21 +96,34 @@ export default class AutoFilePlugin extends Plugin {
             this.registerEvent(this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
                 if (file instanceof TFile && this.isSupportedFile(file)) { // isSupportedFile uses all extensions
                     menu.addItem((item) => {
-                        item.setTitle("Process with lImporter").setIcon("bot-message-square").onClick(() => this.openFileProcessor(file));
+                        item.setTitle("lImport").setIcon("import").onClick(() => this.openFileProcessor(file));
                     });
                 }
             }));
         });
-    
-        this.addSettingTab(new AutoSettingTab(this.app, this));
+        this.addSettingTab(new lImporterSettingTab(this.app, this));
     }
 
+    async simulateLLMProcessing(original: string): Promise<string> {
+        // Replace with your actual LLM API call
+        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
+
+        let modified = original.replace("This will be changed.", "This has been completely revamped by the AI!");
+        modified = modified.replace("This line is original.", "This line is original, but with an addition.");
+        modified += "\n\nThis is a brand new paragraph added by the LLM.\nIt contains fresh insights.\n";
+        if (!original.includes("Fallback")) { // Add something specific if not using fallback
+            modified += "\nAnd one more sentence based on the input.";
+        }
+        return modified;
+    }
+
+
     private async openView(): Promise<void> {
-        let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
+        let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(LIMPORT_VIEW_TYPE)[0];
         if (!leaf) {
             leaf = this.app.workspace.getRightLeaf(false);
             if (leaf) {
-                await leaf.setViewState({ type: VIEW_TYPE, active: true });
+                await leaf.setViewState({ type: LIMPORT_VIEW_TYPE, active: true });
             } else {
                 new Notice("Could not create a new leaf for lImporter.");
                 return;
@@ -181,7 +160,7 @@ export default class AutoFilePlugin extends Plugin {
         // This handles cases where new file types are added and users upgrade
         const fileTypeConfig = this.getSupportedFileTypesConfig();
         for (const typeKey in fileTypeConfig) {
-            const settingKey = `autoCapture_${typeKey}` as keyof AutoPluginSettings;
+            const settingKey = `autoCapture_${typeKey}` as keyof lImporterSettings;
             if (this.settings[settingKey] === undefined && DEFAULT_SETTINGS[settingKey] !== undefined) {
                 (this.settings as any)[settingKey] = (DEFAULT_SETTINGS as any)[settingKey];
             } else if (this.settings[settingKey] === undefined) {
@@ -223,6 +202,33 @@ export default class AutoFilePlugin extends Plugin {
         } else {
             console.error("AI Chat Plugin: Could not create or find a leaf for the chat view.");
         }
+    }
+   async onunload() {
+        console.log(`Unloading plugin: ${this.manifest.name}`);
+
+        // 1. Detach (close) any custom views
+        //    Obsidian <1.5.0: this.app.workspace.getLeavesOfType(VIEW_TYPE_EXAMPLE).forEach((leaf) => leaf.detach());
+        //    Obsidian >=1.5.0:
+        this.app.workspace.detachLeavesOfType(LIMPORT_VIEW_TYPE);
+        this.app.workspace.detachLeavesOfType(CHAT_VIEW_TYPE);
+
+        // 2. Nullify references to views to help with garbage collection
+        this.view = null;
+
+        // 3. Clean up any other resources or listeners YOUR plugin specifically created
+        //    that are NOT automatically handled by Obsidian's lifecycle methods
+        //    (e.g., intervals, global event listeners, external library instances).
+        //    For example, if `ProcessTrackerInstance` had a `destroy` method:
+        //    if (this.tracker) {
+        //        this.tracker.destroy();
+        //    }
+
+        // Obsidian automatically handles:
+        // - Unregistering events registered with `this.registerEvent()`
+        // - Removing ribbon icons added with `this.addRibbonIcon()`
+        // - Removing commands added with `this.addCommand()`
+        // - Removing setting tabs added with `this.addSettingTab()`
+        // - Unregistering views registered with `this.registerView()` (detaching them is still good practice)
     }
 
 }

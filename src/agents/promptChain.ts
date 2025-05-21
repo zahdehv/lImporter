@@ -1,10 +1,10 @@
-import { Chat, Part, Type } from "@google/genai";
-import AutoFilePlugin from "src/main";
+import { Chat, Part, PartListUnion, PartUnion, Type } from "@google/genai";
+import lImporterPlugin from "src/main";
 import { simpleQueryVault, writeFileMD} from "src/utils/files";
 import { gem_extract_prompt, gem_write_prompt } from "./promp";
 
-export const createPromptChainItems = (plugin: AutoFilePlugin,  chat: Chat, signal: AbortSignal) => {
-    const extract = async (prepnd: (string | Part)[] = [], appnd: (string | Part)[] = []) => {
+export const createPromptChainItems = (plugin: lImporterPlugin,  chat: Chat, signal: AbortSignal) => {
+    const extract = async (prepnd: PartUnion[] = [], appnd: PartUnion[] = []) => {
         const data = await chat.sendMessage({message: prepnd.concat([gem_extract_prompt]).concat(appnd), 
             config: {
                 abortSignal: signal,
@@ -49,14 +49,14 @@ export const createPromptChainItems = (plugin: AutoFilePlugin,  chat: Chat, sign
             const results: string[]= [];
             for (let index = 0; index < queries.length; index++) {
                 const query = queries[index];
-                results.push(await simpleQueryVault(plugin.app, query));
+                results.push((await simpleQueryVault(plugin.app, query)).response);
             }
             const fileContents = results.join("\n");
             return fileContents;
     }
 
-    const write = async (prepnd: (string | Part)[] = [], appnd: (string | Part)[] = []) => {
-        const r_write = await chat.sendMessage({message: prepnd.concat([gem_write_prompt]).concat(appnd), 
+    const write = async (prepnd: PartUnion[] = [], appnd: PartUnion[] = []) => {
+        const r_write = await chat.sendMessage({message: prepnd.concat([gem_write_prompt(plugin)]).concat(appnd), 
             config: {abortSignal: signal,
                 responseMimeType: 'application/json',
                 responseSchema: {

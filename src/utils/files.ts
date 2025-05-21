@@ -147,7 +147,7 @@ export async function listFilesTree(
     }
     const title = `Directory structure for '${normalizedPath}' (depth ${depth}, ${fileInclusion} files, ${detailDisplay}):`;
 
-    return `${title}\n\`\`\`\n${output}\`\`\``;
+    return `${title}\n${output}`;
 }
 
 
@@ -232,6 +232,17 @@ export async function queryVault(app: App, query: string[]): Promise<string> {
     return results.join('\n\n');
 }
 
+interface Result {
+    path: string;
+    content: string;
+    score: number;
+}
+
+interface Results {
+    results: Result[];
+    response:string;
+}
+
 /**
  * Queries the Obsidian vault for markdown files where a single query string
  * fuzzily matches AT LEAST ONE of the file's metadata items
@@ -241,15 +252,16 @@ export async function queryVault(app: App, query: string[]): Promise<string> {
  * @param queryString - The single string to search for.
  * @returns A Promise that resolves with a string containing the search results in an XML-like format.
  */
-export async function simpleQueryVault(app: App, queryString: string): Promise<string> {
+export async function simpleQueryVault(app: App, queryString: string): Promise<Results> {
     const vault = app.vault;
     const metadataCache = app.metadataCache;
     const files = vault.getMarkdownFiles();
-    const results: string[] = [];
+    const response: Results = {results: [], response:''};
+    const result_parts = [];
 
     const trimmedQuery = queryString.trim();
     if (!trimmedQuery) {
-        return ""; // No query string, so no results.
+        return {response: "No query found", results:[]}; // No query string, so no results.
     }
 
     const fzz = prepareFuzzySearch(trimmedQuery);
@@ -301,23 +313,24 @@ export async function simpleQueryVault(app: App, queryString: string): Promise<s
             try {
                 const content = await vault.cachedRead(file);
                 // Following your latest queryVault, not sanitizing path or content for XML
-                results.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>\n${content}\n</file>`);
+                result_parts.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>\n${content}\n</file>`);
+                response.results.push({path: file.path, content: content, score: 1});
             } catch (e) {
                 console.error(`Error reading file ${file.path} for query result:`, e);
             }
         }
     }
-
-    return results.join('\n\n');
+    response.response = result_parts.join("\n\n");
+    return response;
 }
 
 export async function writeFileMD(app:App, path: string, content: string): Promise<string|null> {
     const vault = app.vault;
-   
-    if (path.includes(".lim")) {
-        // throw new Error("Cannot write a .lim file");
-        throw new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`);
-    }
+   console.log("path", path);
+    // if (path.includes(".lim")) {
+    //     // throw new Error("Cannot write a .lim file");
+    //     throw new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`);
+    // }
 
     const fileExists = await vault.adapter.exists(path); 
 
@@ -334,9 +347,15 @@ export async function writeFileMD(app:App, path: string, content: string): Promi
     }
     const oldContent = fileExists? await vault.adapter.read(filePath):"";
     await vault.adapter.write(filePath, newContent);
-
-    const patch = Diff.createPatch(path, oldContent, newContent);
-    
+    Diff.createPatch
+    const diff = Diff.diffTrimmedLines(oldContent, newContent,{oneChangePerToken:false,});
+    // const patch = diff.map((change) => {
+    //     if (change.added) return "+ " + change.value;
+    //     else if (change.removed) return "- " + change.value;
+    //     else return change.value;
+    // }).join("\n");
+    const patch = Diff.structuredPatch(path, path, oldContent, newContent, "XD", "XD", {ignoreNewlineAtEof: true, stripTrailingCr: true, }).hunks.map((hunk)=> hunk.lines.join("\n")).join("\n");
+    // const patch = Diff.createPatch(path, oldContent, newContent);
     return `\`\`\`diff
 ${patch}
 \`\`\``

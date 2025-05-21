@@ -1,6 +1,6 @@
 
 import { setIcon, TFile, Notice, WorkspaceLeaf, MarkdownRenderer } from "obsidian";
-import AutoFilePlugin from "src/main";
+import lImporterPlugin from "src/main";
 import { writeFileMD } from "./files";
 
 const getMessageParts = (...args: any[]) => {
@@ -19,6 +19,7 @@ const getMessageParts = (...args: any[]) => {
 }
 
 const replaceConsole = (writemd: (log: string) => void, clearlg: ()=>void, debug_enabled: boolean) => {
+    console.dirxml
     const clear = console.clear
     console.clear = ()=>{
         clear();
@@ -165,7 +166,7 @@ export type ProcessTrackerInstance = {
 };
 
 // Factory function to create and manage the overall progress tracking UI component
-export const createProcessTracker = (pluginInstance: AutoFilePlugin, parentContainerForTracker: HTMLElement): ProcessTrackerInstance => {
+export const createProcessTracker = (pluginInstance: lImporterPlugin, parentContainerForTracker: HTMLElement): ProcessTrackerInstance => {
     // Internal state variables
     let steps: StepItemInstance[] = [];
     let logs: string[] = [];

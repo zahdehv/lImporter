@@ -1,79 +1,82 @@
-import AutoFilePlugin from "src/main";
+import lImporterPlugin from "src/main";
 
 //Language Specification
-export const getLanguageSpecification = (plugin: AutoFilePlugin) => {
-    //Agregar opcion de idioma aqui!!!
-    return `Todos los archivos deben ser escritos en ${"SPANISH"}`
+export const getLanguageSpecification = (plugin: lImporterPlugin) => {
+    // Add language option here!!!
+    return `All files must be written in ${"ENGLISH"}`; // Changed SPANISH to ENGLISH
 }
 
-//FILE ESPECIFICATIONS
-const file_content_specifications = `Los archivos deben iniciar con el encabezado:
+//FILE SPECIFICATIONS
+const file_content_specifications = `Files must start with the header:
 ---
 tags: 
-- PrimerTag (los tags representan los conceptos (entidades conceptuales) que aparecen en el documento | los tags no deben tener espacios)
-- SegundoTag (los tags representan los conceptos (entidades conceptuales) que aparecen en el documento | los tags no deben tener espacios)
+- FirstTag (tags represent the concepts (conceptual entities) that appear in the document | tags must not have spaces)
+- SecondTag (tags represent the concepts (conceptual entities) that appear in the document | tags must not have spaces)
 keypoints:
-- Primer punto clave, conteniendo un hecho o informacion clave mencionado en el documento
-- Segundo punto clave, conteniendo un hecho o informacion clave mencionado en el documento
-- Tercer punto clave, conteniendo un hecho o informacion de soporte mencionado en el documento
+- First key point, containing a fact or key information mentioned in the document
+- Second key point, containing a fact or key information mentioned in the document
+- Third key point, containing a supporting fact or information mentioned in the document
 ---
 
-Otros detalles:
-- Los keypoints deben ser atajos al contenido principal (Breve informacion factual que permita el rapido conocimiento del contenido del archivo,
-    por tanto el archivo debe ir en mayor profundidad)
-- Los links son de la forma [[nombre de archivo(no necesita incluir la direccion completa)|Nombre mostrado en la Nota]]
-- Puede usar todos los recursos disponibles del lenguaje Markdown.`
-
+Other details:
+- Keypoints should be shortcuts to the main content (Brief factual information that allows quick understanding of the file's content,
+    therefore the file should go into greater depth)
+- Links are of the form [[filename(no need to include the full path)|Name displayed in the Note]]
+- You can use all available Markdown language resources.`;
 
 
 //reAct
 //prompts
-export const react_starter_prompt = `Sigue las siguientes instrucciones:
-1. Fijate en la estructura de archivos, particularmente en la informacion brindada en los '.lim'.
-2. De acuerdo a las instrucciones en esos archivos y los archivos en el contexto, debes crear o modificar notas.
-3. Debes extraer la informacion de esos archivos, no copiar/pegar lo q dicen
-4. Debes revisar antes de terminar el proceso que no existan referencias fantasmas.`
+export const react_starter_prompt = `Follow these instructions:
+1. Pay attention to the file structure, particularly the information provided in the '.lim' files.
+2. According to the instructions in those files and the files in the context, you must create or modify notes.
+3. You must extract information from those files, do not copy/paste what they say.
+4. Before finishing the process, you must check that there are no ghost references.`;
 
 //tools
-export const write_description = `Usado para crear archivos markdown(.md).`;
-export const write_path = `Direccion para crear o modificar el archivo.
-Ejemplo de nombres (direccion) de archivo: 'arte_cubano.md' o amor/romance.md. 
-No usar acentos en el titulo. Si usas un nombre de archivo existente, lo modificaras, 
-usalo para rectificar errores en caso de ser necesario.
-File name cannot contain any of the following characters: * " \ / < > : | ?`
-export const write_content = `Contenido a ser escrito en el archivo.
-Especificaciones para escribir contenido:
+export const write_description = `Used to create markdown (.md) files.`;
+export const write_path = `Path to create or modify the file.
+Example file names (path): 'cuban_art.md' or 'love/romance.md'.
+Do not use accents in the title. If you use an existing file name, you will modify it;
+use it to correct errors if necessary.
+File name cannot contain any of the following characters: * " \ / < > : | ?`; // This line was already in English
+export const write_content = `Content to be written to the file.
+Specifications for writing content:
 \`\`\`
 ${file_content_specifications}
-\`\`\``
+\`\`\``;
 
-export const move_file_description = "Mueve un archivo de una ubicación a otra en la bóveda de Obsidian."
-export const move_file_source = "Ruta actual del archivo a mover."
-export const move_file_destination = "Nueva ruta destino para el archivo. (Puede usar la misma ruta base para renombrar el archivo, o moverlo a .trash para eliminarlo)"
+export const move_file_description = "Moves a file from one location to another in the Obsidian vault.";
+export const move_file_source = "Current path of the file to move.";
+export const move_file_destination = "New destination path for the file. (You can use the same base path to rename the file, or move it to .trash to delete it)";
 
-export const get_ghosts_description = `Encuentra todos los enlaces no resueltos (ghost references)
-en la bóveda de Obsidian, y los archivos donde aparecen. 
-Debe ser usado al final para verificar que todo este bien conectado.
+export const get_ghosts_description = `Finds all unresolved links (ghost references)
+in the Obsidian vault, and the files where they appear.
+It should be used at the end to verify that everything is well connected.
 
-Estos pueden ser resueltos creando el archivo faltante o renombrando archivos, 
-dado que el conflicto de enlace sea por errores de escritura`
+These can be resolved by creating the missing file or renaming files,
+if the link conflict is due to typos or writing errors.`;
 
-export const list_files_description = `Lista la estructura de directorios y archivos (opcionalmente) a partir de una ruta raíz, similar al comando 'tree'.`
-export const list_files_root = "La ruta de la carpeta raíz desde donde comenzar a listar. Usa '/' o '' para la raíz de la bóveda."
-export const list_files_depth = "La profundidad máxima de recursión. 1 significa listar solo el contenido directo de rootPath."
-export const list_files_includeFiles = "Si es true, incluye archivos en el listado además de las carpetas."
-
+export const list_files_description = `Lists the directory and file structure (optionally) from a root path, similar to the 'tree' command.`;
+export const list_files_root = "The root folder path from where to start listing. Use '/' or '' for the vault root.";
+export const list_files_depth = "The maximum recursion depth. 1 means list only the direct content of rootPath.";
+export const list_files_includeFiles = "If true, includes files in the listing in addition to folders.";
 
 
 //hcGem
 //prompts
-export const gem_extract_prompt = `De los archivos A PROCESAR extrae:
-- Claims
-- Conceptos
-- Instrucciones
+export const gem_extract_prompt = `From the files TO PROCESS extract:
+- Claims (from the files in <|FILES TO PROCESS|>)
+- Concepts (from the claims)
+- Instructions (from the audios in <|FILES TO PROCESS|> or .lim files in <|VAULT DIRECTORY TREE|>)
 
-y genera, para expandir la informacion que tienes:
-- Queries (se busca sobre los keypoints, tags, y titulos de los archivos)`
+and generate, to expand the information you have:
+- Queries (searches are performed on keypoints, and tags on <|VAULT DIRECTORY TREE|> to show full content)`;
+// and file titles 
 
-export const gem_write_prompt = `Escriba ahora los archivos .md, siguiendo las especificaciones:
-${file_content_specifications}`
+export const gem_write_prompt = (plugin: lImporterPlugin) => {
+    return `Now write the .md files, following the specifications:
+${file_content_specifications}
+
+File name cannot contain any of the following characters: * " \ / < > : | ? (e.g. Least Action principle.md)
+The notes must be in the LANGUAGE: ${plugin.settings.LANGUAGE}`;}

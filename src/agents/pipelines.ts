@@ -1,16 +1,17 @@
-import AutoFilePlugin from "src/main";
-import { createGeminiPreprocessor, createLangGraphPreprocessor, Rmedia, Rtext } from "../utils/messages";
+import lImporterPlugin from "src/main";
+import { createMessageslIm, geminiFormatters, langGraphFormatters, Rmedia, Rtext } from "../utils/messages";
 import { createObsidianTools, createReActAgent } from "src/agents/reAct";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { ZodObject, ZodTypeAny } from "zod";
-import { GoogleGenAI, Part } from "@google/genai";
+import { GoogleGenAI, Part, PartListUnion, PartUnion } from "@google/genai";
 import { FileItem, listFilesTree } from "src/utils/files";
 import { react_starter_prompt } from "./promp";
 import { createPromptChainItems } from "./promptChain";
 
-const buildPromptChain = (plugin: AutoFilePlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
+const buildPromptChain = (plugin: lImporterPlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
     const ai = new GoogleGenAI({apiKey: plugin.settings.GOOGLE_API_KEY});
-    const preprocessor = createGeminiPreprocessor(plugin, ai);
+    // const preprocessor = createPromptChainMessages(plugin, ai);
+    const preprocessor = createMessageslIm(plugin, ai, geminiFormatters);
     
     const sendMessage = async (files: FileItem[], signal: AbortSignal) => {
         const chat = ai.chats.create({model: model});
@@ -25,7 +26,7 @@ const buildPromptChain = (plugin: AutoFilePlugin, model: string): (files: FileIt
         //Preprocess
         const s = await preprocessor(files, signal);
         const tree = await listFilesTree(plugin.app, "", 3, true, true, 23);
-        const p: (Part|string)[] = [{text: tree}];
+        const p: PartListUnion = [{text: tree}];
         const msg = p.concat(s);
         if (!msg) throw new Error("Error preprocessing...");
         console.log("### Called model with:\n\n", msg)
@@ -58,17 +59,15 @@ ${readContents}
     return sendMessage;
 }
 
-const buildReactParameterized = (plugin: AutoFilePlugin, model: string, tools: DynamicStructuredTool<ZodObject<{}, "strip", ZodTypeAny, {}, {}>>[]): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
+const buildReactParameterized = (plugin: lImporterPlugin, model: string, tools: DynamicStructuredTool<ZodObject<{}, "strip", ZodTypeAny, {}, {}>>[]): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
     const reAct = createReActAgent(plugin, model, tools);
     const ai = new GoogleGenAI({apiKey: plugin.settings.GOOGLE_API_KEY});
-    const preprocessor = createLangGraphPreprocessor(plugin, ai);
+    // const preprocessor = createLangGraphMessages(plugin, ai);
+    const preprocessor = createMessageslIm(plugin, ai, langGraphFormatters);
 
     const sendMessage = async (files: FileItem[], signal: AbortSignal) => {
-        const tree = await listFilesTree(plugin.app, "", 3, true, true, 23)
-        const p: (Rtext|Rmedia)[] = [{ type: 'text', text: tree }]
-        const s = await preprocessor(files, signal);
+        const msg = await preprocessor(files, signal);
         
-        const msg = p.concat(s);
         msg.push({ type: 'text', text: react_starter_prompt });
         
         if (msg) { //} && !signal.aborted) {
@@ -84,7 +83,7 @@ const buildReactParameterized = (plugin: AutoFilePlugin, model: string, tools: D
     return sendMessage;
 }
 
-const buildReact = (plugin: AutoFilePlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
+const buildReact = (plugin: lImporterPlugin, model: string): (files: FileItem[], signal: AbortSignal) => Promise<void> => {
     const {writeFile, moveFile, getGhostReferences, listFiles} = createObsidianTools(plugin);
     const agent_tools = [writeFile, moveFile, getGhostReferences, listFiles];
     return buildReactParameterized(plugin, model, agent_tools)

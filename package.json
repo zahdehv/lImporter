@@ -12,7 +12,7 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
-		"@types/diff": "^7.0.1",
+		"@types/diff": "^7.0.2",
 		"@types/node": "^16.18.126",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
@@ -28,6 +28,7 @@
 		"@langchain/google-genai": "^0.2.8",
 		"@langchain/langgraph": "^0.2.53",
 		"diff": "^7.0.0",
+		"jsdiff": "^1.1.1",
 		"zod": "^3.24.2"
 	}
 }

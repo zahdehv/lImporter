@@ -72,7 +72,7 @@ ${diff}`);
 
               await vault.rename(file, input.targetPath);
               move_trk.updateState("complete");
-              if (plugin.settings.track_ReadFiles) tracker.appendFile(input.targetPath);
+            //   if (plugin.settings.track_ReadFiles) tracker.appendFile(input.targetPath);
               resolve(`File moved successfully from ${input.sourcePath} to ${input.targetPath}`);
           } catch (error) {
               move_trk.updateState("error", error);
