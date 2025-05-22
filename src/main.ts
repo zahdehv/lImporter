@@ -1,11 +1,10 @@
 
-import { MarkdownView, Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import { LIMPORT_VIEW_TYPE } from './views/lImporter';
 import { LimporterView } from './views/lImporter';
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
 import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
-import { upload_file } from './utils/files';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
@@ -47,7 +46,6 @@ export default class lImporterPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-
         //CHAT ADDITIONAL
         this.registerView(
             CHAT_VIEW_TYPE,
@@ -71,8 +69,13 @@ export default class lImporterPlugin extends Plugin {
         this.ribbonIcon.addClass('limporter-ribbon-icon');
 
         // 2. Add a Ribbon Icon to open the Chat View
-        this.addRibbonIcon("pen", "AAAAAAAAA", () => {
-
+        this.addRibbonIcon("pen", "AAAAAAAAA", async () => {
+            const activeFile = this.app.workspace.getActiveFile();
+            if (!activeFile) {
+                new Notice('No active note');
+                return;
+            }
+            new Notice(activeFile.path);
         });
 
         chatRibbon.addClass('limporter-ribbon-icon');
