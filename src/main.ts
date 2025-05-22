@@ -1,17 +1,15 @@
 
-import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
-import { LIMPORT_VIEW_TYPE } from './views/lImporter';
-import { LimporterView } from './views/lImporter';
+import { ItemView, Notice, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
+
 import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
-import { wtf } from './utils/files';
+import { LIMPORT_VIEW_TYPE, LimporterView } from './views/lImporter';
+import { LOG_VIEW_TYPE, LogView } from './views/logs';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
     tracker!: ProcessTrackerInstance;
-    private ribbonIcon!: HTMLElement;
-    public view: LimporterView | null = null;
 
     // Defines categories of supported files and their extensions
     public getSupportedFileTypesConfig(): { [key: string]: { extensions: string[], description: string } } {
@@ -47,37 +45,38 @@ export default class lImporterPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-        //CHAT ADDITIONAL
+
         this.registerView(
             CHAT_VIEW_TYPE,
             (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
         );
 
-        // 2. Add a Ribbon Icon to open the Chat View
         const chatRibbon = this.addRibbonIcon("bot-message-square", "Open AI Chat", () => {
-            this.activateChatView();
+            this.activateView(CHAT_VIEW_TYPE);
         });
         chatRibbon.addClass('limporter-ribbon-icon');
 
-
         this.registerView(
             LIMPORT_VIEW_TYPE,
-            (leaf) => (this.view = new LimporterView(leaf, this))
+            (leaf) => (new LimporterView(leaf, this))
         );
+        const lri = this.addRibbonIcon('import', 'lImporter', () => this.activateView(LIMPORT_VIEW_TYPE));
+        lri.addClass('limporter-ribbon-icon');
 
+        this.registerView(
+            LOG_VIEW_TYPE,
+            (leaf) => (new LogView(leaf, this))
+        );
+        const lgri = this.addRibbonIcon('logs', 'LOGS', () => this.activateView(LOG_VIEW_TYPE));
+        lgri.addClass('limporter-ribbon-icon');
 
-        this.ribbonIcon = this.addRibbonIcon('import', 'lImporter', () => this.openView());
-        this.ribbonIcon.addClass('limporter-ribbon-icon');
-
-        // 2. Add a Ribbon Icon to open the Chat View
-        this.addRibbonIcon("pen", "AAAAAAAAA", async () => {
+        this.addRibbonIcon("pen", "TEST", async () => {
             const activeFile = this.app.workspace.getActiveFile();
             if (!activeFile) {
                 new Notice('No active note');
                 return;
             }
             new Notice(activeFile.path);
-            wtf();
         });
 
         chatRibbon.addClass('limporter-ribbon-icon');
@@ -115,26 +114,10 @@ export default class lImporterPlugin extends Plugin {
         this.addSettingTab(new lImporterSettingTab(this.app, this));
     }
 
-    private async openView(): Promise<void> {
-        let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(LIMPORT_VIEW_TYPE)[0];
-        if (!leaf) {
-            leaf = this.app.workspace.getRightLeaf(false);
-            if (leaf) {
-                await leaf.setViewState({ type: LIMPORT_VIEW_TYPE, active: true });
-            } else {
-                new Notice("Could not create a new leaf for lImporter.");
-                return;
-            }
-        }
-        if (leaf) {
-            this.app.workspace.revealLeaf(leaf);
-        }
-    }
-
     private async openFileProcessor(file: TFile): Promise<void> {
-        await this.openView();
-        if (this.view) {
-            await this.view.addFile(file);
+        const view = await this.activateView(LIMPORT_VIEW_TYPE);
+        if (view && view instanceof LimporterView) {
+            await view.addFile(file);
         } else {
             new Notice("lImporter view could not be opened or found.");
         }
@@ -171,11 +154,10 @@ export default class lImporterPlugin extends Plugin {
         await this.saveData(this.settings);
     }
 
-    async activateChatView() {
+    async activateView(viewType: string): Promise<View | undefined> {
         const { workspace } = this.app;
-
         let leaf: WorkspaceLeaf | null = null;
-        const leaves = workspace.getLeavesOfType(CHAT_VIEW_TYPE);
+        const leaves = workspace.getLeavesOfType(viewType);
 
         if (leaves.length > 0) {
             // A leaf with our view already exists, use that
@@ -189,28 +171,26 @@ export default class lImporterPlugin extends Plugin {
                 leaf = workspace.getLeaf(true); // 'true' for new tab, or 'false' for splitting current
             }
             if (leaf) { // Ensure leaf was successfully created
-                await leaf.setViewState({ type: CHAT_VIEW_TYPE, active: true });
+                await leaf.setViewState({ type: viewType, active: true });
             }
         }
 
         // Reveal the leaf and make it active
-        if (leaf) {
+        if ( leaf ) {
             workspace.revealLeaf(leaf);
+            return leaf.view;
         } else {
-            console.error("AI Chat Plugin: Could not create or find a leaf for the chat view.");
+            console.error("AI Chat Plugin: Could not create or find a leaf for the view.");
         }
     }
+
    async onunload() {
         console.log(`Unloading plugin: ${this.manifest.name}`);
 
-        // 1. Detach (close) any custom views
-        //    Obsidian <1.5.0: this.app.workspace.getLeavesOfType(VIEW_TYPE_EXAMPLE).forEach((leaf) => leaf.detach());
-        //    Obsidian >=1.5.0:
         this.app.workspace.detachLeavesOfType(LIMPORT_VIEW_TYPE);
         this.app.workspace.detachLeavesOfType(CHAT_VIEW_TYPE);
+        this.app.workspace.detachLeavesOfType(LOG_VIEW_TYPE);
 
-        // 2. Nullify references to views to help with garbage collection
-        this.view = null;
 
     }
 
