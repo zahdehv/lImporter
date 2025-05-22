@@ -70,6 +70,12 @@ export default class lImporterPlugin extends Plugin {
         this.ribbonIcon = this.addRibbonIcon('import', 'lImporter', () => this.openView());
         this.ribbonIcon.addClass('limporter-ribbon-icon');
 
+        // 2. Add a Ribbon Icon to open the Chat View
+        this.addRibbonIcon("pen", "AAAAAAAAA", () => {
+
+        });
+
+        chatRibbon.addClass('limporter-ribbon-icon');
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
                 if (file instanceof TFile) {
@@ -103,20 +109,6 @@ export default class lImporterPlugin extends Plugin {
         });
         this.addSettingTab(new lImporterSettingTab(this.app, this));
     }
-
-    async simulateLLMProcessing(original: string): Promise<string> {
-        // Replace with your actual LLM API call
-        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
-
-        let modified = original.replace("This will be changed.", "This has been completely revamped by the AI!");
-        modified = modified.replace("This line is original.", "This line is original, but with an addition.");
-        modified += "\n\nThis is a brand new paragraph added by the LLM.\nIt contains fresh insights.\n";
-        if (!original.includes("Fallback")) { // Add something specific if not using fallback
-            modified += "\nAnd one more sentence based on the input.";
-        }
-        return modified;
-    }
-
 
     private async openView(): Promise<void> {
         let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(LIMPORT_VIEW_TYPE)[0];
@@ -215,20 +207,6 @@ export default class lImporterPlugin extends Plugin {
         // 2. Nullify references to views to help with garbage collection
         this.view = null;
 
-        // 3. Clean up any other resources or listeners YOUR plugin specifically created
-        //    that are NOT automatically handled by Obsidian's lifecycle methods
-        //    (e.g., intervals, global event listeners, external library instances).
-        //    For example, if `ProcessTrackerInstance` had a `destroy` method:
-        //    if (this.tracker) {
-        //        this.tracker.destroy();
-        //    }
-
-        // Obsidian automatically handles:
-        // - Unregistering events registered with `this.registerEvent()`
-        // - Removing ribbon icons added with `this.addRibbonIcon()`
-        // - Removing commands added with `this.addCommand()`
-        // - Removing setting tabs added with `this.addSettingTab()`
-        // - Unregistering views registered with `this.registerView()` (detaching them is still good practice)
     }
 
 }
