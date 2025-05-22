@@ -5,6 +5,7 @@ import { LimporterView } from './views/lImporter';
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
 import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
+import { wtf } from './utils/files';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
@@ -76,6 +77,7 @@ export default class lImporterPlugin extends Plugin {
                 return;
             }
             new Notice(activeFile.path);
+            wtf();
         });
 
         chatRibbon.addClass('limporter-ribbon-icon');

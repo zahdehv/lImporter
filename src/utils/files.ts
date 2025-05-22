@@ -427,6 +427,9 @@ export async function prepareFileData(file: TFile): Promise<FileItem> {
         };
     }
 
+export function wtf() {
+    console.log(this.plugin);
+}
 
 async function findFileBySha256(genAI: GoogleGenAI, localSha256:string) {
     // console.log(`Searching for file with SHA256: ${localSha256}`);
