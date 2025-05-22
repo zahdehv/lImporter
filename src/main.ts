@@ -1,19 +1,35 @@
 
-import { MarkdownView, Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian'; 
+// Removed MarkdownView as it wasn't used.
 import { LIMPORT_VIEW_TYPE } from './views/lImporter';
 import { LimporterView } from './views/lImporter';
+import { LOG_VIEW_TYPE, LogView, patchConsole, unpatchConsole } from './views/logView';
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
-import { ProcessTrackerInstance } from './utils/tracker';
+// Removed ProcessTrackerInstance as this.tracker was unused.
 import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
-import { upload_file } from './utils/files';
+// Removed upload_file as it wasn't used directly in main.ts.
 
+/**
+ * lImporterPlugin is the main class for the L-Importer plugin.
+ * It handles the plugin's lifecycle, settings, view registrations,
+ * command additions, and event listeners.
+ */
 export default class lImporterPlugin extends Plugin {
+    /** Current plugin settings. */
     settings: lImporterSettings;
-    tracker!: ProcessTrackerInstance;
-    private ribbonIcon!: HTMLElement;
-    public view: LimporterView | null = null;
+    // tracker!: ProcessTrackerInstance; // Removed as it was unused.
+    /** Reference to the main ribbon icon for the lImporter view. */
+    private ribbonIconEl!: HTMLElement; // Renamed from ribbonIcon for clarity (El suffix for HTMLElements)
+    /** Reference to the active LimporterView instance, if any. */
+    public limporterView: LimporterView | null = null; // Renamed from 'view' for clarity
 
-    // Defines categories of supported files and their extensions
+    /**
+     * Defines the configuration for supported file types, including their extensions and descriptions.
+     * This configuration is used for auto-capture settings and file menu integrations.
+     * @returns An object where keys are category names (e.g., 'document', 'audio')
+     *          and values are objects containing 'extensions' (array of strings)
+     *          and 'description' (string).
+     */
     public getSupportedFileTypesConfig(): { [key: string]: { extensions: string[], description: string } } {
         return {
             document: { 
@@ -39,48 +55,68 @@ export default class lImporterPlugin extends Plugin {
         };
     }
 
-    // Returns a flat array of all supported extensions
+    /**
+     * Returns a flat array of all supported file extensions across all categories.
+     * @returns An array of lowercase file extension strings.
+     */
     public getAllSupportedExtensions(): string[] {
         const config = this.getSupportedFileTypesConfig();
         return Object.values(config).flatMap(type => type.extensions);
     }
 
+    /**
+     * Plugin lifecycle method called when Obsidian loads the plugin.
+     * Responsible for initializing settings, views, commands, and event listeners.
+     */
     async onload() {
         await this.loadSettings();
 
-        //CHAT ADDITIONAL
+        // --- Register Views ---
+        // Register AI Chat View
         this.registerView(
             CHAT_VIEW_TYPE,
             (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
         );
+        // Register lImporter View (main functionality)
+        this.registerView(
+            LIMPORT_VIEW_TYPE,
+            (leaf) => (this.limporterView = new LimporterView(leaf, this))
+        );
+        // Register Log View
+        this.registerView(
+            LOG_VIEW_TYPE,
+            (leaf: WorkspaceLeaf) => new LogView(leaf, this)
+        );
 
-        // 2. Add a Ribbon Icon to open the Chat View
+        // --- Add Ribbon Icons ---
+        // Ribbon icon for AI Chat View
         const chatRibbon = this.addRibbonIcon("bot-message-square", "Open AI Chat", () => {
             this.activateChatView();
         });
-        chatRibbon.addClass('limporter-ribbon-icon');
+        chatRibbon.addClass('limporter-ribbon-icon'); // Optional: for custom styling
 
+        // Ribbon icon for lImporter View
+        this.ribbonIconEl = this.addRibbonIcon('import', 'lImporter', () => this.openLimporterView());
+        this.ribbonIconEl.addClass('limporter-ribbon-icon'); // Optional: for custom styling
 
-        this.registerView(
-            LIMPORT_VIEW_TYPE,
-            (leaf) => (this.view = new LimporterView(leaf, this))
-        );
-
-
-        this.ribbonIcon = this.addRibbonIcon('import', 'lImporter', () => this.openView());
-        this.ribbonIcon.addClass('limporter-ribbon-icon');
-
+        // Ribbon icon for Log View
+        this.addRibbonIcon("scroll-text", "Open System Logs", () => {
+            this.activateView(LOG_VIEW_TYPE);
+        });
+        
+        // --- Setup Event Listeners (onLayoutReady ensures workspace is ready) ---
         this.app.workspace.onLayoutReady(() => {
+            // Auto-capture: Listen for new file creation in the vault
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
-                if (file instanceof TFile) {
+                if (file instanceof TFile) { // Ensure it's a file
                     const extension = file.extension.toLowerCase();
                     const fileTypeConfigs = this.getSupportedFileTypesConfig();
                     let shouldAutoCapture = false;
 
+                    // Check if auto-capture is enabled for this file type
                     for (const typeKey in fileTypeConfigs) {
                         if (fileTypeConfigs[typeKey].extensions.includes(extension)) {
                             const settingKey = `autoCapture_${typeKey}` as keyof lImporterSettings;
-                            // Check if the setting for this file type is true
                             if (this.settings[settingKey] === true) {
                                 shouldAutoCapture = true;
                                 break;
@@ -89,39 +125,52 @@ export default class lImporterPlugin extends Plugin {
                     }
 
                     if (shouldAutoCapture) {
-                        this.openFileProcessor(file);
+                        this.openFileProcessor(file); // Open lImporter view with the new file
                     }
                 }
             }));
+
+            // File Menu Integration: Add "lImport" option to context menu for supported files
             this.registerEvent(this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
-                if (file instanceof TFile && this.isSupportedFile(file)) { // isSupportedFile uses all extensions
+                if (file instanceof TFile && this.isSupportedFile(file)) {
                     menu.addItem((item) => {
-                        item.setTitle("lImport").setIcon("import").onClick(() => this.openFileProcessor(file));
+                        item.setTitle("lImport")
+                            .setIcon("import")
+                            .onClick(() => this.openFileProcessor(file));
                     });
                 }
             }));
         });
+        
+        // --- Add Settings Tab ---
         this.addSettingTab(new lImporterSettingTab(this.app, this));
+
+        // --- Patch Console for LogView ---
+        patchConsole(this.settings.display_debug_messages); // Enable console capturing
+
+        // --- Add Commands ---
+        // Command to open LogView
+        this.addCommand({
+            id: 'open-system-logs',
+            name: 'Open System Logs',
+            callback: () => {
+                this.activateView(LOG_VIEW_TYPE);
+            }
+        });
+        // Add other commands as needed, e.g., for lImporter, ChatView
     }
 
-    async simulateLLMProcessing(original: string): Promise<string> {
-        // Replace with your actual LLM API call
-        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate network delay
+    // simulateLLMProcessing method removed as it was unused/placeholder.
 
-        let modified = original.replace("This will be changed.", "This has been completely revamped by the AI!");
-        modified = modified.replace("This line is original.", "This line is original, but with an addition.");
-        modified += "\n\nThis is a brand new paragraph added by the LLM.\nIt contains fresh insights.\n";
-        if (!original.includes("Fallback")) { // Add something specific if not using fallback
-            modified += "\nAnd one more sentence based on the input.";
-        }
-        return modified;
-    }
-
-
-    private async openView(): Promise<void> {
+    /**
+     * Opens the main lImporter view in the workspace.
+     * If the view is already open, it reveals it. Otherwise, it creates a new leaf.
+     * @private
+     */
+    private async openLimporterView(): Promise<void> { // Renamed from openView
         let leaf: WorkspaceLeaf | null = this.app.workspace.getLeavesOfType(LIMPORT_VIEW_TYPE)[0];
         if (!leaf) {
-            leaf = this.app.workspace.getRightLeaf(false);
+            leaf = this.app.workspace.getRightLeaf(false); // Try to open in right sidebar
             if (leaf) {
                 await leaf.setViewState({ type: LIMPORT_VIEW_TYPE, active: true });
             } else {
@@ -130,53 +179,31 @@ export default class lImporterPlugin extends Plugin {
             }
         }
         if (leaf) {
-            this.app.workspace.revealLeaf(leaf);
+            this.app.workspace.revealLeaf(leaf); // Focus the view
         }
     }
 
+    /**
+     * Opens the lImporter view and adds a specific file to its processing list.
+     * @param file - The TFile to add to the lImporter view.
+     * @private
+     */
     private async openFileProcessor(file: TFile): Promise<void> {
-        await this.openView();
-        if (this.view) {
-            await this.view.addFile(file);
+        await this.openLimporterView(); // Ensure the lImporter view is open
+        if (this.limporterView) {
+            await this.limporterView.addFile(file); // Add the file to the view
         } else {
             new Notice("lImporter view could not be opened or found.");
         }
     }
 
-    // This method now returns ALL extensions the plugin can handle, for UI elements.
-    // Auto-capture logic is separate.
-    public SupportedFiles(): string[] {
-        return this.getAllSupportedExtensions();
-    }
-
-    // Checks if a file is generally supported by the plugin (any category)
-    private isSupportedFile(file: TFile): boolean {
-        return this.getAllSupportedExtensions().includes(file.extension.toLowerCase());
-    }
-
-    async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-        // Ensure all auto-capture settings defined in DEFAULT_SETTINGS are present
-        // This handles cases where new file types are added and users upgrade
-        const fileTypeConfig = this.getSupportedFileTypesConfig();
-        for (const typeKey in fileTypeConfig) {
-            const settingKey = `autoCapture_${typeKey}` as keyof lImporterSettings;
-            if (this.settings[settingKey] === undefined && DEFAULT_SETTINGS[settingKey] !== undefined) {
-                (this.settings as any)[settingKey] = (DEFAULT_SETTINGS as any)[settingKey];
-            } else if (this.settings[settingKey] === undefined) {
-                // Fallback if not in DEFAULT_SETTINGS (should be kept in sync)
-                 (this.settings as any)[settingKey] = true; // Default to true if not specified
-            }
-        }
-    }
-
-    async saveSettings() {
-        await this.saveData(this.settings);
-    }
-
-    async activateChatView() {
+    /**
+     * Activates a specified view type in the workspace.
+     * If a view of this type exists, it's revealed. Otherwise, a new leaf is created for it.
+     * @param viewType - The string identifier of the view to activate.
+     */
+    async activateView(viewType: string) {
         const { workspace } = this.app;
-
         let leaf: WorkspaceLeaf | null = null;
         const leaves = workspace.getLeavesOfType(CHAT_VIEW_TYPE);
 
@@ -211,9 +238,13 @@ export default class lImporterPlugin extends Plugin {
         //    Obsidian >=1.5.0:
         this.app.workspace.detachLeavesOfType(LIMPORT_VIEW_TYPE);
         this.app.workspace.detachLeavesOfType(CHAT_VIEW_TYPE);
+        this.app.workspace.detachLeavesOfType(LOG_VIEW_TYPE); // Detach LogView
 
         // 2. Nullify references to views to help with garbage collection
         this.view = null;
+
+        // 3. Unpatch console
+        unpatchConsole();
 
         // 3. Clean up any other resources or listeners YOUR plugin specifically created
         //    that are NOT automatically handled by Obsidian's lifecycle methods
@@ -222,7 +253,7 @@ export default class lImporterPlugin extends Plugin {
         //    if (this.tracker) {
         //        this.tracker.destroy();
         //    }
-
+        
         // Obsidian automatically handles:
         // - Unregistering events registered with `this.registerEvent()`
         // - Removing ribbon icons added with `this.addRibbonIcon()`
