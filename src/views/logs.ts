@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon } from 'obsidian';
+import { ItemView, WorkspaceLeaf, MarkdownRenderer, setIcon, Notice, Setting } from 'obsidian';
 import lImporterPlugin from 'src/main';
 
 /**
@@ -68,6 +68,7 @@ export function captureLog(level: string, ...args: any[]): void {
  *                        Otherwise, `console.debug` will be a no-op.
  */
 export function patchConsole(debug_enabled: boolean): void {
+    new Notice("PATCHING CONSOLE");
     // Ensure original methods are only captured once, or re-capture if somehow overridden elsewhere.
     // This check helps if patchConsole were accidentally called multiple times,
     // or if another part of Obsidian or a plugin also patches console.log.
@@ -131,6 +132,8 @@ export function patchConsole(debug_enabled: boolean): void {
  * applied by `patchConsole`.
  */
 export function unpatchConsole(): void {
+    new Notice("UNPATCHING CONSOLE");
+
     console.log = originalConsoleMethods.log;
     console.info = originalConsoleMethods.info;
     console.warn = originalConsoleMethods.warn;
@@ -194,21 +197,13 @@ export class LogView extends ItemView {
         container.empty();
         container.addClass("log-view-container");
 
-        container.createEl("h4", { text: "Captured Logs" });
-        
-        // --- Button Container ---
-        const buttonContainer = container.createDiv({ cls: "log-view-button-container" });
-        
-        // Clear Logs Button
-        const clearButton = buttonContainer.createEl("button", {text: "Clear Logs", cls: "limporter-button"});
-        setIcon(clearButton, "trash");
-        clearButton.addEventListener("click", () => console.clear()); // console.clear is patched
-
-        // TODO: Add save to file button (implementation pending)
-        // const saveButton = buttonContainer.createEl("button", {text: "Save Logs", cls: "limporter-button"});
-        // setIcon(saveButton, "save");
-        // saveButton.addEventListener("click", () => this.saveLogsToFile());
-
+        new Setting(container as HTMLElement).setName("Captured Logs")
+            .addButton(button=>button
+                .setIcon("trash")
+                .onClick(() => console.clear()))
+            .addButton(button=>button
+                .setIcon("save")
+                .onClick(async () => await this.saveLogsToFile()));
         // --- Log Messages Container ---
         this.logsMDContainer = container.createDiv('log-messages-container');
         
@@ -273,21 +268,23 @@ export class LogView extends ItemView {
      * Called when the view is closed.
      */
     async onClose() {
-        logViewInstance = null; // Unregister this instance as the active one
-        // Note: Console patching is typically reverted when the plugin unloads (in main.ts),
-        // not necessarily when just this view closes, as logging might still be desired globally.
+        logViewInstance = null;
+        unpatchConsole();
     }
 
     // TODO: Implement saveLogsToFile functionality
     // /**
     //  * Saves all captured logs to a Markdown file in the vault.
     //  */
-    // async saveLogsToFile(): Promise<void> {
-    //     const content = globalLogStore.map(entry => 
-    //         `[${entry.timestamp.toISOString()}] [${entry.level.toUpperCase()}] ${entry.messages.map(String).join(" ")}`
-    //     ).join("\n");
-    //     // Use Obsidian API to save content to a file
-    //     // Example: await this.app.vault.create('_SYSTEM_LOGS/ obsidian-importer-logs-' + Date.now() + '.md', content);
-    //     new Notice("Logs saved (functionality not fully implemented).");
-    // }
+    async saveLogsToFile(): Promise<void> {
+        const content = globalLogStore.map(entry => 
+            `[${entry.timestamp.toISOString()}] [${entry.level.toUpperCase()}] ${entry.messages.map(String).join(" ")}`
+        ).join("\n");
+        // Use Obsidian API to save content to a file
+        // Example: await this.app.vault.create('_SYSTEM_LOGS/ obsidian-importer-logs-' + Date.now() + '.md', content);
+        // await this.app.vault.adapter.mkdir("a/b/c/d/e/f");
+        await this.app.vault.adapter.mkdir("_lim_logs");
+        await this.app.vault.create('_lim_logs/limporter-logs-' + Date.now() + '.md', content);
+        new Notice("Logs saved.");
+    }
 }

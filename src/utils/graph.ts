@@ -5,7 +5,7 @@ import { App, TFile } from 'obsidian';
  */
 interface FileWithDepth {
     /** The path of the file. */
-    filePath: string;
+    file: TFile;
     /** The depth or distance from the starting node. */
     depth: number;
 }
@@ -89,7 +89,7 @@ export async function bfsFileExpander(
     includeSelf: boolean = true,
     ascending: boolean = true,
     maxDepth = 13
-): Promise<string[]> {
+): Promise<TFile[]> {
     const queue: { file: TFile; depth: number }[] = [];
     // visitedPaths tracks files that have been added to the queue or already processed.
     // This prevents cycles and redundant work.
@@ -100,7 +100,7 @@ export async function bfsFileExpander(
         // If including the startFile, add it to results and mark as visited.
         // Then, queue its direct neighbors.
         visitedPaths.add(startFile.path);
-        collectedFiles.push({ filePath: startFile.path, depth: 0 });
+        collectedFiles.push({ file: startFile, depth: 0 });
         addNeighborsToQueue(app, startFile, 0, queue, visitedPaths);
     } else {
         // If not including the startFile, still mark it as visited to prevent it from being
@@ -120,8 +120,8 @@ export async function bfsFileExpander(
         // Add the processed file to collectedFiles if it's not already there.
         // This check is a safeguard; with current logic (marking visited when queuing),
         // a file should only be processed once. `startFile` (if `includeSelf`) is handled before loop.
-        if (!collectedFiles.some(cf => cf.filePath === currentFile.path)) {
-             collectedFiles.push({ filePath: currentFile.path, depth: currentDepth });
+        if (!collectedFiles.some(cf => cf.file.path === currentFile.path)) {
+             collectedFiles.push({ file: currentFile, depth: currentDepth });
         }
         
         // Add its neighbors to the queue for future processing.
@@ -131,11 +131,11 @@ export async function bfsFileExpander(
     // Sort the collected files: primarily by depth, secondarily by file path for stable sort.
     collectedFiles.sort((a, b) => {
         if (a.depth === b.depth) {
-            return a.filePath.localeCompare(b.filePath); // Alphabetical for consistent order at same depth
+            return a.file.path.localeCompare(b.file.path); // Alphabetical for consistent order at same depth
         }
         return ascending ? a.depth - b.depth : b.depth - a.depth; // Sort by depth
     });
 
     // Return only the file paths.
-    return collectedFiles.filter(file=> file.depth <= maxDepth).map(cf => cf.filePath);
+    return collectedFiles.filter(file=> file.depth <= maxDepth).map(cf => cf.file);
 }

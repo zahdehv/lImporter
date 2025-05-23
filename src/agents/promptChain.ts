@@ -55,7 +55,11 @@ export const createPromptChainItems = (plugin: lImporterPlugin,  chat: Chat, sig
             return fileContents;
     }
 
-    const write = async (prepnd: PartUnion[] = [], appnd: PartUnion[] = []) => {
+    const write = async (prepnd: PartUnion[] = [], appnd: PartUnion[] = []): Promise<{
+      path: string;
+      oldContent: string;
+      newContent: string;
+  }[]> => {
         const r_write = await chat.sendMessage({message: prepnd.concat([gem_write_prompt(plugin)]).concat(appnd), 
             config: {abortSignal: signal,
                 responseMimeType: 'application/json',
@@ -84,14 +88,18 @@ export const createPromptChainItems = (plugin: lImporterPlugin,  chat: Chat, sig
                 }});
 
                 if (!r_write.text) throw new Error("Error writing files");
-                  const write_files = JSON.parse(r_write.text).write_files;
-                  for (const write of write_files) {
-                      const wrote = await writeFileMD(plugin.app, write.path, write.content);
-                      if (wrote) console.log(`# File wrote [[${write.path}]]
-${wrote}`);
-                  plugin.tracker.appendFile(write.path);
+                const write_files = JSON.parse(r_write.text).write_files;
+                const result: {
+                  path: string;
+                  oldContent: string;
+                  newContent: string;
+              }[] = []
+                for (const write of write_files) {
+                    const wrote = await writeFileMD(plugin.app, write.path, write.content);
+                    if (!wrote) {console.log(`### ERROR WRITING FILE:`,write.path); continue;}
+                  result.push(wrote)
         }
-        return JSON.parse(r_write.text);
+        return result;
     }
     return {extract, query, write}
 

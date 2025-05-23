@@ -324,7 +324,7 @@ export async function simpleQueryVault(app: App, queryString: string): Promise<R
     return response;
 }
 
-export async function writeFileMD(app:App, path: string, content: string): Promise<string|null> {
+export async function writeFileMD(app:App, path: string, content: string): Promise<{path:string,oldContent:string,newContent:string}|null> {
     const vault = app.vault;
    console.log("path", path);
     // if (path.includes(".lim")) {
@@ -339,6 +339,7 @@ export async function writeFileMD(app:App, path: string, content: string): Promi
     const folderPath = path.split('/').slice(0, -1).join('/');
     const filePath = path;
 
+    vault.adapter.mkdir(folderPath);
     if (folderPath) {
         const folderExists = await vault.adapter.exists(folderPath);
         if (!folderExists) {
@@ -356,9 +357,7 @@ export async function writeFileMD(app:App, path: string, content: string): Promi
     // }).join("\n");
     const patch = Diff.structuredPatch(path, path, oldContent, newContent, "XD", "XD", {ignoreNewlineAtEof: true, stripTrailingCr: true, }).hunks.map((hunk)=> hunk.lines.join("\n")).join("\n");
     // const patch = Diff.createPatch(path, oldContent, newContent);
-    return `\`\`\`diff
-${patch}
-\`\`\``
+    return {path: path, oldContent: oldContent, newContent: newContent};
 
 }
 

@@ -1,5 +1,5 @@
 
-import { ItemView, Notice, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf } from 'obsidian';
+import { Notice, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
 
@@ -11,38 +11,6 @@ export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
     tracker!: ProcessTrackerInstance;
 
-    // Defines categories of supported files and their extensions
-    public getSupportedFileTypesConfig(): { [key: string]: { extensions: string[], description: string } } {
-        return {
-            document: { 
-                extensions: ["pdf"], 
-                description: "Document files" 
-            },
-            audio: { 
-                extensions: ["mp3", "wav", "ogg", "m4a", "aac", "flac", "aiff"], 
-                description: "Audio files" 
-            },
-            image: {
-                extensions: ["png", "jpg", "jpeg"],
-                description: "Image files"
-            },
-            video: { 
-                extensions: ["mp4", "mov"], 
-                description: "Video files" 
-            },
-            plain_text: { 
-                extensions: ["md", "txt"], 
-                description: "Plain text files" 
-            },
-        };
-    }
-
-    // Returns a flat array of all supported extensions
-    public getAllSupportedExtensions(): string[] {
-        const config = this.getSupportedFileTypesConfig();
-        return Object.values(config).flatMap(type => type.extensions);
-    }
-
     async onload() {
         await this.loadSettings();
 
@@ -50,11 +18,27 @@ export default class lImporterPlugin extends Plugin {
             CHAT_VIEW_TYPE,
             (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
         );
+        this.addCommand(
+            {
+                id: 'ai-chat-open-command',
+                name: "Open AI Chat",
+                callback: async () => {
+                    await this.activateView(CHAT_VIEW_TYPE);
+                },
+            })
 
-        const chatRibbon = this.addRibbonIcon("bot-message-square", "Open AI Chat", () => {
-            this.activateView(CHAT_VIEW_TYPE);
-        });
-        chatRibbon.addClass('limporter-ribbon-icon');
+        this.registerView(
+            LOG_VIEW_TYPE,
+            (leaf) => (new LogView(leaf, this))
+        );
+        this.addCommand(
+            {
+                id: 'toggle-logs-file',
+                name: "Toggle logs to file",
+                callback: async () => {
+                    await this.activateView(LOG_VIEW_TYPE);
+                },
+            })
 
         this.registerView(
             LIMPORT_VIEW_TYPE,
@@ -63,23 +47,6 @@ export default class lImporterPlugin extends Plugin {
         const lri = this.addRibbonIcon('import', 'lImporter', () => this.activateView(LIMPORT_VIEW_TYPE));
         lri.addClass('limporter-ribbon-icon');
 
-        this.registerView(
-            LOG_VIEW_TYPE,
-            (leaf) => (new LogView(leaf, this))
-        );
-        const lgri = this.addRibbonIcon('logs', 'LOGS', () => this.activateView(LOG_VIEW_TYPE));
-        lgri.addClass('limporter-ribbon-icon');
-
-        this.addRibbonIcon("pen", "TEST", async () => {
-            const activeFile = this.app.workspace.getActiveFile();
-            if (!activeFile) {
-                new Notice('No active note');
-                return;
-            }
-            new Notice(activeFile.path);
-        });
-
-        chatRibbon.addClass('limporter-ribbon-icon');
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
                 if (file instanceof TFile) {
@@ -123,10 +90,36 @@ export default class lImporterPlugin extends Plugin {
         }
     }
 
-    // This method now returns ALL extensions the plugin can handle, for UI elements.
-    // Auto-capture logic is separate.
-    public SupportedFiles(): string[] {
-        return this.getAllSupportedExtensions();
+    // Defines categories of supported files and their extensions
+    public getSupportedFileTypesConfig(): { [key: string]: { extensions: string[], description: string } } {
+        return {
+            document: { 
+                extensions: ["pdf"], 
+                description: "Document files" 
+            },
+            audio: { 
+                extensions: ["mp3", "wav", "ogg", "m4a", "aac", "flac", "aiff"], 
+                description: "Audio files" 
+            },
+            image: {
+                extensions: ["png", "jpg", "jpeg"],
+                description: "Image files"
+            },
+            video: { 
+                extensions: ["mp4", "mov"], 
+                description: "Video files" 
+            },
+            plain_text: { 
+                extensions: ["md", "txt"], 
+                description: "Plain text files" 
+            },
+        };
+    }
+
+    // Returns a flat array of all supported extensions
+    public getAllSupportedExtensions(): string[] {
+        const config = this.getSupportedFileTypesConfig();
+        return Object.values(config).flatMap(type => type.extensions);
     }
 
     // Checks if a file is generally supported by the plugin (any category)

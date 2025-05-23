@@ -53,6 +53,7 @@ ${readContents}
         t_write.updateState('in-progress');
         const wrote = await shackles.write([`Query results:\n\n${readContents}`])
         if (!wrote) throw new Error("Error writing files");
+        wrote.forEach(item=>t_write.appendFile(item.path,item.oldContent, item.newContent));
         t_write.updateState("complete");
     }
     
@@ -90,9 +91,9 @@ const buildReact = (plugin: lImporterPlugin, model: string): (files: FileItem[],
 }
 
 export const models = [
-    {id: "gemini-2.5-flash-preview-04-17"},
-    {id: "gemini-2.0-flash-lite"},
-    {id: "gemini-2.0-flash"},
+    {id: "gemini-2.5-flash-preview-05-20", name: '2.5-flash'},
+    {id: "gemini-2.0-flash", name: '2.0-flash'},
+    {id: "gemini-2.0-flash-lite", name: '2.0-flash-lite'},
         ];
 
 export const pipelineOptions = [

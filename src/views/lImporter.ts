@@ -3,16 +3,10 @@ import lImporterPlugin from "../main";
 import { ItemView, Notice } from "obsidian";
 import { models, pipelineOptions } from '../agents/pipelines';
 import { FileSuggestionModal } from "../utils/fileSuggestion";
-import { setIcon, Setting, TFile, TextAreaComponent, DropdownComponent, WorkspaceLeaf } from "obsidian";
+import { setIcon, Setting, TFile, WorkspaceLeaf } from "obsidian";
 import { createProcessTracker } from "../utils/tracker";
-export const LIMPORT_VIEW_TYPE = "limporter-view";
 
-const original_log = console.log;
-const original_error = console.error;
-const original_warn = console.warn;
-const original_info = console.info;
-const original_debug = console.debug;
-const original_clear = console.clear;
+export const LIMPORT_VIEW_TYPE = "limporter-view";
 
 export class LimporterView extends ItemView {
     private plugin: lImporterPlugin;
@@ -20,14 +14,6 @@ export class LimporterView extends ItemView {
     private abortController?: AbortController | any;
     private isConfigVisible = false;
     private isFileVisible = true;
-
-    // Add this to your class properties:
-    private activeToggleView: 'files' | 'progress' | 'logs' | null = null;
-    private viewButtons: {
-        files?: HTMLButtonElement;
-        progress?: HTMLButtonElement;
-        logs?: HTMLButtonElement;
-    } = {};
 
     private fileItems: FileItem[] = [];
 
@@ -56,8 +42,6 @@ export class LimporterView extends ItemView {
     }
 
     async onOpen() {
-      console.warn("xdxd");
-
         const { containerEl } = this;
         containerEl.empty();
         containerEl.addClass('limporter-view');
@@ -105,21 +89,32 @@ model: ${this.currentModel}`);
 
         const configContainer = buttonContainer.createDiv('limporter-config-container');
         configContainer.style.display = this.isConfigVisible ? 'block' : 'none';
-        this.createPipelineDropdown(configContainer);
-        const button = configContainer.createEl('button', {
-            cls: 'limporter-button secondary',
-        });
-        button.setText("Load Agent");
-        button.addEventListener('click', () => {
-            this.loadAgent();
-        });
+        new Setting(configContainer).addDropdown(dropdown => {
+            dropdown
+                .addOptions(Object.fromEntries(pipelineOptions.map(opt => [opt.id, opt.name])))
+                .onChange(async (value) => {
+                    if (value) {
+                        const selected = pipelineOptions.find(opt => opt.id === value);
+                        if (selected) {
+                            this.pipelineStarter = selected.buildPipeline;
+                            this.currentAgent = selected.name;
+                        }
+                    }
+                });
+        }).addDropdown(dropdown => {
+            dropdown
+                .addOptions(Object.fromEntries(models.map(opt => [opt.id, opt.name])))
+                .onChange(async (value) => {
+                    if (value) {
+                        const selected = models.find(opt => opt.id === value);
+                        if (selected) this.currentModel = selected.id;
+                    }
+                });
+        }).addButton(button=>button.setClass('limporter-button').setIcon('hard-drive-download').onClick(()=>this.loadAgent()));
 
-        const SbuttonContainer = buttonContainer.createDiv('limporter-sbutton-container');
-        this.createProgressVisibilityButton(SbuttonContainer);
+        // const SbuttonContainer = buttonContainer.createDiv('limporter-sbutton-container');
 
-        SbuttonContainer.createDiv({ cls: 'my-plugin-vertical-separator' });
-
-        this.createConfigFileVisibilityButton(SbuttonContainer);
+        this.createConfigFileVisibilityButton(buttonContainer);
         this.createProcessButton(buttonContainer);
     }
 
@@ -189,84 +184,7 @@ model: ${this.currentModel}`);
             }
         });
     }
-
-    private createProgressVisibilityButton(container: HTMLElement): void {
-        // Helper function to update the state of all toggleable views
-        const updateToggleViews = (newActiveView: 'files' | 'progress' | 'logs' | null) => {
-            this.activeToggleView = newActiveView;
     
-            const views = [
-                {
-                    key: 'files' as const,
-                    button: this.viewButtons.files,
-                    containerEl: this.plugin.tracker?.filesContainer,
-                },
-                {
-                    key: 'progress' as const,
-                    button: this.viewButtons.progress,
-                    containerEl: this.plugin.tracker?.progressContainer,
-                },
-                {
-                    key: 'logs' as const,
-                    button: this.viewButtons.logs,
-                    containerEl: this.plugin.tracker?.logsContainer,
-                },
-            ];
-    
-            for (const view of views) {
-                const isActive = this.activeToggleView === view.key;
-                if (view.button) {
-                    view.button.toggleClass('toggled-on', isActive);
-                }
-                if (view.containerEl) {
-                    view.containerEl.style.display = isActive ? 'flex' : 'none';
-                }
-            }
-        };
-    
-        // --- Files Button ---
-        this.viewButtons.files = container.createEl('button', {
-            cls: 'limporter-button secondary',
-        });
-        setIcon(this.viewButtons.files, 'file-down');
-        this.viewButtons.files.addEventListener('click', () => {
-            if (this.activeToggleView === 'files') {
-                updateToggleViews(null); // Clicked active button, so toggle all off
-            } else {
-                updateToggleViews('files'); // Clicked inactive button, so set it as active
-            }
-        });
-    
-        // --- Progress Button ---
-        this.viewButtons.progress = container.createEl('button', {
-            cls: 'limporter-button secondary',
-        });
-        setIcon(this.viewButtons.progress, 'bug-play'); // Or your preferred icon for progress
-        this.viewButtons.progress.addEventListener('click', () => {
-            if (this.activeToggleView === 'progress') {
-                updateToggleViews(null);
-            } else {
-                updateToggleViews('progress');
-            }
-        });
-    
-        // --- Logs Button ---
-        this.viewButtons.logs = container.createEl('button', {
-            cls: 'limporter-button secondary',
-        });
-        setIcon(this.viewButtons.logs, 'logs'); // Or your preferred icon for logs
-        this.viewButtons.logs.addEventListener('click', () => {
-            if (this.activeToggleView === 'logs') {
-                updateToggleViews(null);
-            } else {
-                updateToggleViews('logs');
-            }
-        });
-    
-        updateToggleViews("progress"); // Or set this.activeToggleView to its initial desired state
-    }
-    
-
     private createAddButton(container: HTMLElement): void {
         const button = container.createEl('button', {
             cls: 'limporter-button secondary',
@@ -274,7 +192,7 @@ model: ${this.currentModel}`);
         setIcon(button, 'plus');
         button.style.marginTop = "0.5rem";
         button.addEventListener('click', () => {
-            new FileSuggestionModal(this.app, this.plugin.SupportedFiles(), async (file) => { // Uses plugin.SupportedFiles() which will be updated
+            new FileSuggestionModal(this.app, this.plugin.getAllSupportedExtensions(), async (file) => { // Uses plugin.getAllSupportedExtensions() which will be updated
                 if (file) {
                     await this.addFile(file);
                 }
@@ -282,38 +200,6 @@ model: ${this.currentModel}`);
         });
     }
 
-    private createPipelineDropdown(container: HTMLElement): void {
-        const dropdownContainer = container.createDiv('limporter-dropdown-container');
-
-        new Setting(dropdownContainer)
-            .setName('Pipeline:')
-            .addDropdown(dropdown => {
-                dropdown
-                    .addOptions(Object.fromEntries(pipelineOptions.map(opt => [opt.id, opt.name])))
-                    .onChange(async (value) => {
-                        if (value) {
-                            const selected = pipelineOptions.find(opt => opt.id === value);
-                            if (selected) {
-                                this.pipelineStarter = selected.buildPipeline;
-                                this.currentAgent = selected.name;
-                            }
-                        }
-                    });
-            });
-
-            new Setting(dropdownContainer)
-            .setName('Model:')
-            .addDropdown(dropdown => {
-                dropdown
-                    .addOptions(Object.fromEntries(models.map(opt => [opt.id, opt.id])))
-                    .onChange(async (value) => {
-                        if (value) {
-                            const selected = models.find(opt => opt.id === value);
-                            if (selected) this.currentModel = selected.id;
-                        }
-                    });
-            });
-    }
 
     private createProcessButton(container: HTMLElement): void {
         const button = container.createEl('button', {
@@ -357,12 +243,5 @@ model: ${this.currentModel}`);
         });
     }
 
-    async onClose() {
-        console.log = original_log;
-        console.error = original_error;
-        console.warn = original_warn;
-        console.info = original_info;
-        console.debug = original_debug;
-        console.clear = original_clear;
-    }
+    async onClose() {}
 }
