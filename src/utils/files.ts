@@ -9,7 +9,7 @@ import { GoogleGenAI } from '@google/genai';
  * - Full content for files with '.lim' in their name.
  * - 'keypoints' from frontmatter for .md files (if '.lim' is not in the name).
  *
- * @param app - The Obsidian App object. // << CHANGED
+ * @param app - The Obsidian App object.
  * @param rootPath - The starting path (use '/' or '' for vault root).
  * @param depth - The maximum recursion depth (1 = immediate children only).
  * @param includeFiles - Whether to include files in the listing.
@@ -19,14 +19,14 @@ import { GoogleGenAI } from '@google/genai';
  * @throws An error if the rootPath is not found or is not a folder.
  */
 export async function listFilesTree(
-    app: App, // << CHANGED: Accept App instance
+    app: App, 
     rootPath: string,
     depth: number,
     includeFiles: boolean,
     showFileDetails: boolean = false,
     maxContentLines: number = 10
 ): Promise<string> {
-    const vault = app.vault; // Get vault from app
+    const vault = app.vault; 
 
     let normalizedPath = rootPath.trim();
     if (normalizedPath === '/' || normalizedPath === '') {
@@ -37,7 +37,6 @@ export async function listFilesTree(
         }
     }
 
-    // Use app.vault here
     const rootNode = vault.getAbstractFileByPath(normalizedPath);
 
     if (!rootNode) {
@@ -47,7 +46,8 @@ export async function listFilesTree(
         throw new Error(`Root path is not a folder: ${normalizedPath}`);
     }
 
-    let output = `${normalizedPath === '/' ? '.' : rootNode.name}\n`;
+    let output = `${normalizedPath === '/' ? '.' : rootNode.name}
+`;
 
     const buildTree = async (folder: TFolder, currentDepth: number, prefix: string) => {
         if (currentDepth > depth) {
@@ -72,7 +72,6 @@ export async function listFilesTree(
             const childPrefix = prefix + (isLast ? "    " : "│   ");
 
             const fileCache = (child instanceof TFile)? app.metadataCache.getFileCache(child): null;
-            // Tags
             let tagStr = "";
             const tags = fileCache? getAllTags(fileCache): [];
             if (tags && tags.length>0) {
@@ -80,57 +79,59 @@ export async function listFilesTree(
                 for (let index = 0; index < tags.length; index++) tagStr += " "+tags[index];
             }
 
-            output += `${prefix}${connector}${child.name}${(child instanceof TFile)?` (link con [[${child.name}|{texto visible del link}]])`:""} ${tagStr}\n`;
+            output += `${prefix}${connector}${child.name}${(child instanceof TFile)?` (link con [[${child.name}|{texto visible del link}]])`:""} ${tagStr}
+`;
 
-            // --- START CONTENT/KEYPOINTS HANDLING ---
             if (child instanceof TFile && showFileDetails) {
                 const fileNameLower = child.name.toLowerCase();
-
-                // Condition 1: File name contains '.lim'
                 if (fileNameLower.includes('.lim')) {
                     try {
-                        // Use app.vault here
                         const content = await vault.read(child);
-                        const lines = content.split('\n');
+                        const lines = content.split('
+');
                         const lineCount = lines.length;
                         const linesToShow = lines.slice(0, maxContentLines);
 
                         for (const line of linesToShow) {
-                            output += `${childPrefix}  ${line}\n`;
+                            output += `${childPrefix}  ${line}
+`;
                         }
                         if (lineCount > maxContentLines) {
-                            output += `${childPrefix}  [...]\n`;
+                            output += `${childPrefix}  [...]
+`;
                         }
                     } catch (readError) {
                         console.error(`Error reading .lim file ${child.path}:`, readError);
-                        output += `${childPrefix}  [Error reading .lim content]\n`;
+                        output += `${childPrefix}  [Error reading .lim content]
+`;
                     }
                 }
-                // Condition 2: File is .md (and not a .lim file, implicitly by order)
                 else if (child.extension?.toLowerCase() === 'md') {
                     try {
-                        // Use app.metadataCache directly here << CORRECTED
-
                         if (fileCache?.frontmatter?.keypoints && Array.isArray(fileCache.frontmatter.keypoints)) {
                             const keypoints = fileCache.frontmatter.keypoints as any[];
                             if (keypoints.length > 0) {
-                                output += `${childPrefix}  Keypoints:\n`;
+                                output += `${childPrefix}  Keypoints:
+`;
                                 for (const point of keypoints) {
-                                    output += `${childPrefix}    - ${String(point)}\n`;
+                                    output += `${childPrefix}    - ${String(point)}
+`;
                                 }
                             } else {
-                                output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
+                                output += `${childPrefix}  [NO KEYPOINTS FOUND]
+`;
                             }
                         } else {
-                            output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
+                            output += `${childPrefix}  [NO KEYPOINTS FOUND]
+`;
                         }
                     } catch (fmError) {
                         console.error(`Error accessing frontmatter for ${child.path}:`, fmError);
-                        output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
+                        output += `${childPrefix}  [NO KEYPOINTS FOUND]
+`;
                     }
                 }
             }
-            // --- END CONTENT/KEYPOINTS HANDLING ---
 
             if (child instanceof TFolder) {
                 await buildTree(child, currentDepth + 1, childPrefix);
@@ -147,10 +148,9 @@ export async function listFilesTree(
     }
     const title = `Directory structure for '${normalizedPath}' (depth ${depth}, ${fileInclusion} files, ${detailDisplay}):`;
 
-    return `${title}\n${output}`;
+    return `${title}
+${output}`;
 }
-
-
 
 /**
  * Queries the Obsidian vault for markdown files matching a set of query terms.
@@ -178,11 +178,7 @@ export async function queryVault(app: App, query: string[]): Promise<string> {
         const fileCache = metadataCache.getFileCache(file);
         if (!fileCache) continue;
 
-        
-        // 1. Add combined tags string as one searchable item
         const tagsInFile = getAllTags(fileCache);
-        
-        // 2. Add each keypoint as an individual searchable item
         const keypointsInFile: string[] = [];
         if (fileCache.frontmatter?.keypoints) {
             const keypoints = fileCache.frontmatter.keypoints;
@@ -200,36 +196,39 @@ export async function queryVault(app: App, query: string[]): Promise<string> {
         }
         const searchableMetadataItems = keypointsInFile.concat(tagsInFile?tagsInFile:[]);
         if (searchableMetadataItems.length === 0) {
-            continue; // No metadata to search in this file
+            continue; 
         }
 
         let allQueryTermsMatchFile = true;
-        for (const fzz of fuzzySearchers) { // Iterate over each prepared fuzzy searcher (one per query term)
+        for (const fzz of fuzzySearchers) { 
             let currentQueryTermFoundInAnyItem = false;
-            for (const item of searchableMetadataItems) { // Check against each metadata item
+            for (const item of searchableMetadataItems) { 
                 if (fzz(item) !== null) {
                     currentQueryTermFoundInAnyItem = true;
-                    break; // This query term found a match in one of the items, move to next query term
+                    break; 
                 }
             }
             if (!currentQueryTermFoundInAnyItem) {
                 allQueryTermsMatchFile = false;
-                break; // This query term did not match any metadata item, so the file doesn't match the full query
+                break; 
             }
         }
 
         if (allQueryTermsMatchFile) {
             try {
                 const content = await vault.cachedRead(file);
-                // const sanitizedPath = _sanitizeXmlAttribute(file.path);
-                results.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>\n${content}\n</file>`);
+                results.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>
+${content}
+</file>`);
             } catch (e) {
                 console.error(`Error reading file ${file.path} for query result:`, e);
             }
         }
     }
 
-    return results.join('\n\n');
+    return results.join('
+
+');
 }
 
 interface Result {
@@ -261,7 +260,7 @@ export async function simpleQueryVault(app: App, queryString: string): Promise<R
 
     const trimmedQuery = queryString.trim();
     if (!trimmedQuery) {
-        return {response: "No query found", results:[]}; // No query string, so no results.
+        return {response: "No query found", results:[]}; 
     }
 
     const fzz = prepareFuzzySearch(trimmedQuery);
@@ -271,17 +270,11 @@ export async function simpleQueryVault(app: App, queryString: string): Promise<R
         if (!fileCache) continue;
 
         const searchableMetadataItems: string[] = [];
-
-        // 1. Add combined tags string as one searchable item
-        const tagsInFile = getAllTags(fileCache); // Returns tags like ["#tag1", "#tag2"]
+        const tagsInFile = getAllTags(fileCache); 
         if (tagsInFile && tagsInFile.length > 0) {
-            // For fuzzy search, it's often better to search each tag individually
-            // or a string of them. The provided `queryVault` concatenated them.
-            // Let's stick to the pattern of your `queryVault` where tags are treated as individual items.
             searchableMetadataItems.push(...tagsInFile);
         }
 
-        // 2. Add each keypoint as an individual searchable item
         if (fileCache.frontmatter?.keypoints) {
             const keypoints = fileCache.frontmatter.keypoints;
             if (Array.isArray(keypoints)) {
@@ -298,44 +291,45 @@ export async function simpleQueryVault(app: App, queryString: string): Promise<R
         }
 
         if (searchableMetadataItems.length === 0) {
-            continue; // No metadata to search in this file
+            continue; 
         }
 
         let fileMatchesQuery = false;
-        for (const item of searchableMetadataItems) { // Check against each metadata item
+        for (const item of searchableMetadataItems) { 
             if (fzz(item) !== null) {
                 fileMatchesQuery = true;
-                break; // Query string found a match in one of the items, this file is a match
+                break; 
             }
         }
 
         if (fileMatchesQuery) {
             try {
                 const content = await vault.cachedRead(file);
-                // Following your latest queryVault, not sanitizing path or content for XML
-                result_parts.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>\n${content}\n</file>`);
+                result_parts.push(`<file path='${file.path}' link_to='[[${file.name}|{texto visible del link}]]'>
+${content}
+</file>`);
                 response.results.push({path: file.path, content: content, score: 1});
             } catch (e) {
                 console.error(`Error reading file ${file.path} for query result:`, e);
             }
         }
     }
-    response.response = result_parts.join("\n\n");
+    response.response = result_parts.join("
+
+");
     return response;
 }
 
 export async function writeFileMD(app:App, path: string, content: string): Promise<string|null> {
     const vault = app.vault;
    console.log("path", path);
-    // if (path.includes(".lim")) {
-    //     // throw new Error("Cannot write a .lim file");
-    //     throw new Error(`Error al escribir archivo: ${"Cannot write a .lim file"}`);
-    // }
 
     const fileExists = await vault.adapter.exists(path); 
 
-    const contentWithNewlines = content.replace(/\\n/g, '\n');
-    const newContent = contentWithNewlines.replace(/---\s/g, '---\n');
+    const contentWithNewlines = content.replace(/\n/g, '
+');
+    const newContent = contentWithNewlines.replace(/---\s/g, '---
+');
     const folderPath = path.split('/').slice(0, -1).join('/');
     const filePath = path;
 
@@ -349,13 +343,9 @@ export async function writeFileMD(app:App, path: string, content: string): Promi
     await vault.adapter.write(filePath, newContent);
     Diff.createPatch
     const diff = Diff.diffTrimmedLines(oldContent, newContent,{oneChangePerToken:false,});
-    // const patch = diff.map((change) => {
-    //     if (change.added) return "+ " + change.value;
-    //     else if (change.removed) return "- " + change.value;
-    //     else return change.value;
-    // }).join("\n");
-    const patch = Diff.structuredPatch(path, path, oldContent, newContent, "XD", "XD", {ignoreNewlineAtEof: true, stripTrailingCr: true, }).hunks.map((hunk)=> hunk.lines.join("\n")).join("\n");
-    // const patch = Diff.createPatch(path, oldContent, newContent);
+    const patch = Diff.structuredPatch(path, path, oldContent, newContent, "XD", "XD", {ignoreNewlineAtEof: true, stripTrailingCr: true, }).hunks.map((hunk)=> hunk.lines.join("
+")).join("
+");
     return `\`\`\`diff
 ${patch}
 \`\`\``
@@ -365,7 +355,7 @@ ${patch}
 export const captureGhosts = (app: App) => {
     const files = app.vault.getMarkdownFiles();
     const ghostRefs: { sourceFile: string, unresolvedLink: string }[] = [];
-    const metadataCache = app.metadataCache; // Get cache from plugin
+    const metadataCache = app.metadataCache; 
 
     for (const file of files) {
         const links = metadataCache.getFileCache(file)?.links || [];
@@ -389,13 +379,13 @@ export interface FileItem {
     title: string;
     path: string;
     mimeType: string;
-    local_file: TFile; // Type 'any' can be refined if after-upload data structure is known
-    cloud_file: {name: string, mimeType: string, uri: string} | null; // Type 'any' can be refined if after-upload data structure is known
-
+    local_file: TFile; 
+    cloud_file: {name: string, mimeType: string, uri: string} | null; 
 }
 
-export async function prepareFileData(file: TFile): Promise<FileItem> {
-        const arrayBuffer = await this.app.vault.readBinary(file);
+// Corrected prepareFileData function
+export async function prepareFileData(app: App, file: TFile): Promise<FileItem> { // Added app argument
+        const arrayBuffer = await app.vault.readBinary(file); // Changed to use the 'app' argument
         const typeMap: Record<string, string> = {
             mp3: 'audio/mpeg',
             wav: 'audio/wav',
@@ -427,74 +417,53 @@ export async function prepareFileData(file: TFile): Promise<FileItem> {
         };
     }
 
-
 async function findFileBySha256(genAI: GoogleGenAI, localSha256:string) {
-    // console.log(`Searching for file with SHA256: ${localSha256}`);
     try {
-        // The `files` manager is available directly on the genAI instance
         const listFilesResponse = await genAI.files.list({config: {
-            pageSize: 100, // Adjust as needed, max 100
+            pageSize: 100, 
         }});
-        // const files = listFilesResponse.files || []; // Ensure files is an array
 
         for await(const remoteFile of listFilesResponse) {
-            // console.log(remoteFile.displayName, remoteFile.sha256Hash);
             if (remoteFile.sha256Hash === localSha256) {
-                // console.log(`File found on Gemini with SHA256: ${localSha256}, Name: ${remoteFile.name}, URI: ${remoteFile.uri}`);
-                return remoteFile; // Found the file
+                return remoteFile; 
             }
         }
-
         console.log(`No file found with SHA256: ${localSha256}`);
-        return null; // File not found
+        return null; 
     } catch (error) {
         console.error("Error listing files on Gemini:", error);
-        throw error; // Re-throw to be handled by the caller
+        throw error; 
     }
 }
-
 
 async function getChecksumSha256(blob: Blob): Promise<string> {
     const uint8Array = new Uint8Array(await blob.arrayBuffer());
     const hashBuffer = await crypto.subtle.digest('SHA-256', uint8Array);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-
     return hashArray.map((h) => h.toString(16).padStart(2, '0')).join('');
 }
-
   
 export async function upload_file(app: App, file: FileItem, ai: GoogleGenAI, signal: AbortSignal) {
     try {
-        // 1. Read file content from Obsidian
         const fileContentArrayBuffer = await app.vault.readBinary(file.local_file);
-
-        // 2. Calculate its SHA-256 hash
         const mimeType = file.mimeType;
         const blob = new Blob([fileContentArrayBuffer], { type: mimeType });
         const SHA256b64 = btoa(await getChecksumSha256(blob));
-
-        // 3. Check if a file with the same SHA-256 hash already exists
         let geminiFile = await findFileBySha256(ai, SHA256b64);
 
         if (geminiFile) {
             console.log(`File "${file.title}" (SHA256: ${SHA256b64}) already exists on Gemini as "${geminiFile.name}". URI: ${geminiFile.uri}`);
             file.cloud_file = (geminiFile.name && geminiFile.mimeType &&geminiFile.uri)?{name: geminiFile.name, mimeType: geminiFile.mimeType, uri: geminiFile.uri}: null;    
-            
             return geminiFile;
         } else {
-            
             console.log(`File "${file.title}" (SHA256: ${SHA256b64}) not found on Gemini. Uploading...`);           
-            
             geminiFile = await ai.files.upload({file: file.blob, config:{abortSignal: signal, displayName: file.path, mimeType: file.mimeType}});
             file.cloud_file = (geminiFile.name && geminiFile.mimeType &&geminiFile.uri)?{name: geminiFile.name, mimeType: geminiFile.mimeType, uri: geminiFile.uri}: null;    
-            
             console.log(`File "${file.title}" uploaded successfully. Name: ${geminiFile.name}, URI: ${geminiFile.uri}`);
-            // new Notice(`File "${tfile.name}" uploaded successfully to Gemini.`); // Obsidian notification
             return geminiFile;
         }
     } catch (error) {
         console.error(`Error processing file "${file.title}" for Gemini:`, error);
-        // new Notice(`Error processing file "${tfile.name}": ${error.message}`); // Obsidian notification
         return null;
     }
 }
