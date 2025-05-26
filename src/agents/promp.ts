@@ -3,7 +3,7 @@ import lImporterPlugin from "src/main";
 //Language Specification
 export const getLanguageSpecification = (plugin: lImporterPlugin) => {
     // Add language option here!!!
-    return `All files must be written in ${"ENGLISH"}`; // Changed SPANISH to ENGLISH
+    return `All files must be written in ${plugin.settings.LANGUAGE}`; // Changed SPANISH to ENGLISH
 }
 
 //FILE SPECIFICATIONS
@@ -12,26 +12,19 @@ const file_content_specifications = `Files must start with the header:
 tags: 
 - FirstTag (tags represent the concepts (conceptual entities) that appear in the document | tags must not have spaces)
 - SecondTag (tags represent the concepts (conceptual entities) that appear in the document | tags must not have spaces)
-keypoints:
-- First key point, containing a fact or key information mentioned in the document
-- Second key point, containing a fact or key information mentioned in the document
-- Third key point, containing a supporting fact or information mentioned in the document
 ---
 
 Other details:
 - Keypoints should be shortcuts to the main content (Brief factual information that allows quick understanding of the file's content,
     therefore the file should go into greater depth)
 - Links are of the form [[filename(no need to include the full path)|Name displayed in the Note]]
-- You can use all available Markdown language resources.`;
+- You can use all available Markdown language resources.
+- Tags can also be included in the text, using the '#tagName' form (check there are no spaces after the '#')`;
 
 
 //reAct
 //prompts
-export const react_starter_prompt = `Follow these instructions:
-1. Pay attention to the file structure, particularly the information provided in the '.lim' files.
-2. According to the instructions in those files and the files in the context, you must create or modify notes.
-3. You must extract information from those files, do not copy/paste what they say.
-4. Before finishing the process, you must check that there are no ghost references.`;
+export const react_starter_prompt = `Given the files you have to process, you must create notes on Obsidian in the correct .md format.`;
 
 //tools
 export const write_description = `Used to create markdown (.md) files.`;

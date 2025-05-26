@@ -159,7 +159,7 @@ export class LogView extends ItemView {
      */
     constructor(leaf: WorkspaceLeaf, plugin: lImporterPlugin) {
         super(leaf);
-        patchConsole(plugin.settings.display_debug_messages);
+        patchConsole(true);
         this.plugin = plugin;
         this.icon = "scroll-text"; 
         logViewInstance = this; // Register this instance as the active one

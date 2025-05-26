@@ -1,12 +1,13 @@
+```ts
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ToolNode } from '@langchain/langgraph/prebuilt';
 import { StateGraph, MessagesAnnotation, END, START } from "@langchain/langgraph/web";
-import MyPlugin from "../main";
+import MyPlugin from "../../main";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { tool } from "@langchain/core/tools";
 import { z, ZodObject, ZodTypeAny } from "zod";
-import { captureGhosts, listFilesTree, writeFileMD } from "../utils/files";
-import { get_ghosts_description, list_files_depth, list_files_description, list_files_includeFiles, list_files_root, move_file_description, move_file_destination, move_file_source, write_content, write_description, write_path } from "./promp";
+import { captureGhosts, listFilesTree, writeFileMD } from "../../utils/files";
+import { get_ghosts_description, list_files_depth, list_files_description, list_files_includeFiles, list_files_root, move_file_description, move_file_destination, move_file_source, write_content, write_description, write_path } from "../promp";
 
 
 export function createObsidianTools(plugin: MyPlugin) {
@@ -26,7 +27,9 @@ ${diff}`);
               else reject(new Error("Error writing file"));
               
               wrt_trk.updateState("complete");
-              tracker.appendFile(input.path);
+              if (diff) {
+                  wrt_trk.appendFile(diff?.path,diff?.oldContent, diff?.newContent);
+              }
               resolve(`El llamado a funcion se completo correctamente.`);
 
               
@@ -198,3 +201,4 @@ export function createReActAgent(plugin: MyPlugin, model: string, tools: Dynamic
   const agent = workflow.compile()
   return agent;
 }
+```

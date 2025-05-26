@@ -3,34 +3,24 @@ import lImporterPlugin from "../main";
 
 export interface lImporterSettings {
     GOOGLE_API_KEY: string;
-    GEMINI_MODEL: "gemini-2.5-flash-preview-04-17"|"gemini-2.0-flash-lite"|"gemini-2.0-flash";
     LANGUAGE: string;
+    
     autoCapture_audio: boolean;
     autoCapture_image: boolean;
     autoCapture_document: boolean;
     autoCapture_video: boolean;
     autoCapture_plain_text: boolean;
-    load_graph_when_clicking_created_file: boolean;
-    display_debug_messages: boolean;
-    logs_view: boolean;
-    chat_view: boolean;
 }
 
 export const DEFAULT_SETTINGS: lImporterSettings = {
     GOOGLE_API_KEY: 'your-default-api-key',
-    GEMINI_MODEL: "gemini-2.5-flash-preview-04-17",
     LANGUAGE: "SPANISH",
+
     autoCapture_audio: true,
     autoCapture_image: true,
     autoCapture_document: true,
     autoCapture_video: false,
     autoCapture_plain_text: false,
-    load_graph_when_clicking_created_file: false,
-    
-    chat_view: false,
-    
-    logs_view: false,
-    display_debug_messages: false,
 };
 
 export class lImporterSettingTab extends PluginSettingTab {
@@ -70,18 +60,6 @@ export class lImporterSettingTab extends PluginSettingTab {
                 });
         });
 
-        containerEl.createEl('h3', { text: 'Process Settings' });
-
-        new Setting(containerEl)
-            .setName('Load Graph')
-            .setDesc('Loads the local graph instead of file when click on created files.')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.load_graph_when_clicking_created_file)
-                .onChange(async (value) => {
-                    this.plugin.settings.load_graph_when_clicking_created_file = value;
-                    await this.plugin.saveSettings();
-                }));
-        
         containerEl.createEl('h3', { text: 'Auto-Capture Settings' });
         const fileTypeConfigs = this.plugin.getSupportedFileTypesConfig();
         for (const typeKey in fileTypeConfigs) {
@@ -99,42 +77,9 @@ export class lImporterSettingTab extends PluginSettingTab {
                     }));
                     
                     
-                }
-                
-        containerEl.createEl('h3', { text: 'Additional Views' });
-
-        new Setting(containerEl)
-            .setName('Chat View')
-            .setDesc('Enable the logs view.')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.chat_view)
-                .onChange(async (value) => {
-                    this.plugin.settings.chat_view = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        new Setting(containerEl)
-            .setName('Logs View')
-            .setDesc('Enable a chat view.')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.logs_view)
-                .onChange(async (value) => {
-                    this.plugin.settings.logs_view = value;
-                    await this.plugin.saveSettings();
-                }));
-
+                }    
 
         containerEl.createEl('h3', { text: 'DEV Settings' });
-
-        new Setting(containerEl)
-            .setName('DEBUG')
-            .setDesc('Display debug messages.')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.display_debug_messages)
-                .onChange(async (value) => {
-                    this.plugin.settings.display_debug_messages = value;
-                    await this.plugin.saveSettings();
-                }));
 
         new Setting(containerEl)
             .setName('Reload Plugin')

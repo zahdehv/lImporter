@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import { FileItem, prepareFileData } from './files';
 
 /**
  * Represents a file along with its depth in a graph traversal (e.g., BFS).
@@ -89,7 +90,7 @@ export async function bfsFileExpander(
     includeSelf: boolean = true,
     ascending: boolean = true,
     maxDepth = 13
-): Promise<TFile[]> {
+): Promise<FileItem[]> {
     const queue: { file: TFile; depth: number }[] = [];
     // visitedPaths tracks files that have been added to the queue or already processed.
     // This prevents cycles and redundant work.
@@ -137,5 +138,5 @@ export async function bfsFileExpander(
     });
 
     // Return only the file paths.
-    return collectedFiles.filter(file=> file.depth <= maxDepth).map(cf => cf.file);
+    return Promise.all(collectedFiles.filter(file=> file.depth <= maxDepth).map(async (cf) => {return (await prepareFileData(cf.file));}));
 }

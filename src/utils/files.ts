@@ -1,4 +1,4 @@
-import { App, TFolder, TFile, getAllTags, prepareFuzzySearch } from 'obsidian'; // Import App
+import { App, TFolder, TFile, getAllTags, prepareFuzzySearch, FuzzySuggestModal } from 'obsidian'; // Import App
 import * as Diff from 'diff';
 import { GoogleGenAI } from '@google/genai';
 
@@ -72,15 +72,8 @@ export async function listFilesTree(
             const childPrefix = prefix + (isLast ? "    " : "│   ");
 
             const fileCache = (child instanceof TFile)? app.metadataCache.getFileCache(child): null;
-            // Tags
-            let tagStr = "";
-            const tags = fileCache? getAllTags(fileCache): [];
-            if (tags && tags.length>0) {
-                tagStr+= "-> TAGS:"
-                for (let index = 0; index < tags.length; index++) tagStr += " "+tags[index];
-            }
 
-            output += `${prefix}${connector}${child.name}${(child instanceof TFile)?` (link con [[${child.name}|{texto visible del link}]])`:""} ${tagStr}\n`;
+            output += `${prefix}${connector}${child.name}${(child instanceof TFile)?` (link con [[${child.name}|{texto visible del link}]])`:""}\n`;
 
             // --- START CONTENT/KEYPOINTS HANDLING ---
             if (child instanceof TFile && showFileDetails) {
@@ -106,31 +99,7 @@ export async function listFilesTree(
                         output += `${childPrefix}  [Error reading .lim content]\n`;
                     }
                 }
-                // Condition 2: File is .md (and not a .lim file, implicitly by order)
-                else if (child.extension?.toLowerCase() === 'md') {
-                    try {
-                        // Use app.metadataCache directly here << CORRECTED
-
-                        if (fileCache?.frontmatter?.keypoints && Array.isArray(fileCache.frontmatter.keypoints)) {
-                            const keypoints = fileCache.frontmatter.keypoints as any[];
-                            if (keypoints.length > 0) {
-                                output += `${childPrefix}  Keypoints:\n`;
-                                for (const point of keypoints) {
-                                    output += `${childPrefix}    - ${String(point)}\n`;
-                                }
-                            } else {
-                                output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
-                            }
-                        } else {
-                            output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
-                        }
-                    } catch (fmError) {
-                        console.error(`Error accessing frontmatter for ${child.path}:`, fmError);
-                        output += `${childPrefix}  [NO KEYPOINTS FOUND]\n`;
-                    }
-                }
             }
-            // --- END CONTENT/KEYPOINTS HANDLING ---
 
             if (child instanceof TFolder) {
                 await buildTree(child, currentDepth + 1, childPrefix);
@@ -498,5 +467,39 @@ export async function upload_file(app: App, file: FileItem, ai: GoogleGenAI, sig
         console.error(`Error processing file "${file.title}" for Gemini:`, error);
         // new Notice(`Error processing file "${tfile.name}": ${error.message}`); // Obsidian notification
         return null;
+    }
+}
+
+
+export class FileSuggestionModal extends FuzzySuggestModal<TFile> {
+    private didSubmit: boolean = false; 
+
+    constructor(
+        app: App,
+        private validExtensions: string[], // This will receive all supported extensions
+        private callback: (file: TFile | null) => void
+    ) {
+        super(app);
+    }
+
+    getItems(): TFile[] {
+        return this.app.vault.getFiles().filter(file =>
+            this.validExtensions.includes(file.extension.toLowerCase())
+        );
+    }
+
+    getItemText(file: TFile): string {
+        return file.name;
+    }
+
+    onChooseItem(file: TFile): void {
+        this.didSubmit = true; 
+        this.callback(file);
+    }
+
+    onClose(): void {
+        if (!this.didSubmit) { 
+            this.callback(null);
+        }
     }
 }

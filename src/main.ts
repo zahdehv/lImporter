@@ -3,8 +3,7 @@ import { Notice, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf } from 'obsid
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
 
-import { ChatView, CHAT_VIEW_TYPE } from './views/chat';
-import { LIMPORT_VIEW_TYPE, LimporterView } from './views/lImporter';
+import { ChatView, CHAT_VIEW_TYPE } from './views/lImporter';
 import { LOG_VIEW_TYPE, LogView } from './views/logs';
 
 export default class lImporterPlugin extends Plugin {
@@ -13,19 +12,6 @@ export default class lImporterPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-
-        this.registerView(
-            CHAT_VIEW_TYPE,
-            (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
-        );
-        this.addCommand(
-            {
-                id: 'ai-chat-open-command',
-                name: "Open AI Chat",
-                callback: async () => {
-                    await this.activateView(CHAT_VIEW_TYPE);
-                },
-            })
 
         this.registerView(
             LOG_VIEW_TYPE,
@@ -38,13 +24,13 @@ export default class lImporterPlugin extends Plugin {
                 callback: async () => {
                     await this.activateView(LOG_VIEW_TYPE);
                 },
-            })
-
+            });
+            
         this.registerView(
-            LIMPORT_VIEW_TYPE,
-            (leaf) => (new LimporterView(leaf, this))
+            CHAT_VIEW_TYPE,
+            (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
         );
-        const lri = this.addRibbonIcon('import', 'lImporter', () => this.activateView(LIMPORT_VIEW_TYPE));
+        const lri = this.addRibbonIcon('import', 'lImporter', () => this.activateView(CHAT_VIEW_TYPE));
         lri.addClass('limporter-ribbon-icon');
 
         this.app.workspace.onLayoutReady(() => {
@@ -82,8 +68,8 @@ export default class lImporterPlugin extends Plugin {
     }
 
     private async openFileProcessor(file: TFile): Promise<void> {
-        const view = await this.activateView(LIMPORT_VIEW_TYPE);
-        if (view && view instanceof LimporterView) {
+        const view = await this.activateView(CHAT_VIEW_TYPE);
+        if (view && view instanceof ChatView) {
             await view.addFile(file);
         } else {
             new Notice("lImporter view could not be opened or found.");
@@ -173,17 +159,15 @@ export default class lImporterPlugin extends Plugin {
             workspace.revealLeaf(leaf);
             return leaf.view;
         } else {
-            console.error("AI Chat Plugin: Could not create or find a leaf for the view.");
+            console.error("Could not create or find a leaf for the view.");
         }
     }
 
    async onunload() {
         console.log(`Unloading plugin: ${this.manifest.name}`);
 
-        this.app.workspace.detachLeavesOfType(LIMPORT_VIEW_TYPE);
         this.app.workspace.detachLeavesOfType(CHAT_VIEW_TYPE);
         this.app.workspace.detachLeavesOfType(LOG_VIEW_TYPE);
-
 
     }
 

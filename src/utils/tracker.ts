@@ -179,25 +179,23 @@ const createStepItem = (
 
 // Type for the object returned by createProcessTracker
 export type ProcessTrackerInstance = {
-    progressContainer: HTMLElement;
-    resetTracker: () => void;
     appendStep: (label: string, message: string, icon: string, status?: 'pending' | 'in-progress' | 'complete' | 'error') => StepItemInstance;
     setInProgressStepsToError: (errorMessage?: string) => void;
-    getSignal: () => AbortSignal;
+    abortController: AbortController;
+    createMessage: (sender: "User" | "AI") => {
+        messageEl: HTMLDivElement;
+        MD: (text: string) => void;
+    };
 };
 
 // Factory function to create and manage the overall progress tracking UI component
-export const createProcessTracker = (pluginInstance: lImporterPlugin, parentContainerForTracker: HTMLElement): ProcessTrackerInstance => {
+export const createProcessTracker = (pluginInstance: lImporterPlugin, createMessage: (sender: "User" | "AI") => {
+    messageEl: HTMLDivElement;
+    MD: (text: string) => void;
+}): ProcessTrackerInstance => {
     let steps: StepItemInstance[] = [];
     const plugin = pluginInstance;
     
-    const progressContainer = parentContainerForTracker.createDiv('limporter-steps-display-container');
-    progressContainer.style.marginTop = '1rem';
-    const stepsContainer = progressContainer.createDiv('limporter-steps-container-inner');
-    stepsContainer.style.display = 'flex';
-    stepsContainer.style.flexDirection = 'column';
-    stepsContainer.style.gap = '0.1rem';
-
     const setInProgressStepsToError = (errorMessage?: string): void => {
         steps.forEach(step => {
             if (step.item?.dataset.status === 'in-progress') {
@@ -206,12 +204,16 @@ export const createProcessTracker = (pluginInstance: lImporterPlugin, parentCont
         });
     };
     
-    const resetTracker = (): void => {
-        steps = [];
-        stepsContainer.empty();
-    };
     
     const appendStep = (label: string, message: string, icon: string, status?: 'pending' | 'in-progress' | 'complete' | 'error'): StepItemInstance => {
+        const msg = createMessage("AI");
+        // const progressContainer = msg.messageEl.createDiv('limporter-steps-display-container');
+        // progressContainer.style.marginTop = '1rem';
+        const stepsContainer = msg.messageEl.createDiv('limporter-steps-container-inner');
+        stepsContainer.style.display = 'flex';
+        stepsContainer.style.flexDirection = 'column';
+        stepsContainer.style.gap = '0.1rem';
+
         const stepEl = stepsContainer.createDiv('limporter-progress-step');
         stepEl.dataset.status = status || 'pending';
 
@@ -231,7 +233,27 @@ export const createProcessTracker = (pluginInstance: lImporterPlugin, parentCont
         return stepItm;
     };
 
-    const getSignal = () => new AbortController().signal;
+    // const appendStep = (label: string, message: string, icon: string, status?: 'pending' | 'in-progress' | 'complete' | 'error'): StepItemInstance => {
+    //     const stepEl = stepsContainer.createDiv('limporter-progress-step');
+    //     stepEl.dataset.status = status || 'pending';
 
-    return { progressContainer, resetTracker, appendStep, setInProgressStepsToError, getSignal };
+    //     const iconContainer = stepEl.createDiv('limporter-step-icon');
+    //     setIcon(iconContainer, icon);
+
+    //     const stepContent = stepEl.createDiv('limporter-step-content');
+    //     stepContent.createDiv('limporter-step-label').textContent = label;
+    //     stepContent.createDiv('limporter-step-status');
+
+    //     const stepItm = createStepItem(stepEl, icon, plugin);
+    //     steps.push(stepItm);
+        
+    //     if (!status) stepItm.updateState("in-progress", message);
+    //     else stepItm.updateState(status, message);
+        
+    //     return stepItm;
+    // };
+
+    const abortController = new AbortController();
+
+    return { appendStep, setInProgressStepsToError, abortController, createMessage };
 };

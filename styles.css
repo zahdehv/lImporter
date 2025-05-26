@@ -21,7 +21,7 @@
 /* ================= */
 .limporter-config-container {
     /* margin-top: auto; */
-    order: 2;
+    /* order: 2; */
     /* margin: 0 0 1rem 0; */ /* Managed by main gap */
     background: var(--background-secondary);
     border-radius: 8px;
@@ -82,7 +82,7 @@
 /* MAIN TRACKER WRAPPER (for ordering) */
 /* ================= */
 .limporter-tracker-main-container {
-    order: 1; /*Second visually*/
+    /* order: 1; Second visually */
     display: flex; /* To make its child (progressContainer) fill it if needed */
     flex-direction: column;
     /* min-height: 100px; */ /* Example: ensure it has some space */
@@ -125,7 +125,7 @@
     min-height: 0;      /* Flexbox overflow fix/best practice */
 
     /* --- Styling --- */
-    padding: 10px;
+    padding: 5px;
     /* background-color: #f0f0f0; */
 
 }
@@ -133,7 +133,7 @@
 .limporter-progress-step {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: 0.4rem;
     padding: 0.8rem;
     border-radius: 4px;
     transition: all 0.2s ease;
@@ -238,7 +238,7 @@
 /* UPLOADED FILES CONTAINER (main file list) */
 /* ================= */
 .limporter-files-container {
-    order: 1; 
+    /* order: 1;  */
     /* flex: 1; Takes remaining available space if view is tall */
     min-height: min-content; /* Ensure it's visible even if empty initially */
     /* max-height: 300px; Or a percentage of viewport */
@@ -258,9 +258,9 @@
 .limporter-file-item {
     display: flex;
     flex-direction: column; /* For audio player below info */
-    gap: 3px;
+    gap: 0.23rem;
     background: var(--background-secondary);
-    padding: 1rem;
+    padding: 0.46rem;
     border-radius: 8px;
     transition: all 0.2s ease;
     border: 1px solid var(--background-modifier-border); /* Default border */
@@ -341,7 +341,7 @@
 /* BUTTON CONTAINER (bottom controls) */
 /* ================== */
 .limporter-button-container {
-    order: 3; /*Last visually*/
+    /* order: 3; Last visually */
     /* margin-top: auto; */
     display: flex;
     flex-direction: column; /* Buttons side-by-side */
@@ -711,8 +711,9 @@
 /* Input Area (Textarea and Send Button) */
 .chat-input-area {
     display: flex;
+    flex-direction: column;
     gap: var(--size-4-2); 
-    align-items: flex-end; 
+    /* align-items: flex-end;  */
     padding: var(--size-4-3);
     background-color: var(--background-secondary); /* Consistent background for controls */
     border: 1px solid var(--background-modifier-border);
@@ -721,7 +722,7 @@
 
 .chat-input-textarea {
     flex-grow: 1;
-    min-height: calc(var(--line-height-normal) * 1em + 2 * var(--size-4-2) + 2px); 
+    /* min-height: calc(var(--line-height-normal) * 1em + 2 * var(--size-4-2) + 2px);  */
     max-height: 150px; 
     resize: none; 
     padding: var(--size-4-2);

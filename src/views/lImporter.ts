@@ -1,126 +1,138 @@
-import { FileItem, prepareFileData } from "src/utils/files";
-import lImporterPlugin from "../main";
-import { ItemView, Notice } from "obsidian";
-import { models, pipelineOptions } from '../agents/pipelines';
-import { FileSuggestionModal } from "../utils/fileSuggestion";
-import { setIcon, Setting, TFile, WorkspaceLeaf } from "obsidian";
-import { createProcessTracker } from "../utils/tracker";
+import { ItemView, WorkspaceLeaf, setIcon, MarkdownRenderer, Setting, Notice, TFile } from "obsidian";
+import { GoogleGenAI } from "@google/genai"; 
+import lImporterPlugin from "src/main";
+import { FileItem, prepareFileData, FileSuggestionModal } from "src/utils/files"; 
+import { agentList } from "src/agents/agen";
+import { createProcessTracker } from "src/utils/tracker";
 
-export const LIMPORT_VIEW_TYPE = "limporter-view";
+/**
+ * Unique identifier for the AI Chat View.
+ */
+export const CHAT_VIEW_TYPE = "ai-chat-view"; 
 
-export class LimporterView extends ItemView {
+/**
+ * Represents the AI Chat View within Obsidian.
+ * This view allows users to interact with a generative AI model,
+ * with capabilities including sending text messages and attaching files.
+ */
+export class ChatView extends ItemView {
     private plugin: lImporterPlugin;
-    private processing = false;
-    private abortController?: AbortController | any;
-    private isConfigVisible = false;
-    private isFileVisible = true;
+    private inputEl: HTMLTextAreaElement; // Textarea for user input
+    private ai: GoogleGenAI;       // Google AI SDK instance
+    private selectedFilesForChat: FileItem[] = []; // Array of files selected to be sent with the next message
 
-    private fileItems: FileItem[] = [];
+    private createMessage: (sender: "User" | "AI") => {
+        messageEl: HTMLDivElement;
+        MD: (text: string) => void;
+    };
+    private processing_message: boolean = false; // Flag to prevent concurrent message sending
+    private sendButton: HTMLButtonElement;
 
-    private currentAgent = pipelineOptions[0].name;
-    private currentModel = models[0].id;
-    private pipelineStarter: (plugin: lImporterPlugin, model: string) => (files: FileItem[], signal: AbortSignal) => Promise<void> = pipelineOptions[0].buildPipeline;
-    private currentPipeline: (files: FileItem[], signal: AbortSignal) => Promise<void> | null;
-
-    private trackerContainer: HTMLElement; // Container for the processTracker's UI
+    private currentAgent = agentList[0].name;
+    private pipelineStarter: (plugin: lImporterPlugin) => (files: FileItem[], additionalPrompt?: string) => Promise<void> = agentList[0].buildPipeline;
+    private currentPipeline: (files: FileItem[], additionalPrompt?: string) => Promise<void> | null;
 
     constructor(leaf: WorkspaceLeaf, plugin: lImporterPlugin) {
         super(leaf);
         this.plugin = plugin;
+        this.icon = "bot-message-square"; // Icon for the view tab
+
+        // Initialize the Google Generative AI client
+        this.ai = new GoogleGenAI({apiKey: this.plugin.settings.GOOGLE_API_KEY}); 
+        
+        // Start a new chat session with the specified model and tools
+        // TODO: Consider making the model name configurable via plugin settings
     }
 
-    getViewType(): string {
-        return LIMPORT_VIEW_TYPE;
-    }
+    getViewType(): string { return CHAT_VIEW_TYPE; }
+    getDisplayText(): string { return "AI Chat"; } // Title for the view tab
+    getIcon(): string { return "bot-message-square"; } // Icon for the view tab
 
-    getDisplayText(): string {
-        return "lImporter";
-    }
-
-    getIcon(): string {
-        return "import";
-    }
-
+    /**
+     * Called when the view is first opened.
+     * Responsible for setting up the UI elements of the chat view.
+     */
     async onOpen() {
-        const { containerEl } = this;
-        containerEl.empty();
-        containerEl.addClass('limporter-view');
+        const viewContent = this.containerEl.children[1]; // Standard content container for ItemView
+        viewContent.empty(); // Clear previous content
+        viewContent.addClass("chat-view-container"); // Add a class for styling
 
-        const header = containerEl.createEl('h3', { cls: 'limporter-header', text: 'lImporter' });
+        // viewContent.createEl("h4", { text: "AI Assistant" }); // View title
 
-        this.trackerContainer = containerEl.createDiv('limporter-tracker-main-container');
-        this.plugin.tracker = createProcessTracker(this.plugin, this.trackerContainer);
+        // Setup display and streaming functions
+        this.createMessage = this.createMessageHandle(viewContent);
 
-        this.createButtonContainer(containerEl);
+        const filesContainerEl = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
+        if (filesContainerEl) {
+            this.renderFileItems(filesContainerEl);
+        }
 
+        // --- Input Area (Textarea and Send Button) ---
+        const inputArea = viewContent.createDiv("chat-input-area");
+
+        const filesContainer = inputArea.createDiv('limporter-files-container');
+        filesContainer.style.display = 'flex';
+        this.renderFileItems(filesContainer);
+
+        new Setting(inputArea).addDropdown(dropdown => {
+            dropdown
+                .addOptions(Object.fromEntries(agentList.map(opt => [opt.id, opt.name])))
+                .onChange(async (value) => {
+                    if (value) {
+                        const selected = agentList.find(opt => opt.id === value);
+                        if (selected) {
+                            this.pipelineStarter = selected.buildPipeline;
+                            this.currentAgent = selected.name;
+                            this.loadAgent()
+                        }
+                    }
+                });
+        });
+
+        this.sendButton = inputArea.createEl("button", {
+            text: "Send",
+            cls: "limporter-button primary" // Style as a primary button
+        });
+        setIcon(this.sendButton, "corner-down-left"); // Set icon for send button
+        
+        this.inputEl = inputArea.createEl("textarea", {
+            attr: { placeholder: "Type your message... (Shift+Enter for new line)" },
+            cls: "chat-input-textarea"
+        });
+        this.inputEl.toggleVisibility(false);
+        this.inputEl.style.height = '0px';
+        
+        // Event listener for the send button
+        this.sendButton.onClickEvent(() => this.handleSendMessage());
+        
+        // Event listener for Enter key in textarea (Shift+Enter for new line)
+        this.inputEl.addEventListener('keydown', async (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault(); // Prevent new line
+                await this.handleSendMessage();
+            }
+        });
         this.loadAgent();
-
     }
 
     private loadAgent(){
-
+        this.currentPipeline = this.pipelineStarter(this.plugin);
         new Notice(`Loaded agent
-name: ${this.currentAgent}
-model: ${this.currentModel}`);
-
-        this.currentPipeline = this.pipelineStarter(this.plugin, this.currentModel);
-    }
+name: ${this.currentAgent}`);
+}
 
     async addFile(file: TFile) {
         const newFileItem = await prepareFileData(file);
-        this.fileItems.push(newFileItem);
+        this.selectedFilesForChat.push(newFileItem);
         const filesContainerEl = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
         if (filesContainerEl) {
             this.renderFileItems(filesContainerEl);
         }
     }
 
-    private createFilesContainer(container: HTMLElement): HTMLElement {
-        const div = container.createDiv('limporter-files-container');
-        return div;
-    }
-
-    private createButtonContainer(container: HTMLElement): void {
-        const buttonContainer = container.createDiv('limporter-button-container');
-
-        const filesContainer = this.createFilesContainer(buttonContainer);
-        filesContainer.style.display = this.isFileVisible ? 'flex' : 'none';
-        this.renderFileItems(filesContainer);
-
-        const configContainer = buttonContainer.createDiv('limporter-config-container');
-        configContainer.style.display = this.isConfigVisible ? 'block' : 'none';
-        new Setting(configContainer).addDropdown(dropdown => {
-            dropdown
-                .addOptions(Object.fromEntries(pipelineOptions.map(opt => [opt.id, opt.name])))
-                .onChange(async (value) => {
-                    if (value) {
-                        const selected = pipelineOptions.find(opt => opt.id === value);
-                        if (selected) {
-                            this.pipelineStarter = selected.buildPipeline;
-                            this.currentAgent = selected.name;
-                        }
-                    }
-                });
-        }).addDropdown(dropdown => {
-            dropdown
-                .addOptions(Object.fromEntries(models.map(opt => [opt.id, opt.name])))
-                .onChange(async (value) => {
-                    if (value) {
-                        const selected = models.find(opt => opt.id === value);
-                        if (selected) this.currentModel = selected.id;
-                    }
-                });
-        }).addButton(button=>button.setClass('limporter-button').setIcon('hard-drive-download').onClick(()=>this.loadAgent()));
-
-        // const SbuttonContainer = buttonContainer.createDiv('limporter-sbutton-container');
-
-        this.createConfigFileVisibilityButton(buttonContainer);
-        this.createProcessButton(buttonContainer);
-    }
-
     private renderFileItems(container: HTMLElement): void {
         container.empty();
-        this.fileItems.forEach((fileItem, index) => {
+        this.selectedFilesForChat.forEach((fileItem, index) => {
             const fileEl = container.createDiv('limporter-file-item');
             fileEl.dataset.index = index.toString();
             const fileInfoEl = fileEl.createDiv('limporter-file-info');
@@ -129,15 +141,15 @@ model: ${this.currentModel}`);
             const fileDetailsEl = fileInfoEl.createDiv('limporter-file-details');
             fileDetailsEl.createEl('div', { cls: 'limporter-file-name', text: fileItem.title });
             // Improved file type display
-            let fileTypeDescription = 'File';
-            if (fileItem.mimeType.startsWith('audio/')) {
-                fileTypeDescription = 'Audio File';
-            } else if (fileItem.mimeType === 'application/pdf') {
-                fileTypeDescription = 'PDF Document';
-            } else if (fileItem.mimeType === 'text/markdown') {
-                fileTypeDescription = 'Markdown Document';
-            }
-            fileDetailsEl.createEl('div', { cls: 'limporter-file-type', text: fileTypeDescription });
+            // let fileTypeDescription = 'File';
+            // if (fileItem.mimeType.startsWith('audio/')) {
+            //     fileTypeDescription = 'Audio File';
+            // } else if (fileItem.mimeType === 'application/pdf') {
+            //     fileTypeDescription = 'PDF Document';
+            // } else if (fileItem.mimeType === 'text/markdown') {
+            //     fileTypeDescription = 'Markdown Document';
+            // }
+            // fileDetailsEl.createEl('div', { cls: 'limporter-file-type', text: fileTypeDescription });
 
             if (!fileItem.mimeType.includes('pdf') && !fileItem.mimeType.includes('markdown')) {
                 fileEl.createEl('audio', { attr: { controls: 'true', src: URL.createObjectURL(fileItem.blob), class: 'limporter-audio-player' } });
@@ -148,100 +160,99 @@ model: ${this.currentModel}`);
             trashIcon.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const idx = parseInt(fileEl.dataset.index || '0');
-                this.fileItems.splice(idx, 1);
+                this.selectedFilesForChat.splice(idx, 1);
                 this.renderFileItems(container);
             });
         });
         this.createAddButton(container);
     }
 
-    private createConfigFileVisibilityButton(container: HTMLElement): void {
-        const buttonF = container.createEl('button', {
-            cls: 'limporter-button secondary',
-        });
-        setIcon(buttonF, 'file-up');
-        buttonF.toggleClass('toggled-on', this.isFileVisible);
-        const filesContainer = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
-        buttonF.addEventListener('click', () => {
-            this.isFileVisible = !this.isFileVisible;
-            buttonF.toggleClass('toggled-on', this.isFileVisible);
-            if (filesContainer) {
-                filesContainer.style.display = this.isFileVisible ? 'flex' : 'none';
-            }
-        });
-        
-        const buttonC = container.createEl('button', {
-            cls: 'limporter-button secondary',
-        });
-        setIcon(buttonC, 'settings');
-        buttonC.toggleClass('toggled-on', this.isConfigVisible);
-        const configContainer = this.containerEl.querySelector('.limporter-config-container') as HTMLElement;
-        buttonC.addEventListener('click', () => {
-            this.isConfigVisible = !this.isConfigVisible;
-            buttonC.toggleClass('toggled-on', this.isConfigVisible);
-            if (configContainer) {
-                configContainer.style.display = this.isConfigVisible ? 'block' : 'none';
-            }
-        });
-    }
-    
     private createAddButton(container: HTMLElement): void {
-        const button = container.createEl('button', {
-            cls: 'limporter-button secondary',
-        });
-        setIcon(button, 'plus');
-        button.style.marginTop = "0.5rem";
-        button.addEventListener('click', () => {
-            new FileSuggestionModal(this.app, this.plugin.getAllSupportedExtensions(), async (file) => { // Uses plugin.getAllSupportedExtensions() which will be updated
-                if (file) {
-                    await this.addFile(file);
-                }
-            }).open();
-        });
-    }
-
-
-    private createProcessButton(container: HTMLElement): void {
-        const button = container.createEl('button', {
-            cls: 'limporter-button primary',
-        });
-        setIcon(button, "corner-down-left")
-        button.addEventListener('click', async () => {
-            //THE ONLY TRY
-            try {
-                if (this.processing) {
-                    this.abortController?.abort();
-                    button.disabled = true;
-                    return;
-                }
-                if (this.plugin.tracker) {
-                    this.plugin.tracker.resetTracker();
-                } else {
-                    this.plugin.tracker = createProcessTracker(this.plugin, this.trackerContainer);
-                }
-                if (!this.currentPipeline) throw new Error('No pipeline selected');
-                button.addClass('stop-mode');
-                setIcon(button, 'stop-circle')
-                this.abortController = new AbortController();
-                this.processing = true;
-                const signal: AbortSignal = this.abortController.signal;
-                signal.onabort = (ev: Event): any => {throw new Error("ABORTION BUAJAJAJA");}
-                
-                await this.currentPipeline(this.fileItems, signal);
-            } catch (error: any) {
-                // console.warn(error);
-                const errorMsg = error instanceof Error ? error.message : String(error);
-                console.error(errorMsg);
-                this.plugin.tracker.setInProgressStepsToError(errorMsg);
-            } finally {
-                this.abortController = null;
-                button.removeClass('stop-mode');
-                setIcon(button, 'corner-down-left')
-                button.disabled = false;
-                this.processing = false;
+            const button = container.createEl('button', {
+                cls: 'limporter-button secondary',
+            });
+            setIcon(button, 'plus');
+            button.style.marginTop = "0.5rem";
+            button.addEventListener('click', () => {
+                new FileSuggestionModal(this.app, this.plugin.getAllSupportedExtensions(), async (file) => { // Uses plugin.getAllSupportedExtensions() which will be updated
+                    if (file) {
+                        await this.addFile(file);
+                    }
+                }).open();
+            });
+        }
+    
+    /**
+     * Handles the process of sending a message to the AI.
+     * This includes preparing text and any attached files,
+     * sending them to the AI model, and displaying the response.
+     * @private
+     */
+    private async handleSendMessage(): Promise<void> {
+        try {
+            if (this.processing_message) {
+                this.plugin.tracker.abortController?.abort();
+                this.sendButton.disabled = true;
+                return;
             }
-        });
+            
+            this.sendButton.addClass('stop-mode');
+            setIcon(this.sendButton, 'stop-circle')
+
+            const messageText = this.inputEl.value.trim();
+
+            if (!messageText && this.selectedFilesForChat.length === 0) {
+                new Notice("Please type a message or add files");
+                return;
+            }
+            this.processing_message = true; // Set processing flag
+            
+            this.inputEl.value = ""; 
+            this.inputEl.focus();
+            this.inputEl.style.height = '0rem';
+
+            this.plugin.tracker = createProcessTracker(this.plugin, this.createMessage);
+
+            if (!this.currentPipeline) throw new Error('No pipeline selected');
+            await this.currentPipeline(this.selectedFilesForChat, messageText);
+
+        } catch (error: any) {
+            // console.warn(error);
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            console.error(errorMsg);
+            this.plugin.tracker.setInProgressStepsToError(errorMsg);
+        } finally {
+            this.sendButton.removeClass('stop-mode');
+            setIcon(this.sendButton, 'corner-down-left')
+            this.sendButton.disabled = false;
+            this.processing_message = false;
+        }
+        
     }
 
-    async onClose() {}
+    private createMessageHandle(element: Element) {
+        const messagesContainer = element.createDiv("chat-messages-container");
+        messagesContainer.id = `${CHAT_VIEW_TYPE}-messages-display`; 
+
+        const createMessage = (sender: "User" | "AI") => {
+            const messageEl = messagesContainer.createDiv("chat-message");
+            messageEl.addClass(sender === "User" ? "user-message" : "ai-message");
+            const MD = (text: string) => {
+                messageEl.empty();
+                const textContentEl = messageEl.createDiv({ cls: "chat-message-text" });
+                // Render message content as Markdown
+                MarkdownRenderer.render(this.app, text, textContentEl, this.getViewType() || CHAT_VIEW_TYPE, this);
+            }
+            return {messageEl, MD};
+        }
+        return createMessage;
+    }
+
+    /**
+     * Called when the view is being closed.
+     * Can be used for cleanup or saving state.
+     */
+    async onClose() {
+        console.log(`View closed.`);
+    }
 }
