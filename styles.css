@@ -6,8 +6,14 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    background-color: var(--background-primary);
+    /* background-color: var(--background-primary); */
+    background-color: var(--background-secondary);
     gap: 1rem; /* Consistent spacing between elements */
+    /* overflow-y: auto; */
+}
+.limporter-header {
+    align-self: center;
+    /* background-color: aqua; */
 }
 
 /* ================= */
@@ -15,7 +21,7 @@
 /* ================= */
 .limporter-config-container {
     /* margin-top: auto; */
-    order: 3; /* First visually */
+    /* order: 2; */
     /* margin: 0 0 1rem 0; */ /* Managed by main gap */
     background: var(--background-secondary);
     border-radius: 8px;
@@ -34,7 +40,7 @@
     font-family: inherit;
     color: var(--text-normal);
     line-height: 1.5;
-    max-height: 113px; /* Or adjust as needed */
+    max-height: 231px; /* Or adjust as needed */
     overflow-y: auto; /* Changed from scroll to auto */
 }
 
@@ -50,6 +56,7 @@
     background: var(--background-secondary); /* Already part of textarea-container */
     /* border-radius: 8px; */ /* Handled by parent */
     padding: 0.8rem 0; /* Adjust padding if it's inside another padded container */
+    display: flex; flex-direction: column; gap: 0.23rem;
     margin-bottom: 1rem;
     /* border: 1px solid var(--background-modifier-border); */ /* Handled by parent */
 }
@@ -75,10 +82,11 @@
 /* MAIN TRACKER WRAPPER (for ordering) */
 /* ================= */
 .limporter-tracker-main-container {
-    order: 2; /* Second visually */
+    /* order: 1; Second visually */
     display: flex; /* To make its child (progressContainer) fill it if needed */
     flex-direction: column;
     /* min-height: 100px; */ /* Example: ensure it has some space */
+    overflow-y: auto;
 }
 
 /* ================= */
@@ -95,7 +103,7 @@
     padding: 0.7rem;
     background: var(--background-secondary);
     border-radius: 8px;
-    max-height: 250px; /* Adjust as needed */
+    height: auto; /* Adjust as needed */
     overflow-y: auto;
     border: 1px solid var(--background-modifier-border);
     flex: 1; /* If inside a flex container like tracker-main-container and should grow */
@@ -110,12 +118,22 @@
 .limporter-steps-display-container {
     /* Styles for the container of step items, managed by processTracker.ts */
     display: flex; flex-direction: column; gap: 0.1rem;
+    /* max-height: 300px; */
+
+    flex-grow: 1;       /* Take up all available vertical space */
+    overflow-y: auto;   /* Enable vertical scrolling ONLY for this area */
+    min-height: 0;      /* Flexbox overflow fix/best practice */
+
+    /* --- Styling --- */
+    padding: 5px;
+    /* background-color: #f0f0f0; */
+
 }
 
 .limporter-progress-step {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: 0.4rem;
     padding: 0.8rem;
     border-radius: 4px;
     transition: all 0.2s ease;
@@ -220,10 +238,10 @@
 /* UPLOADED FILES CONTAINER (main file list) */
 /* ================= */
 .limporter-files-container {
-    order: 1; /* Third visually */
+    /* order: 1;  */
     /* flex: 1; Takes remaining available space if view is tall */
-    min-height: 10px; /* Ensure it's visible even if empty initially */
-    max-height: 300px; /* Or a percentage of viewport */
+    min-height: min-content; /* Ensure it's visible even if empty initially */
+    /* max-height: 300px; Or a percentage of viewport */
     /* height: 80px; */
     display: flex;
     flex-direction: column;
@@ -231,7 +249,8 @@
     /* margin-bottom: 1.5rem; */ /* Managed by main gap */
     overflow-y: scroll;
     padding: 0.5rem;
-    background-color: var(--background-secondary-alt); /* Slightly different background */
+    background-color: var(--background-secondary); /* Slightly different background */
+    /* background-color: var(--background-secondary-alt); Slightly different background */
     border-radius: 8px;
     border: 1px solid var(--background-modifier-border);
 }
@@ -239,9 +258,9 @@
 .limporter-file-item {
     display: flex;
     flex-direction: column; /* For audio player below info */
-    gap: 3px;
+    gap: 0.23rem;
     background: var(--background-secondary);
-    padding: 1rem;
+    padding: 0.46rem;
     border-radius: 8px;
     transition: all 0.2s ease;
     border: 1px solid var(--background-modifier-border); /* Default border */
@@ -278,8 +297,8 @@
 .limporter-file-name {
     font-weight: 600;
     margin-bottom: 0.3rem;
-    white-space: nowrap;
-    overflow: hidden;
+    white-space: pre-wrap;
+    overflow: auto;
     text-overflow: ellipsis;
     color: var(--text-normal);
 }
@@ -322,8 +341,8 @@
 /* BUTTON CONTAINER (bottom controls) */
 /* ================== */
 .limporter-button-container {
-    order: 4; /* Last visually */
-    margin-top: auto; /* Pushes to bottom if parent is flex column */
+    /* order: 3; Last visually */
+    /* margin-top: auto; */
     display: flex;
     flex-direction: column; /* Buttons side-by-side */
     flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
@@ -334,6 +353,8 @@
 }
 
 .limporter-sbutton-container {
+    align-self: center;
+    /* order: 2; */
     /* margin-top: auto; Pushes to bottom if parent is flex column */
     display: flex;
     flex-direction: row; /* Buttons side-by-side */
@@ -450,4 +471,274 @@
 .limporter-ribbon-icon:hover {
     transform: scale(1.1);
     color: var(--interactive-accent);
+}
+
+.my-plugin-vertical-separator {
+    width: 1px; /* Thickness of the line */
+    background-color: var(--divider-color); /* Use Obsidian variable */
+    /* Or use a specific color: background-color: #cccccc; */
+  
+    /* Adjust vertical alignment if parent doesn't use align-items: stretch */
+    /* align-self: stretch; */ /* Can override parent's align-items */
+  
+    /* Add horizontal spacing */
+    margin-left: var(--size-4-2); /* e.g., 8px */
+    margin-right: var(--size-4-2);
+    /* Or use specific margins:
+       margin-left: 8px;
+       margin-right: 8px;
+    */
+  }
+
+/* .callout[data-callout="zdv"] {
+--callout-color: 255, 0, 0;
+--callout-icon: snap-to-object;
+} */
+
+/* ========================== */
+/* --- AI CHAT VIEW STYLES --- */
+/* ========================== */
+
+.chat-view-container { /* This is the ItemView's contentEl */
+    display: flex;
+    flex-direction: column;
+    height: 100%; 
+    padding: var(--size-4-3); /* Use consistent padding */
+    box-sizing: border-box;
+    gap: var(--size-4-3); /* Consistent gap between main sections */
+}
+
+.chat-view-container h4 { /* Title: "AI Assistant" */
+    margin-top: 0;
+    margin-bottom: 0; /* Gap handled by parent */
+    text-align: center;
+    color: var(--text-normal);
+    font-size: var(--font-ui-large);
+}
+
+.chat-messages-container {
+    flex-grow: 1; 
+    overflow-y: auto; 
+    border: 1px solid var(--background-modifier-border);
+    padding: var(--size-4-3);
+    /* margin-bottom: var(--size-4-2); -- Handled by parent gap */
+    border-radius: var(--radius-m);
+    background-color: var(--background-primary); 
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-4-2); 
+}
+
+.chat-message {
+    padding: var(--size-4-2) var(--size-4-3); /* Adjusted padding */
+    border-radius: var(--radius-m); /* Default to medium radius */
+    max-width: 85%; 
+    line-height: var(--line-height-normal);
+    box-shadow: var(--shadow-s); /* Add subtle shadow to all messages */
+    word-break: break-word; /* Ensure long words break nicely */
+}
+
+.chat-message .chat-message-text p:first-child { margin-top: 0; }
+.chat-message .chat-message-text p:last-child { margin-bottom: 0; }
+
+.user-message {
+    background-color: var(--interactive-accent); 
+    color: var(--text-on-accent);
+    align-self: flex-end; 
+    margin-left: auto; 
+    border-radius: var(--radius-m) var(--radius-s) var(--radius-m) var(--radius-m); /* Tail effect */
+}
+.user-message .chat-message-text a {
+    color: var(--text-on-accent); /* Ensure links are visible on accent bg */
+    text-decoration: underline;
+}
+.user-message .chat-message-text a:hover { opacity: 0.8; }
+
+
+.ai-message {
+    background-color: var(--background-secondary); 
+    color: var(--text-normal);
+    align-self: flex-start; 
+    margin-right: auto; 
+    border: 1px solid var(--background-modifier-border); /* Subtle border for AI messages */
+    border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-m); /* Tail effect */
+}
+.ai-message .chat-message-text a { color: var(--text-accent); }
+.ai-message .chat-message-text a:hover { text-decoration: underline; }
+
+/* Callout styling within messages */
+.chat-message .callout {
+    margin-top: var(--size-4-1);
+    margin-bottom: var(--size-4-1);
+    font-size: 0.9em; /* Slightly smaller callouts in chat */
+    padding: var(--size-4-2);
+}
+.chat-message .callout .callout-title {
+    font-size: 1em; /* Relative to callout font-size */
+    margin-bottom: var(--size-4-1);
+}
+.chat-message .callout .callout-content {
+    font-size: 0.95em;
+}
+
+
+/* Styling for the "Include active file" Setting (Obsidian's Setting component) */
+.chat-view-container > .setting-item {
+    padding: var(--size-4-2) var(--size-4-3);
+    /* margin-bottom: var(--size-4-2); -- Handled by parent gap */
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    background-color: var(--background-secondary); /* Consistent background for controls area */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.chat-view-container > .setting-item .setting-item-name {
+    color: var(--text-normal); /* Ensure name is clearly visible */
+}
+
+
+/* File Attachment Section */
+.chat-file-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-4-2);
+    /* margin-bottom: var(--size-4-2); -- Handled by parent gap */
+    padding: var(--size-4-3);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    background-color: var(--background-secondary); /* Consistent background for controls area */
+}
+
+/* "Attach File" button styling (it uses .limporter-button) */
+.chat-add-file-container .limporter-button {
+    align-self: flex-start;
+    /* Make it look like a secondary button as it doesn't have .secondary class in TS */
+    background-color: var(--button-secondary-background, var(--background-secondary-alt));
+    color: var(--text-normal);
+    border: 1px solid var(--button-secondary-border-color, var(--background-modifier-border));
+}
+.chat-add-file-container .limporter-button:hover {
+    background-color: var(--button-secondary-background-hover, var(--background-modifier-hover));
+    border-color: var(--button-secondary-border-color-hover, var(--interactive-accent));
+}
+.chat-add-file-container .limporter-button .obsidian-icon { /* Icon inside Attach File button */
+    color: var(--text-muted);
+}
+.chat-add-file-container .limporter-button:hover .obsidian-icon {
+    color: var(--text-accent);
+}
+
+
+.selected-files-display {
+    border-radius: var(--radius-s);
+    min-height: 22px; 
+    background-color: var(--background-primary); /* Contrast with chat-file-section bg */
+    padding: var(--size-4-2);
+    border: 1px solid var(--background-modifier-border);
+}
+
+.selected-files-display.empty-selected-files-display {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: var(--font-ui-small);
+    text-align: center;
+    padding: var(--size-4-1) 0; /* Less padding when empty */
+}
+
+.chat-selected-files-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--size-4-2);
+}
+
+.chat-selected-file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--size-4-1); /* Reduced gap for tighter look */
+    background-color: var(--background-secondary-alt);
+    padding: var(--size-4-1) var(--size-4-2);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--background-modifier-border);
+    font-size: var(--font-ui-small);
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-xs); /* Extra small shadow */
+}
+.chat-selected-file-item:hover {
+    border-color: var(--interactive-accent);
+    background-color: var(--background-modifier-hover);
+}
+
+.selected-file-name {
+    color: var(--text-normal);
+    max-width: 150px; /* Adjust as needed */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Small remove button for attached files (uses .limporter-button-sm) */
+.limporter-button-sm { /* General style for small icon buttons if used elsewhere */
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-s);
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+    vertical-align: middle; /* Align with text */
+}
+.limporter-button-sm:hover {
+    color: var(--text-error);
+    background-color: var(--background-modifier-error-hover);
+}
+.limporter-button-sm .obsidian-icon { /* Target SVG icon if setIcon is used */
+    width: 16px;
+    height: 16px;
+}
+.chat-selected-file-item .limporter-button-sm { /* Specific to remove button in file item */
+    margin-left: var(--size-4-1); /* Space from file name */
+}
+
+
+/* Input Area (Textarea and Send Button) */
+.chat-input-area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--size-4-2); 
+    /* align-items: flex-end;  */
+    padding: var(--size-4-3);
+    background-color: var(--background-secondary); /* Consistent background for controls */
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+}
+
+.chat-input-textarea {
+    flex-grow: 1;
+    /* min-height: calc(var(--line-height-normal) * 1em + 2 * var(--size-4-2) + 2px);  */
+    max-height: 150px; 
+    resize: none; 
+    padding: var(--size-4-2);
+    border-radius: var(--radius-m);
+    border: 1px solid var(--background-modifier-border);
+    background-color: var(--background-primary); /* Input field distinct from its container */
+    color: var(--text-normal);
+    line-height: var(--line-height-normal);
+    font-family: inherit;
+}
+.chat-input-textarea:focus {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 1px var(--interactive-accent); /* Subtle focus ring */
+}
+
+/* Send button uses .limporter-button.primary, already well-styled */
+.chat-input-area .limporter-button.primary .obsidian-icon { /* Icon inside Send button */
+    color: var(--text-on-accent); /* Ensure it's visible */
 }
