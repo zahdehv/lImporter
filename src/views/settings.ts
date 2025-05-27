@@ -1,10 +1,9 @@
-import { Setting, App, PluginSettingTab, Notice,  } from "obsidian";
+import { Setting, App, PluginSettingTab, Notice, } from "obsidian";
 import lImporterPlugin from "../main";
 
 export interface lImporterSettings {
     GOOGLE_API_KEY: string;
-    LANGUAGE: string;
-    
+
     autoCapture_audio: boolean;
     autoCapture_image: boolean;
     autoCapture_document: boolean;
@@ -14,7 +13,6 @@ export interface lImporterSettings {
 
 export const DEFAULT_SETTINGS: lImporterSettings = {
     GOOGLE_API_KEY: 'your-default-api-key',
-    LANGUAGE: "SPANISH",
 
     autoCapture_audio: true,
     autoCapture_image: true,
@@ -45,20 +43,6 @@ export class lImporterSettingTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             });
-        
-        new Setting(containerEl)
-        .setName('LANGUAGE')
-        .setDesc('Select note creation language.')
-        .addDropdown(text => {
-            text
-                .addOptions({"SPANISH":"SPANISH","ENGLISH":"ENGLISH"})
-                .setValue(this.plugin.settings.LANGUAGE)
-                .onChange(async (value) => {
-                    this.plugin.settings.LANGUAGE = value;
-                    new Notice(value);
-                    await this.plugin.saveSettings();
-                });
-        });
 
         containerEl.createEl('h3', { text: 'Auto-Capture Settings' });
         const fileTypeConfigs = this.plugin.getSupportedFileTypesConfig();
@@ -75,9 +59,9 @@ export class lImporterSettingTab extends PluginSettingTab {
                         (this.plugin.settings as any)[settingKey] = value;
                         await this.plugin.saveSettings();
                     }));
-                    
-                    
-                }    
+
+
+        }
 
         containerEl.createEl('h3', { text: 'DEV Settings' });
 
@@ -105,7 +89,7 @@ export class lImporterSettingTab extends PluginSettingTab {
                         // await this.app.plugins.enablePlugin(pluginId);
                         await this.plugin.load();
                         console.log(`Plugin "${pluginName}" enabled.`);
-                        
+
                         new Notice(`Plugin "${pluginName}" reloaded successfully!`);
                     } catch (e) {
                         console.error(`Error reloading plugin "${pluginName}":`, e);
@@ -115,7 +99,7 @@ export class lImporterSettingTab extends PluginSettingTab {
                         // A short delay might be needed if the settings tab itself re-renders too quickly
                         // but usually, this is fine.
                         setTimeout(() => {
-                                if (button.buttonEl.isConnected) { // Check if element is still in DOM
+                            if (button.buttonEl.isConnected) { // Check if element is still in DOM
                                 button.setDisabled(false);
                                 button.setButtonText('Reload Plugin');
                             }

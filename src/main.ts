@@ -5,6 +5,7 @@ import { ProcessTrackerInstance } from './utils/tracker';
 
 import { ChatView, CHAT_VIEW_TYPE } from './views/lImporter';
 import { LOG_VIEW_TYPE, LogView } from './views/logs';
+import { ghostHELPER } from './utils/files';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
@@ -25,14 +26,16 @@ export default class lImporterPlugin extends Plugin {
                     await this.activateView(LOG_VIEW_TYPE);
                 },
             });
-            
+
         this.registerView(
             CHAT_VIEW_TYPE,
             (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
         );
         const lri = this.addRibbonIcon('import', 'lImporter', () => this.activateView(CHAT_VIEW_TYPE));
         lri.addClass('limporter-ribbon-icon');
-
+        
+        // this.addRibbonIcon('pen', 'pen', () => new Notice(ghostHELPER(this.app, this.app.workspace.getActiveFile())));
+        
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
                 if (file instanceof TFile) {
@@ -79,25 +82,25 @@ export default class lImporterPlugin extends Plugin {
     // Defines categories of supported files and their extensions
     public getSupportedFileTypesConfig(): { [key: string]: { extensions: string[], description: string } } {
         return {
-            document: { 
-                extensions: ["pdf"], 
-                description: "Document files" 
+            document: {
+                extensions: ["pdf"],
+                description: "Document files"
             },
-            audio: { 
-                extensions: ["mp3", "wav", "ogg", "m4a", "aac", "flac", "aiff"], 
-                description: "Audio files" 
+            audio: {
+                extensions: ["mp3", "wav", "ogg", "m4a", "aac", "flac", "aiff"],
+                description: "Audio files"
             },
             image: {
                 extensions: ["png", "jpg", "jpeg"],
                 description: "Image files"
             },
-            video: { 
-                extensions: ["mp4", "mov"], 
-                description: "Video files" 
+            video: {
+                extensions: ["mp4", "mov"],
+                description: "Video files"
             },
-            plain_text: { 
-                extensions: ["md", "txt"], 
-                description: "Plain text files" 
+            plain_text: {
+                extensions: ["md", "txt"],
+                description: "Plain text files"
             },
         };
     }
@@ -124,7 +127,7 @@ export default class lImporterPlugin extends Plugin {
                 (this.settings as any)[settingKey] = (DEFAULT_SETTINGS as any)[settingKey];
             } else if (this.settings[settingKey] === undefined) {
                 // Fallback if not in DEFAULT_SETTINGS (should be kept in sync)
-                 (this.settings as any)[settingKey] = true; // Default to true if not specified
+                (this.settings as any)[settingKey] = true; // Default to true if not specified
             }
         }
     }
@@ -145,7 +148,7 @@ export default class lImporterPlugin extends Plugin {
             // No existing leaf, create a new one
             // Try to open in the right sidebar, or a new tab if that fails
             leaf = workspace.getRightLeaf(false); // Get a leaf in the right sidebar, don't split if it's already there
-            if (!leaf) { 
+            if (!leaf) {
                 // Fallback to a new leaf in the main workspace if right sidebar is not available or suitable
                 leaf = workspace.getLeaf(true); // 'true' for new tab, or 'false' for splitting current
             }
@@ -155,7 +158,7 @@ export default class lImporterPlugin extends Plugin {
         }
 
         // Reveal the leaf and make it active
-        if ( leaf ) {
+        if (leaf) {
             workspace.revealLeaf(leaf);
             return leaf.view;
         } else {
@@ -163,7 +166,7 @@ export default class lImporterPlugin extends Plugin {
         }
     }
 
-   async onunload() {
+    async onunload() {
         console.log(`Unloading plugin: ${this.manifest.name}`);
 
         this.app.workspace.detachLeavesOfType(CHAT_VIEW_TYPE);

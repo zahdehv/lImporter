@@ -195,7 +195,7 @@ export const createProcessTracker = (pluginInstance: lImporterPlugin, createMess
 }): ProcessTrackerInstance => {
     let steps: StepItemInstance[] = [];
     const plugin = pluginInstance;
-    
+
     const setInProgressStepsToError = (errorMessage?: string): void => {
         steps.forEach(step => {
             if (step.item?.dataset.status === 'in-progress') {
@@ -203,8 +203,8 @@ export const createProcessTracker = (pluginInstance: lImporterPlugin, createMess
             }
         });
     };
-    
-    
+
+
     const appendStep = (label: string, message: string, icon: string, status?: 'pending' | 'in-progress' | 'complete' | 'error'): StepItemInstance => {
         const msg = createMessage("AI");
         // const progressContainer = msg.messageEl.createDiv('limporter-steps-display-container');
@@ -226,10 +226,10 @@ export const createProcessTracker = (pluginInstance: lImporterPlugin, createMess
 
         const stepItm = createStepItem(stepEl, icon, plugin);
         steps.push(stepItm);
-        
+
         if (!status) stepItm.updateState("in-progress", message);
         else stepItm.updateState(status, message);
-        
+
         return stepItm;
     };
 
@@ -246,10 +246,10 @@ export const createProcessTracker = (pluginInstance: lImporterPlugin, createMess
 
     //     const stepItm = createStepItem(stepEl, icon, plugin);
     //     steps.push(stepItm);
-        
+
     //     if (!status) stepItm.updateState("in-progress", message);
     //     else stepItm.updateState(status, message);
-        
+
     //     return stepItm;
     // };
 

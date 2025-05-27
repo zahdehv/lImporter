@@ -9,10 +9,10 @@ export const LOG_VIEW_TYPE = "log-view";
 /**
  * Type definition for a single log entry.
  */
-export type LogEntry = { 
-    timestamp: Date; 
-    level: string; 
-    messages: any[]; 
+export type LogEntry = {
+    timestamp: Date;
+    level: string;
+    messages: any[];
 };
 
 /**
@@ -26,14 +26,14 @@ let globalLogStore: LogEntry[] = [];
  * Used to update the view live when new logs are captured.
  * @internal
  */
-let logViewInstance: LogView | null = null; 
+let logViewInstance: LogView | null = null;
 
 /**
  * Stores the original console methods before they are patched.
  * This allows for unpatching and restoring original behavior.
  * @internal
  */
-const originalConsoleMethods = { 
+const originalConsoleMethods = {
     log: console.log,
     info: console.info,
     warn: console.warn,
@@ -123,7 +123,7 @@ export function patchConsole(debug_enabled: boolean): void {
         };
     } else {
         // If not enabled, console.debug calls will be a no-op (do nothing)
-        console.debug = () => {}; 
+        console.debug = () => { };
     }
 }
 
@@ -161,7 +161,7 @@ export class LogView extends ItemView {
         super(leaf);
         patchConsole(true);
         this.plugin = plugin;
-        this.icon = "scroll-text"; 
+        this.icon = "scroll-text";
         logViewInstance = this; // Register this instance as the active one
     }
 
@@ -198,15 +198,15 @@ export class LogView extends ItemView {
         container.addClass("log-view-container");
 
         new Setting(container as HTMLElement).setName("Captured Logs")
-            .addButton(button=>button
+            .addButton(button => button
                 .setIcon("trash")
                 .onClick(() => console.clear()))
-            .addButton(button=>button
+            .addButton(button => button
                 .setIcon("save")
                 .onClick(async () => await this.saveLogsToFile()));
         // --- Log Messages Container ---
         this.logsMDContainer = container.createDiv('log-messages-container');
-        
+
         // Display any logs captured before this view was opened
         globalLogStore.forEach(logEntry => this.addLogEntryToView(logEntry));
     }
@@ -232,10 +232,10 @@ export class LogView extends ItemView {
             return String(arg); // Convert primitives to string
         });
         const combinedMessage = messageParts.join(' '); // Join arguments with a space
-        
+
         // Determine Markdown callout type based on log level for visual distinction
         let calloutType = "quote"; // Default callout type
-        switch(logEntry.level) {
+        switch (logEntry.level) {
             case "info": calloutType = "info"; break;
             case "warn": calloutType = "warning"; break; // Obsidian's 'warn' callout is 'warning'
             case "error": calloutType = "fail"; break;    // Obsidian's 'error' callout is 'fail' or 'error'
@@ -243,18 +243,18 @@ export class LogView extends ItemView {
         }
 
         // Construct the Markdown string for the log entry
-        const formattedLog = `> [!${calloutType}]+ [${logEntry.level.toUpperCase()}] [${logEntry.timestamp.toISOString()}]\n` + 
-                             combinedMessage.split("\n").map(line => `> ${line}`).join("\n");
+        const formattedLog = `> [!${calloutType}]+ [${logEntry.level.toUpperCase()}] [${logEntry.timestamp.toISOString()}]\n` +
+            combinedMessage.split("\n").map(line => `> ${line}`).join("\n");
 
         // Render the formatted log entry as Markdown.
         // Each entry is rendered in a new div to ensure proper spacing and allow individual manipulation if needed.
         const entryDiv = this.logsMDContainer.createDiv();
         MarkdownRenderer.render(this.app, formattedLog, entryDiv, this.getViewType(), this);
-        
+
         // Auto-scroll to the bottom to show the latest log
         this.logsMDContainer.scrollTop = this.logsMDContainer.scrollHeight;
     }
-    
+
     /**
      * Clears all log messages from the view.
      */
@@ -277,7 +277,7 @@ export class LogView extends ItemView {
     //  * Saves all captured logs to a Markdown file in the vault.
     //  */
     async saveLogsToFile(): Promise<void> {
-        const content = globalLogStore.map(entry => 
+        const content = globalLogStore.map(entry =>
             `[${entry.timestamp.toISOString()}] [${entry.level.toUpperCase()}] ${entry.messages.map(String).join(" ")}`
         ).join("\n");
         // Use Obsidian API to save content to a file

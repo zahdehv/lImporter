@@ -28,7 +28,7 @@ function addNeighborsToQueue(
     file: TFile,
     currentDepth: number,
     queue: { file: TFile; depth: number }[],
-    visitedPaths: Set<string> 
+    visitedPaths: Set<string>
 ) {
     const linkedFilePaths: Set<string> = new Set();
 
@@ -64,11 +64,11 @@ function addNeighborsToQueue(
     // Add valid, unvisited neighbors to the queue
     linkedFilePaths.forEach(path => {
         if (!visitedPaths.has(path)) { // Check if already visited or queued
-             const fileToAdd = app.vault.getAbstractFileByPath(path);
-             if (fileToAdd instanceof TFile) {
-                 visitedPaths.add(path); // Mark as visited/queued *before* adding to queue
-                 queue.push({ file: fileToAdd, depth: currentDepth + 1 });
-             }
+            const fileToAdd = app.vault.getAbstractFileByPath(path);
+            if (fileToAdd instanceof TFile) {
+                visitedPaths.add(path); // Mark as visited/queued *before* adding to queue
+                queue.push({ file: fileToAdd, depth: currentDepth + 1 });
+            }
         }
     });
 }
@@ -94,7 +94,7 @@ export async function bfsFileExpander(
     const queue: { file: TFile; depth: number }[] = [];
     // visitedPaths tracks files that have been added to the queue or already processed.
     // This prevents cycles and redundant work.
-    const visitedPaths: Set<string> = new Set(); 
+    const visitedPaths: Set<string> = new Set();
     const collectedFiles: FileWithDepth[] = [];
 
     if (includeSelf) {
@@ -111,24 +111,24 @@ export async function bfsFileExpander(
     }
 
     let head = 0; // Efficient queue processing by moving a head pointer.
-    while(head < queue.length){
+    while (head < queue.length) {
         const current = queue[head++]; // Dequeue the next file to process.
         // `current` should always be defined here due to the loop condition.
         // if (!current) continue; // This check is technically redundant but safe.
 
         const { file: currentFile, depth: currentDepth } = current;
-        
+
         // Add the processed file to collectedFiles if it's not already there.
         // This check is a safeguard; with current logic (marking visited when queuing),
         // a file should only be processed once. `startFile` (if `includeSelf`) is handled before loop.
         if (!collectedFiles.some(cf => cf.file.path === currentFile.path)) {
-             collectedFiles.push({ file: currentFile, depth: currentDepth });
+            collectedFiles.push({ file: currentFile, depth: currentDepth });
         }
-        
+
         // Add its neighbors to the queue for future processing.
         addNeighborsToQueue(app, currentFile, currentDepth, queue, visitedPaths);
     }
-    
+
     // Sort the collected files: primarily by depth, secondarily by file path for stable sort.
     collectedFiles.sort((a, b) => {
         if (a.depth === b.depth) {
@@ -138,5 +138,5 @@ export async function bfsFileExpander(
     });
 
     // Return only the file paths.
-    return Promise.all(collectedFiles.filter(file=> file.depth <= maxDepth).map(async (cf) => {return (await prepareFileData(cf.file));}));
+    return Promise.all(collectedFiles.filter(file => file.depth <= maxDepth).map(async (cf) => { return (await prepareFileData(cf.file)); }));
 }

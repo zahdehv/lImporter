@@ -1,14 +1,14 @@
 import { ItemView, WorkspaceLeaf, setIcon, MarkdownRenderer, Setting, Notice, TFile } from "obsidian";
-import { GoogleGenAI } from "@google/genai"; 
+import { GoogleGenAI } from "@google/genai";
 import lImporterPlugin from "src/main";
-import { FileItem, prepareFileData, FileSuggestionModal } from "src/utils/files"; 
+import { FileItem, prepareFileData, FileSuggestionModal } from "src/utils/files";
 import { agentList } from "src/agents/agen";
 import { createProcessTracker } from "src/utils/tracker";
 
 /**
  * Unique identifier for the AI Chat View.
  */
-export const CHAT_VIEW_TYPE = "ai-chat-view"; 
+export const CHAT_VIEW_TYPE = "ai-chat-view";
 
 /**
  * Represents the AI Chat View within Obsidian.
@@ -18,7 +18,7 @@ export const CHAT_VIEW_TYPE = "ai-chat-view";
 export class ChatView extends ItemView {
     private plugin: lImporterPlugin;
     private inputEl: HTMLTextAreaElement; // Textarea for user input
-    private ai: GoogleGenAI;       // Google AI SDK instance
+
     private selectedFilesForChat: FileItem[] = []; // Array of files selected to be sent with the next message
 
     private createMessage: (sender: "User" | "AI") => {
@@ -28,20 +28,12 @@ export class ChatView extends ItemView {
     private processing_message: boolean = false; // Flag to prevent concurrent message sending
     private sendButton: HTMLButtonElement;
 
-    private currentAgent = agentList[0].name;
-    private pipelineStarter: (plugin: lImporterPlugin) => (files: FileItem[], additionalPrompt?: string) => Promise<void> = agentList[0].buildPipeline;
     private currentPipeline: (files: FileItem[], additionalPrompt?: string) => Promise<void> | null;
 
     constructor(leaf: WorkspaceLeaf, plugin: lImporterPlugin) {
         super(leaf);
         this.plugin = plugin;
         this.icon = "bot-message-square"; // Icon for the view tab
-
-        // Initialize the Google Generative AI client
-        this.ai = new GoogleGenAI({apiKey: this.plugin.settings.GOOGLE_API_KEY}); 
-        
-        // Start a new chat session with the specified model and tools
-        // TODO: Consider making the model name configurable via plugin settings
     }
 
     getViewType(): string { return CHAT_VIEW_TYPE; }
@@ -81,9 +73,8 @@ export class ChatView extends ItemView {
                     if (value) {
                         const selected = agentList.find(opt => opt.id === value);
                         if (selected) {
-                            this.pipelineStarter = selected.buildPipeline;
-                            this.currentAgent = selected.name;
-                            this.loadAgent()
+                            this.currentPipeline = selected.buildAgent(this.plugin);
+                            new Notice(`Loaded agent`);
                         }
                     }
                 });
@@ -94,17 +85,17 @@ export class ChatView extends ItemView {
             cls: "limporter-button primary" // Style as a primary button
         });
         setIcon(this.sendButton, "corner-down-left"); // Set icon for send button
-        
+
         this.inputEl = inputArea.createEl("textarea", {
             attr: { placeholder: "Type your message... (Shift+Enter for new line)" },
             cls: "chat-input-textarea"
         });
         this.inputEl.toggleVisibility(false);
         this.inputEl.style.height = '0px';
-        
+
         // Event listener for the send button
         this.sendButton.onClickEvent(() => this.handleSendMessage());
-        
+
         // Event listener for Enter key in textarea (Shift+Enter for new line)
         this.inputEl.addEventListener('keydown', async (event) => {
             if (event.key === 'Enter' && !event.shiftKey) {
@@ -112,14 +103,10 @@ export class ChatView extends ItemView {
                 await this.handleSendMessage();
             }
         });
-        this.loadAgent();
-    }
 
-    private loadAgent(){
-        this.currentPipeline = this.pipelineStarter(this.plugin);
-        new Notice(`Loaded agent
-name: ${this.currentAgent}`);
-}
+        this.currentPipeline = agentList[0].buildAgent(this.plugin);
+        new Notice("Loaded default agent");
+    }
 
     async addFile(file: TFile) {
         const newFileItem = await prepareFileData(file);
@@ -168,26 +155,20 @@ name: ${this.currentAgent}`);
     }
 
     private createAddButton(container: HTMLElement): void {
-            const button = container.createEl('button', {
-                cls: 'limporter-button secondary',
-            });
-            setIcon(button, 'plus');
-            button.style.marginTop = "0.5rem";
-            button.addEventListener('click', () => {
-                new FileSuggestionModal(this.app, this.plugin.getAllSupportedExtensions(), async (file) => { // Uses plugin.getAllSupportedExtensions() which will be updated
-                    if (file) {
-                        await this.addFile(file);
-                    }
-                }).open();
-            });
-        }
-    
-    /**
-     * Handles the process of sending a message to the AI.
-     * This includes preparing text and any attached files,
-     * sending them to the AI model, and displaying the response.
-     * @private
-     */
+        const button = container.createEl('button', {
+            cls: 'limporter-button secondary',
+        });
+        setIcon(button, 'plus');
+        button.style.marginTop = "0.5rem";
+        button.addEventListener('click', () => {
+            new FileSuggestionModal(this.app, this.plugin.getAllSupportedExtensions(), async (file) => { // Uses plugin.getAllSupportedExtensions() which will be updated
+                if (file) {
+                    await this.addFile(file);
+                }
+            }).open();
+        });
+    }
+
     private async handleSendMessage(): Promise<void> {
         try {
             if (this.processing_message) {
@@ -195,7 +176,7 @@ name: ${this.currentAgent}`);
                 this.sendButton.disabled = true;
                 return;
             }
-            
+
             this.sendButton.addClass('stop-mode');
             setIcon(this.sendButton, 'stop-circle')
 
@@ -206,8 +187,8 @@ name: ${this.currentAgent}`);
                 return;
             }
             this.processing_message = true; // Set processing flag
-            
-            this.inputEl.value = ""; 
+
+            this.inputEl.value = "";
             this.inputEl.focus();
             this.inputEl.style.height = '0rem';
 
@@ -227,12 +208,12 @@ name: ${this.currentAgent}`);
             this.sendButton.disabled = false;
             this.processing_message = false;
         }
-        
+
     }
 
     private createMessageHandle(element: Element) {
         const messagesContainer = element.createDiv("chat-messages-container");
-        messagesContainer.id = `${CHAT_VIEW_TYPE}-messages-display`; 
+        messagesContainer.id = `${CHAT_VIEW_TYPE}-messages-display`;
 
         const createMessage = (sender: "User" | "AI") => {
             const messageEl = messagesContainer.createDiv("chat-message");
@@ -243,7 +224,7 @@ name: ${this.currentAgent}`);
                 // Render message content as Markdown
                 MarkdownRenderer.render(this.app, text, textContentEl, this.getViewType() || CHAT_VIEW_TYPE, this);
             }
-            return {messageEl, MD};
+            return { messageEl, MD };
         }
         return createMessage;
     }
