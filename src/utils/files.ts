@@ -1,6 +1,9 @@
 import { App, TFolder, TFile, getAllTags, prepareFuzzySearch, FuzzySuggestModal } from 'obsidian'; // Import App
 import * as Diff from 'diff';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
+import lImporterPlugin from 'src/main';
+import { describe } from 'node:test';
+import { models } from 'src/agents/agen';
 
 export class FileSuggestionModal extends FuzzySuggestModal<TFile> {
     private didSubmit: boolean = false;
@@ -253,7 +256,10 @@ export const ghostHELPER = (app: App, file: TFile | null) => {
         const linkedFile = metadataCache.getFirstLinkpathDest(link.link, file.path);
         if (!linkedFile) ghostRefs.push("- " + link.link);
     }
-    if (ghostRefs.length > 1) return ghostRefs.join("\n");
+    if (ghostRefs.length > 1) {
+        ghostRefs.push("If the user asks for it, you know what files must be created.")
+        return ghostRefs.join("\n");
+    }
     return "";
 }
 
@@ -404,3 +410,128 @@ export async function upload_file(app: App, file: FileItem, ai: GoogleGenAI, sig
         return geminiFile;
     }
 }
+
+interface res {
+    retrieved_items: {
+        path: string;
+        summary: string;
+        keypoints: string[];
+    }[]
+}
+
+export async function CPRS(plugin: lImporterPlugin, query_keypoints: string[], batch_size = 10) {
+    const ai = new GoogleGenAI({ apiKey: plugin.settings.GOOGLE_API_KEY });
+    const files = plugin.app.vault.getMarkdownFiles(); // Consider using all files
+
+    const path_to_link: Record<string, string> = {}
+    // const path_to_file: Record<string, TFile> = {}
+
+    files.forEach(file => {
+        // path_to_file[file.path] = file;
+        path_to_link[file.path] = plugin.app.fileManager
+            .generateMarkdownLink(
+                file,
+                "/",
+                undefined,
+                "{here you can use any alias to show in the document}");
+    });
+
+    console.log(Object.keys(path_to_link));
+    console.log(path_to_link);
+
+
+    // here goes the batch function...
+    const processBATCH = async (batch_files: TFile[], no: number) => {
+        const retr_stp = plugin.tracker.appendStep("Processing Batch NO: "+no, "Retrieving data...", 'file-search', 'in-progress');
+        const path_options = batch_files.map(file => file.path);
+        console.log("Processing files:\n"+path_options.join("\n"));
+        const context_list = [];
+        for (let index = 0; index < batch_files.length; index++) {
+            const b_file = batch_files[index];
+            const b_file_content = await plugin.app.vault.cachedRead(b_file);
+            context_list.push(`<file path='${b_file.path}'>\n${b_file_content}\n</file>`)
+        }
+        const context_files = context_list.join("\n\n");
+        const config = {
+            temperature: 0.55,
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                required: ["retrieved_items"],
+                properties: {
+                    retrieved_items: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            required: ["path", "keypoints", "summary"],
+                            properties: {
+                                path: {
+                                    type: Type.STRING,
+                                    enum: path_options,
+                                },
+                                keypoints: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.STRING,
+                                        enum: query_keypoints,
+                                    },
+                                },
+                                summary: {
+                                    type: Type.STRING,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const contents = [
+            {
+                role: 'user',
+                parts: [
+                    {
+                        text: context_files+"\n\nPlease extract those files that contain content related to a greater than zero amount of the provided keypoints: \n"+ query_keypoints.map(i=>"- "+i).join("\n")+ " and sumarize why is the content of those files relevant.",
+                    },
+                ],
+            },
+        ];
+
+        const response = await ai.models.generateContent({
+            model: models.flash25,
+            config,
+            contents,
+        });
+        if (response.text) {
+            const ob: res = JSON.parse(response.text);
+            const answer_parts: string[] = [];
+            ob.retrieved_items.forEach(item=> {
+                const keypoints = item.keypoints.map(kp=>"- "+kp).join("\n");
+                const retrieved = `The file '${item.path}'(link to this note using '${path_to_link[item.path]}') contains the following keypoints:\n${keypoints}\nSummary: ${item.summary}`;
+                answer_parts.push(retrieved);
+                retr_stp.appendFile(plugin, item.path, retrieved);
+            });
+            retr_stp.updateState('complete');
+            
+            return answer_parts.join("\n\n");
+        }
+        retr_stp.updateState('pending');
+        return ""
+    }
+
+    // here goes the for
+    const batches: Promise<string>[] = [];
+    for (let s = 0; s < files.length; s += batch_size) {
+        const elements = files.slice(s, s + batch_size);
+        batches.push(processBATCH(elements, (s+batch_size)/batch_size));
+    }
+    const result = (await Promise.all(batches)).join("\n");
+    return result;
+    /// Consider output type here...
+}
+
+
+//     for await (const chunk of response) {
+//       console.log(chunk.text);
+//     }
+//   }

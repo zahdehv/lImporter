@@ -5,7 +5,7 @@ import { ProcessTrackerInstance } from './utils/tracker';
 
 import { ChatView, CHAT_VIEW_TYPE } from './views/lImporter';
 import { LOG_VIEW_TYPE, LogView } from './views/logs';
-import { ghostHELPER } from './utils/files';
+import { CPRS } from './utils/files';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
@@ -34,7 +34,7 @@ export default class lImporterPlugin extends Plugin {
         const lri = this.addRibbonIcon('import', 'lImporter', () => this.activateView(CHAT_VIEW_TYPE));
         lri.addClass('limporter-ribbon-icon');
         
-        // this.addRibbonIcon('pen', 'pen', () => new Notice(ghostHELPER(this.app, this.app.workspace.getActiveFile())));
+        this.addRibbonIcon('pen', 'pen', async () => await CPRS(this, [], 1));
         
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
