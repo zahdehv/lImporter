@@ -3,7 +3,7 @@
   "name": "lImporter",
   "version": "0.1.12",
   "minAppVersion": "0.15.0",
-  "description": "importing notes with llm basic service",
+  "description": "Use Gemini LLM to generate connected notes.",
   "author": "zahdehv",
   "authorUrl": "https://github.com/zahdehyv",
   "isDesktopOnly": false

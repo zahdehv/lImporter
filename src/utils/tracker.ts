@@ -1,83 +1,84 @@
-import { setIcon, Modal, App } from "obsidian";
+import { setIcon, App, WorkspaceLeaf, MarkdownView, Notice, TFile } from "obsidian";
 import lImporterPlugin from "src/main";
-import * as Diff from 'diff'; // For diffing content
+
+import { normalizePath } from 'obsidian'; // Important for path consistency
+
+const TEMP_DIFF_FILE_NAME = "_diff.md";
+
+/**
+ * Shows diff content by writing it to a temporary file and opening that file.
+ *
+ * @param pluginInstance The instance of your plugin.
+ * @param diffContent The full diff string content (including ```diff ... ```).
+ * @param tabTitle Optional title for the tab (will be the file name by default).
+ */
+export async function showDiffInTempFile(
+    pluginInstance: lImporterPlugin,
+    diffContent: string,
+    // tabTitle is less relevant here as the tab will show the file name,
+    // but we could use it if we wanted to rename the leaf display name after opening.
+    // For simplicity, we'll let it use the file name.
+): Promise<void> {
+    const app: App = pluginInstance.app;
+    const pluginId = pluginInstance.manifest.id;
+    const tempFilePath = normalizePath(TEMP_DIFF_FILE_NAME); // Ensures consistent path separators
+
+    console.log(`[${pluginId}] Using temporary diff file: ${tempFilePath}`);
+    // For more detailed debugging, you can log the absolute path:
+    // console.log(`[${pluginId}] Absolute path for temp file: ${normalizePath(vaultBasePath + '/' + tempFilePath)}`);
+
+
+    let file: TFile | null = app.vault.getAbstractFileByPath(tempFilePath) as TFile;
+
+    try {
+        if (file) {
+            // File exists, clear its content first then write new content
+            console.log(`[${pluginId}] Temporary file exists. Clearing and writing new content.`);
+            await app.vault.modify(file, diffContent);
+        } else {
+            // File does not exist, create it with the content
+            console.log(`[${pluginId}] Temporary file does not exist. Creating with content.`);
+            file = await app.vault.create(tempFilePath, diffContent);
+        }
+
+        if (!file) {
+            new Notice("Failed to create or modify the temporary diff file.");
+            console.error(`[${pluginId}] Could not get a TFile handle for ${tempFilePath} after create/modify.`);
+            return;
+        }
+
+        // Open the file in a new leaf
+        let leaf: WorkspaceLeaf | null = app.workspace.getLeaf(true); // true for new tab
+        if (!leaf) {
+            new Notice("Failed to get a new leaf to open the diff file.");
+            console.error(`[${pluginId}] Failed to get a new leaf.`);
+            return;
+        }
+
+        await leaf.openFile(file, { active: true }); // { active: true } makes the new tab focused
+        console.log(`[${pluginId}] Successfully opened ${tempFilePath} in a new tab.`);
+
+        // Optional: Consider when/how to clean up this file.
+        // 1. On plugin unload (simplest).
+        // 2. A command to "close and delete diff view".
+        // 3. If the leaf showing this file is closed (more complex, needs event listeners).
+        // For now, we'll assume cleanup happens elsewhere or manually.
+
+    } catch (error) {
+        new Notice("Error showing diff in temporary file. Check console.");
+        console.error(`[${pluginId}] Error in showDiffInTempFile:`, error);
+        // If the file was created but opening failed, it will remain.
+    }
+}
+
 
 // Type for the object representing a single step item
 export type StepItemInstance = {
     item: HTMLDivElement; // The main div element for the step
     updateState: (status: 'pending' | 'in-progress' | 'complete' | 'error', message?: string, icon?: string) => void;
     updateCaption: (caption: string) => void;
-    appendFile: (filePath: string, originalContent: string, currentContent: string) => void;
+    appendFile: (plugin: lImporterPlugin, filePath: string, diff: string) => void;
 };
-
-// Diff Modal Class
-class DiffModal extends Modal {
-    filePath: string;
-    originalContent: string;
-    currentContent: string;
-
-    constructor(app: App, filePath: string, originalContent: string, currentContent: string) {
-        super(app);
-        this.filePath = filePath;
-        this.originalContent = originalContent;
-        this.currentContent = currentContent;
-    }
-
-    onOpen() {
-        const { contentEl } = this;
-        contentEl.empty();
-
-        this.titleEl.setText("File Changes");
-        contentEl.createEl('h4', { text: this.filePath, cls: 'limporter-diff-filepath' });
-
-        const diffContainer = contentEl.createDiv('limporter-diff-container');
-        diffContainer.style.fontFamily = 'monospace';
-        diffContainer.style.whiteSpace = 'pre-wrap';
-        diffContainer.style.maxHeight = '70vh';
-        diffContainer.style.overflowY = 'auto';
-        diffContainer.style.border = '1px solid var(--background-modifier-border)';
-        diffContainer.style.padding = '10px';
-        diffContainer.style.backgroundColor = 'var(--background-secondary-alt)';
-
-        const diffResult = Diff.diffLines(this.originalContent, this.currentContent, {
-            ignoreWhitespace: false,
-            newlineIsToken: false,
-        });
-
-        diffResult.forEach(part => {
-            const lines = part.value.split('\n');
-            if (lines.length > 1 && lines[lines.length - 1] === '') {
-                lines.pop();
-            }
-
-            lines.forEach((line) => {
-                const linePre = diffContainer.createEl('pre');
-                linePre.style.margin = '0';
-                linePre.style.padding = '1px 4px';
-                linePre.style.whiteSpace = 'pre-wrap';
-                linePre.style.overflowX = 'auto';
-
-                if (part.added) {
-                    linePre.textContent = '+ ' + line;
-                    linePre.style.color = 'var(--color-green)';
-                    linePre.style.backgroundColor = 'var(--background-modifier-success)';
-                } else if (part.removed) {
-                    linePre.textContent = '- ' + line;
-                    linePre.style.color = 'var(--color-red)';
-                    linePre.style.backgroundColor = 'var(--background-modifier-error)';
-                } else {
-                    linePre.textContent = '  ' + line;
-                }
-            });
-        });
-    }
-
-    onClose() {
-        const { contentEl } = this;
-        contentEl.empty();
-    }
-}
-
 
 // Factory function to create a step item object
 const createStepItem = (
@@ -111,7 +112,7 @@ const createStepItem = (
         }
     };
 
-    const appendFile = (filePath: string, originalContent: string, currentContent: string) => {
+    const appendFile = (plugin: lImporterPlugin, filePath: string, diff: string) => {
         if (!item) return;
         const stepContentEl = item.querySelector('.limporter-step-content');
         if (!stepContentEl) {
@@ -168,9 +169,9 @@ const createStepItem = (
         diffButton.style.cursor = 'pointer';
         // Removed explicit border/background for clickable-icon, it should inherit some styling
 
-        diffButton.addEventListener('click', (e) => {
+        diffButton.addEventListener('click', async (e) => {
             e.preventDefault();
-            new DiffModal(plugin.app, filePath, originalContent, currentContent).open();
+            await showDiffInTempFile(plugin, diff)
         });
     };
 
