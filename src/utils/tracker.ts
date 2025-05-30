@@ -3,29 +3,29 @@ import lImporterPlugin from "src/main";
 
 import { normalizePath } from 'obsidian'; // Important for path consistency
 
-const TEMP_DIFF_FILE_NAME = "_diff.md";
+const TEMP_DATA_FILE_NAME = "_.lim/nfo.lim.md";
 
 /**
- * Shows diff content by writing it to a temporary file and opening that file.
+ * Shows data content by writing it to a temporary file and opening that file.
  *
  * @param pluginInstance The instance of your plugin.
- * @param diffContent The full diff string content (including ```diff ... ```).
+ * @param dataContent The full data string content (including ```data ... ```).
  * @param tabTitle Optional title for the tab (will be the file name by default).
  */
-export async function showDiffInTempFile(
+export async function showDataInTempFile(
     pluginInstance: lImporterPlugin,
-    diffContent: string,
+    dataContent: string,
     // tabTitle is less relevant here as the tab will show the file name,
     // but we could use it if we wanted to rename the leaf display name after opening.
     // For simplicity, we'll let it use the file name.
 ): Promise<void> {
     const app: App = pluginInstance.app;
     const pluginId = pluginInstance.manifest.id;
-    const tempFilePath = normalizePath(TEMP_DIFF_FILE_NAME); // Ensures consistent path separators
+    const tempFilePath = normalizePath(TEMP_DATA_FILE_NAME); // Ensures consistent path separators
 
-    console.log(`[${pluginId}] Using temporary diff file: ${tempFilePath}`);
+    console.debug(`[${pluginId}] Using temporary data file: ${tempFilePath}`);
     // For more detailed debugging, you can log the absolute path:
-    // console.log(`[${pluginId}] Absolute path for temp file: ${normalizePath(vaultBasePath + '/' + tempFilePath)}`);
+    // console.debug(`[${pluginId}] Absolute path for temp file: ${normalizePath(vaultBasePath + '/' + tempFilePath)}`);
 
 
     let file: TFile | null = app.vault.getAbstractFileByPath(tempFilePath) as TFile;
@@ -33,16 +33,16 @@ export async function showDiffInTempFile(
     try {
         if (file) {
             // File exists, clear its content first then write new content
-            console.log(`[${pluginId}] Temporary file exists. Clearing and writing new content.`);
-            await app.vault.modify(file, diffContent);
+            console.debug(`[${pluginId}] Temporary file exists. Clearing and writing new content.`);
+            await app.vault.modify(file, dataContent);
         } else {
             // File does not exist, create it with the content
-            console.log(`[${pluginId}] Temporary file does not exist. Creating with content.`);
-            file = await app.vault.create(tempFilePath, diffContent);
+            console.debug(`[${pluginId}] Temporary file does not exist. Creating with content.`);
+            file = await app.vault.create(tempFilePath, dataContent);
         }
 
         if (!file) {
-            new Notice("Failed to create or modify the temporary diff file.");
+            new Notice("Failed to create or modify the temporary data file.");
             console.error(`[${pluginId}] Could not get a TFile handle for ${tempFilePath} after create/modify.`);
             return;
         }
@@ -50,23 +50,23 @@ export async function showDiffInTempFile(
         // Open the file in a new leaf
         let leaf: WorkspaceLeaf | null = app.workspace.getLeaf(true); // true for new tab
         if (!leaf) {
-            new Notice("Failed to get a new leaf to open the diff file.");
+            new Notice("Failed to get a new leaf to open the data file.");
             console.error(`[${pluginId}] Failed to get a new leaf.`);
             return;
         }
 
         await leaf.openFile(file, { active: true }); // { active: true } makes the new tab focused
-        console.log(`[${pluginId}] Successfully opened ${tempFilePath} in a new tab.`);
+        console.debug(`[${pluginId}] Successfully opened ${tempFilePath} in a new tab.`);
 
         // Optional: Consider when/how to clean up this file.
         // 1. On plugin unload (simplest).
-        // 2. A command to "close and delete diff view".
+        // 2. A command to "close and delete data view".
         // 3. If the leaf showing this file is closed (more complex, needs event listeners).
         // For now, we'll assume cleanup happens elsewhere or manually.
 
     } catch (error) {
-        new Notice("Error showing diff in temporary file. Check console.");
-        console.error(`[${pluginId}] Error in showDiffInTempFile:`, error);
+        new Notice("Error showing data in temporary file. Check console.");
+        console.error(`[${pluginId}] Error in showDataInTempFile:`, error);
         // If the file was created but opening failed, it will remain.
     }
 }
@@ -77,14 +77,14 @@ export type StepItemInstance = {
     item: HTMLDivElement; // The main div element for the step
     updateState: (status: 'pending' | 'in-progress' | 'complete' | 'error', message?: string, icon?: string) => void;
     updateCaption: (caption: string) => void;
-    appendFile: (plugin: lImporterPlugin, filePath: string, diff: string) => void;
+    appendFile: (plugin: lImporterPlugin, filePath: string, data: string) => void;
 };
 
 // Factory function to create a step item object
 const createStepItem = (
     itemElement: HTMLDivElement,
     originalIcon: string,
-    plugin: lImporterPlugin // Plugin instance for Obsidian API access
+    // plugin: lImporterPlugin // Plugin instance for Obsidian API access
 ): StepItemInstance => {
     const oIcon = originalIcon;
     const item = itemElement;
@@ -112,7 +112,7 @@ const createStepItem = (
         }
     };
 
-    const appendFile = (plugin: lImporterPlugin, filePath: string, diff: string) => {
+    const appendFile = (plugin: lImporterPlugin, filePath: string, data: string) => {
         if (!item) return;
         const stepContentEl = item.querySelector('.limporter-step-content');
         if (!stepContentEl) {
@@ -162,16 +162,16 @@ const createStepItem = (
             }
         });
 
-        const diffButton = fileEntry.createSpan({ cls: 'limporter-diff-button clickable-icon' });
-        diffButton.title = `Show changes for: ${filePath}`;
-        setIcon(diffButton, 'diff'); // Using Lucide 'diff' icon
-        diffButton.style.padding = '2px 4px'; // Adjust padding for icon button
-        diffButton.style.cursor = 'pointer';
+        const dataButton = fileEntry.createSpan({ cls: 'limporter-diff-button clickable-icon' });
+        dataButton.title = `Show changes for: ${filePath}`;
+        setIcon(dataButton, 'file-question'); // Using Lucide 'data' icon
+        dataButton.style.padding = '2px 4px'; // Adjust padding for icon button
+        dataButton.style.cursor = 'pointer';
         // Removed explicit border/background for clickable-icon, it should inherit some styling
 
-        diffButton.addEventListener('click', async (e) => {
+        dataButton.addEventListener('click', async (e) => {
             e.preventDefault();
-            await showDiffInTempFile(plugin, diff)
+            await showDataInTempFile(plugin, data)
         });
     };
 
@@ -225,7 +225,7 @@ export const createProcessTracker = (pluginInstance: lImporterPlugin, createMess
         stepContent.createDiv('limporter-step-label').textContent = label;
         stepContent.createDiv('limporter-step-status');
 
-        const stepItm = createStepItem(stepEl, icon, plugin);
+        const stepItm = createStepItem(stepEl, icon);
         steps.push(stepItm);
 
         if (!status) stepItm.updateState("in-progress", message);

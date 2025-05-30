@@ -16,18 +16,16 @@ File name cannot contain any of the following characters: * " \ / < > : | ?`; //
 export const write_content = `Content to be written to the file.
 
 Specifications for writing content:
-1. Files must start with the header:
----
-tags: 
-- FirstTag (tags represent the concepts (conceptual entities) that appear in the document | tags must not have spaces)
-- SecondTag (tags represent the concepts (conceptual entities) that appear in the document | tags must not have spaces)
----
-2. Links are of the form [[filename(no need to include the full path)|Name displayed in the Note]]
-3. You can use all available Markdown language resources.
-4. Tags can also be included in the text, using the '#tagName' form (check there are no spaces after the '#')`;
+1. Files must contain tags in the following way:
+    - In the text, a #tagName can be anywhere.
+    - Any relevant entity must be represented using a #tag.
+    - The tag, begining with the #, and ending with the last letter, cannot contain any space (#Theory_of_Everything).
+    - The tags can have a hierarchy, using '/' (e.g. #Computer_Science/Machine_Learning).
+2. Links are of the form [[filename(no need to include the full path)|Name displayed in the Note(optional, if not necessary, do not use it)]]
+3. You can use all available Markdown language resources.`;
 export async function getWriteSpecs(app: App) {
     const files: TFile[] = app.vault.getFiles();
-    if (!(files.length>0)) return write_content;
+    if (!(files.length > 0)) return write_content;
     const filtered = files.filter(val => (val.name.startsWith('write') && val.name.includes('.lim')));
     const res: string[] = [];
     for (let index = 0; index < filtered.length; index++) {

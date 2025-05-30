@@ -3,18 +3,16 @@ import { FORMAT_CALLOUT, FunctionArg } from "./looper";
 import { treeHELPER, queryHELPER, writeHELPER, moveHELPER, CPRS } from "src/utils/files";
 import { list_files_description, list_files_root, move_file_description, move_file_destination, move_file_source, query_desc, query_pattern, getWriteSpecs, write_description, write_path } from "./promp";
 import { App } from "obsidian";
-import lImporterPlugin from "src/main";
 
 export async function getFunctions(app: App) {
     const write_specs = await getWriteSpecs(app);
     const writeFX: FunctionArg = {
         run: async (plugin, args: { path: string, content: string }) => {
-            console.log("write", args.path);
             const w = plugin.tracker.appendStep("Write file", "writing file...", "pen", 'in-progress');
             const wrote = await writeHELPER(plugin.app, args.path, args.content);
             // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '-', "write " + args.path, "```diff\n" + wrote.diff + "\n```"));
-            w.updateState("complete"); 
-            w.appendFile(plugin, args.path, "\n\n```diff\n"+wrote.diff+"\n```");
+            w.updateState("complete");
+            w.appendFile(plugin, args.path, "\n\n```diff\n" + wrote.diff + "\n```");
             return { output: wrote.message };
         },
         schema:

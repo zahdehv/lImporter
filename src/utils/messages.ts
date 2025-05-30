@@ -6,7 +6,8 @@ export const createMessageslIm = (plugin: lImporterPlugin, ai: GoogleGenAI) => {
     const preProcess = async (tfiles: FileItem[], signal: AbortSignal): Promise<PartUnion[]> => {
         const messages: PartUnion[] = [];
 
-        messages.push(createPartFromText("<|FILES TO PROCESS|>"));
+        const prep = plugin.tracker.appendStep("Preprocessing files...", "Uploading and building prompt...", 'upload', 'in-progress');
+        // messages.push(createPartFromText("<|FILES TO PROCESS|>"));
 
         for (const tfile of tfiles) {
             if (signal.aborted) throw new Error("Operation Aborted!"); // Check signal before long operations
@@ -19,9 +20,10 @@ export const createMessageslIm = (plugin: lImporterPlugin, ai: GoogleGenAI) => {
 
             if (tfile.cloud_file) {
                 messages.push(createPartFromUri(tfile.cloud_file.uri, tfile.cloud_file.mimeType));
+                prep.appendFile(plugin, tfile.path, "File uploaded");
             }
         }
-
+        prep.updateState('complete');
         return messages;
     }
     return preProcess;

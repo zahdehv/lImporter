@@ -8,7 +8,7 @@ import { createProcessTracker } from "src/utils/tracker";
 /**
  * Unique identifier for the AI Chat View.
  */
-export const CHAT_VIEW_TYPE = "ai-chat-view";
+export const LIMPORTER_VIEW_TYPE = "ai-chat-view";
 
 /**
  * Represents the AI Chat View within Obsidian.
@@ -36,7 +36,7 @@ export class ChatView extends ItemView {
         this.icon = "bot-message-square"; // Icon for the view tab
     }
 
-    getViewType(): string { return CHAT_VIEW_TYPE; }
+    getViewType(): string { return LIMPORTER_VIEW_TYPE; }
     getDisplayText(): string { return "AI Chat"; } // Title for the view tab
     getIcon(): string { return "bot-message-square"; } // Icon for the view tab
 
@@ -198,7 +198,6 @@ export class ChatView extends ItemView {
             await this.currentPipeline(this.selectedFilesForChat, messageText);
 
         } catch (error: any) {
-            // console.warn(error);
             const errorMsg = error instanceof Error ? error.message : String(error);
             console.error(errorMsg);
             this.plugin.tracker.setInProgressStepsToError(errorMsg);
@@ -213,7 +212,7 @@ export class ChatView extends ItemView {
 
     private createMessageHandle(element: Element) {
         const messagesContainer = element.createDiv("chat-messages-container");
-        messagesContainer.id = `${CHAT_VIEW_TYPE}-messages-display`;
+        messagesContainer.id = `${LIMPORTER_VIEW_TYPE}-messages-display`;
 
         const createMessage = (sender: "User" | "AI") => {
             const messageEl = messagesContainer.createDiv("chat-message");
@@ -221,19 +220,15 @@ export class ChatView extends ItemView {
             const MD = (text: string) => {
                 messageEl.empty();
                 const textContentEl = messageEl.createDiv({ cls: "chat-message-text" });
-                // Render message content as Markdown
-                MarkdownRenderer.render(this.app, text, textContentEl, this.getViewType() || CHAT_VIEW_TYPE, this);
+
+                MarkdownRenderer.render(this.app, text, textContentEl, this.getViewType() || LIMPORTER_VIEW_TYPE, this);
             }
             return { messageEl, MD };
         }
         return createMessage;
     }
 
-    /**
-     * Called when the view is being closed.
-     * Can be used for cleanup or saving state.
-     */
     async onClose() {
-        console.log(`View closed.`);
+        console.debug(`View closed.`);
     }
 }

@@ -20,8 +20,8 @@ export const agentList = [
         buildAgent: (plugin: lImporterPlugin): (files: FileItem[], additionalPrompt?: string) => Promise<void> => {
             const ai = new GoogleGenAI({ apiKey: plugin.settings.GOOGLE_API_KEY });
             const preprocessor = createMessageslIm(plugin, ai);
-            
-            
+
+
             const sendMessage = async (files: FileItem[], additionalPrompt?: string) => {
                 const { moveFX, queryFX, treeFX, writeFX, cprsFX } = await getFunctions(plugin.app);
                 const message = await preprocessor(files, plugin.tracker.abortController.signal);
@@ -29,14 +29,13 @@ export const agentList = [
 
                 const chat = ai.chats.create({ model: models.flash25, config: { systemInstruction: react_system_prompt } }); //ADD SYSTEM
 
-                 const retrieved_data = await run_looper(plugin, chat, message, { max_retries: 7, max_turns: 1, functions: [cprsFX] });
-                 console.log("RETRIEVEEEEEEEED");
-                 console.log(retrieved_data);
-                 retrieved_data.push({text: "Given the retrieved items, if any, generate notes accordingly. You can create a link to any of the created items, and must NOT repeat content." +
-                    "If there is no new content to add, given that the vault contains all of the items, just state it."
-                 })
-                 const files_wrote = await run_looper(plugin, chat, retrieved_data, { max_retries: 7, max_turns: 4, functions: [writeFX] });
-                 //Normal end, add checking parts if applicable
+                const retrieved_data = await run_looper(plugin, chat, message, { max_retries: 7, max_turns: 1, functions: [cprsFX] });
+                retrieved_data.push({
+                    text: "Given the retrieved items, if any, generate notes accordingly. You can create a link to any of the created items, and must NOT repeat content." +
+                        "If there is no new content to add, given that the vault contains all of the items, just state it."
+                })
+                const files_wrote = await run_looper(plugin, chat, retrieved_data, { max_retries: 7, max_turns: 4, functions: [writeFX] });
+                //Normal end, add checking parts if applicable
             }
             return sendMessage;
         }

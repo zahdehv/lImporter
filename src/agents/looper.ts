@@ -48,7 +48,7 @@ export async function run_looper(plugin: lImporterPlugin, chat: Chat, initMessag
             } catch (error) { await sleep((2 ** exp) * 1000); } //ms
         }
         if (!response) throw new Error("Error, could not get a response from the LLM!");
-        
+
         currentMessage = [];
 
         let fullText = "";
@@ -90,16 +90,16 @@ export async function run_looper(plugin: lImporterPlugin, chat: Chat, initMessag
 }
 
 export async function single_pass(plugin: lImporterPlugin, chat: Chat, initMessage: PartUnion[], loopfig?: looperConfig) {
-    const newConf:looperConfig = {max_retries: loopfig?.max_retries || 7 ,max_turns: 1, functions: loopfig?.functions};
+    const newConf: looperConfig = { max_retries: loopfig?.max_retries || 7, max_turns: 1, functions: loopfig?.functions };
     return await run_looper(plugin, chat, initMessage, newConf);
 }
 
 export async function re_pass(plugin: lImporterPlugin, chat: Chat, initMessage: PartUnion[], loopfig?: looperConfig) {
-    const newConf:looperConfig = {max_retries: loopfig?.max_retries || 7 ,max_turns: 2, functions: loopfig?.functions};
+    const newConf: looperConfig = { max_retries: loopfig?.max_retries || 7, max_turns: 2, functions: loopfig?.functions };
     return await run_looper(plugin, chat, initMessage, newConf);
 }
 
 export async function tri_pass(plugin: lImporterPlugin, chat: Chat, initMessage: PartUnion[], loopfig?: looperConfig) {
-    const newConf:looperConfig = {max_retries: loopfig?.max_retries || 7 ,max_turns: 3, functions: loopfig?.functions};
+    const newConf: looperConfig = { max_retries: loopfig?.max_retries || 7, max_turns: 3, functions: loopfig?.functions };
     return await run_looper(plugin, chat, initMessage, newConf);
 }
