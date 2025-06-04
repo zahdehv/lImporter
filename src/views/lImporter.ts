@@ -68,7 +68,7 @@ export class ChatView extends ItemView {
 
         new Setting(inputArea).addDropdown(dropdown => {
             dropdown
-                .addOptions(Object.fromEntries(agentList.map(opt => [opt.id, opt.name])))
+                .addOptions(Object.fromEntries(agentList.map(opt => [opt.id, opt.id])))
                 .onChange(async (value) => {
                     if (value) {
                         const selected = agentList.find(opt => opt.id === value);

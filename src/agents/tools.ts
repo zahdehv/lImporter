@@ -1,8 +1,11 @@
-import { Type } from "@google/genai";
+import { GoogleGenAI, Part, PartUnion, Type } from "@google/genai";
 import { FORMAT_CALLOUT, FunctionArg } from "./looper";
-import { treeHELPER, queryHELPER, writeHELPER, moveHELPER, CPRS } from "src/utils/files";
-import { list_files_description, list_files_root, move_file_description, move_file_destination, move_file_source, query_desc, query_pattern, getWriteSpecs, write_description, write_path } from "./promp";
-import { App } from "obsidian";
+import { treeHELPER, queryHELPER, writeHELPER, moveHELPER } from "src/utils/files";
+import { getWriteSpecs, prompts } from "./promp";
+import { App, TFile } from "obsidian";
+import { models } from "./agen";
+import lImporterPlugin from "src/main";
+import { CPRS } from "./niche";
 
 export async function getFunctions(app: App) {
     const write_specs = await getWriteSpecs(app);
@@ -18,14 +21,14 @@ export async function getFunctions(app: App) {
         schema:
         {
             name: 'write',
-            description: write_description,
+            description: prompts.write_description,
             parameters: {
                 type: Type.OBJECT,
                 required: ["path", "content"],
                 properties: {
                     path: {
                         type: Type.STRING,
-                        description: write_path,
+                        description: prompts.write_path,
                     },
                     content: {
                         type: Type.STRING,
@@ -45,18 +48,18 @@ export async function getFunctions(app: App) {
         schema:
         {
             name: 'move',
-            description: move_file_description,
+            description: prompts.move_file_description,
             parameters: {
                 type: Type.OBJECT,
                 required: ["source", "target"],
                 properties: {
                     source: {
                         type: Type.STRING,
-                        description: move_file_source,
+                        description: prompts.move_file_source,
                     },
                     target: {
                         type: Type.STRING,
-                        description: move_file_destination,
+                        description: prompts.move_file_destination,
                     },
                 },
             },
@@ -76,14 +79,14 @@ export async function getFunctions(app: App) {
         schema:
         {
             name: 'query',
-            description: query_desc,
+            description: prompts.query_desc,
             parameters: {
                 type: Type.OBJECT,
                 required: ["pattern"],
                 properties: {
                     pattern: {
                         type: Type.STRING,
-                        description: query_pattern,
+                        description: prompts.query_pattern,
                     },
                 },
             },
@@ -100,47 +103,48 @@ export async function getFunctions(app: App) {
         schema:
         {
             name: 'tree',
-            description: list_files_description,
+            description: prompts.list_files_description,
             parameters: {
                 type: Type.OBJECT,
                 required: ["root"],
                 properties: {
                     root: {
                         type: Type.STRING,
-                        description: list_files_root,
+                        description: prompts.list_files_root,
                     },
                 },
             },
         }
     }
 
-    const cprsFX: FunctionArg = {
-        run: async (plugin, args: { claims_to_include: string[] }) => {
-            const res = await CPRS(plugin, args.claims_to_include, 7);
+    // This function is probably going to be replaced with a structured output part
+    // const cprsFX: FunctionArg = {
+    //     run: async (plugin, args: { claims_to_include: string[] }) => {
+    //         const res = await CPRS(plugin, args.claims_to_include, 7);
 
-            return { output: res };
-        },
-        schema:
-        {
-            name: 'search_relevant_content',
-            description: 'Searchs for relevant content',
-            parameters: {
-                type: Type.OBJECT,
-                required: ["claims_to_include"],
-                properties: {
-                    claims_to_include: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.STRING,
-                            description: "A claim, it is itself a piece of autocontained information, a disambiguated and contextualized claim you want to include in a new note. Example: 'The algorithm X is highly effective to classify objects in A, B and C categories'.",
-                        },
-                        description: "A list of relevant claims that you think must be included in newly created content based on the files provided."
-                    },
-                },
-            },
-        }
+    //         return { output: res };
+    //     },
+    //     schema:
+    //     {
+    //         name: 'search_relevant_content',
+    //         description: 'Searchs for relevant content',
+    //         parameters: {
+    //             type: Type.OBJECT,
+    //             required: ["claims_to_include"],
+    //             properties: {
+    //                 claims_to_include: {
+    //                     type: Type.ARRAY,
+    //                     items: {
+    //                         type: Type.STRING,
+    //                         description: "A claim, it is itself a piece of autocontained information, a disambiguated and contextualized claim you want to include in a new note. Example: 'The algorithm X is highly effective to classify objects in A, B and C categories'.",
+    //                     },
+    //                     description: "A list of relevant claims that you think must be included in newly created content based on the files provided."
+    //                 },
+    //             },
+    //         },
+    //     }
 
-    }
+    // }
 
-    return { writeFX, moveFX, queryFX, treeFX, cprsFX }
+    return { writeFX, moveFX, queryFX, treeFX }
 }

@@ -7,6 +7,11 @@ import { ChatView, LIMPORTER_VIEW_TYPE } from './views/lImporter';
 // import { initializeAndPatchConsole, unpatchConsole } from './views/logs';
 // import { LOG_VIEW_TYPE, LogView } from './views/logs';
 // import { CPRS } from './utils/files';
+import {
+    GenerationConfig,
+    GoogleGenAI,
+    Type,
+} from '@google/genai';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
@@ -57,6 +62,7 @@ export default class lImporterPlugin extends Plugin {
                     }
                 }
             }));
+
             this.registerEvent(this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
                 if (file instanceof TFile && this.isSupportedFile(file)) { // isSupportedFile uses all extensions
                     menu.addItem((item) => {
@@ -64,7 +70,19 @@ export default class lImporterPlugin extends Plugin {
                     });
                 }
             }));
+
+            // this.registerEvent(this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
+            //     if (file instanceof TFile && this.isSupportedFile(file)) { // isSupportedFile uses all extensions
+            //         menu.addItem((item) => {
+            //             item.setTitle("lImport").setIcon("import").onClick(() => this.openFileProcessor(file));
+            //         });
+            //     }
+            // }));
+
         });
+
+        
+
         this.addSettingTab(new lImporterSettingTab(this.app, this));
     }
 

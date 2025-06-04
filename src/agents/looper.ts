@@ -1,5 +1,6 @@
-import { Chat, createPartFromFunctionResponse, FunctionDeclaration, FunctionResponse, GenerateContentResponse, PartUnion, Tool } from "@google/genai";
+import { Chat, ContentListUnion, createPartFromFunctionResponse, FunctionDeclaration, FunctionResponse, GenerateContentParameters, GenerateContentResponse, GoogleGenAI, PartListUnion, PartUnion, SendMessageParameters, Tool } from "@google/genai";
 import lImporterPlugin from "src/main";
+import { models } from "./agen";
 
 export interface FunctionArg {
     schema: FunctionDeclaration;
@@ -12,94 +13,105 @@ export const FORMAT_CALLOUT = (icon: string, expanded: "+" | "-" | "", header: s
 ${newContent}`;
 }
 
+//Function formatter
+export function getFunctionDeclarations(functions: FunctionArg[]): Tool[] {
+    return [{ functionDeclarations: functions.map(value => value.schema) }];
+}
+
+//response handler
+export async function handleStream(plugin: lImporterPlugin, response: AsyncGenerator<GenerateContentResponse, any, any>, functions: FunctionArg[],) {
+    const messageTextSpace = plugin.tracker.createMessage("AI");
+    messageTextSpace.MD("> LLM Thinking...");
+    const functionResponses: PartUnion[] = []
+    let fullText = "";
+    for await (const chunk of response) {
+        if (functions && chunk.functionCalls?.length && chunk.functionCalls?.length > 0) {
+            for (let index = 0; index < chunk.functionCalls.length; index++) {
+                const fc = chunk.functionCalls[index];
+
+                const fx = functions.find(pred => pred.schema.name === fc.name);
+                if (fx) {
+                    let res: {
+                        output: string;
+                        metadata?: any;
+                    } | undefined;
+                    try {
+                        res = await fx.run(plugin, fc.args)
+                        const ans: FunctionResponse = { id: fc.id, name: fc.name, response: { output: res.output } };
+                        const prt = createPartFromFunctionResponse(ans.id ? ans.id : "NO_ID", ans.name ? ans.name : "NO_NAME", ans.response ? ans.response : { output: "ERROR IN FUNCTION HANDLING" });
+                        functionResponses.push(prt);
+                    } catch (error) {
+                        const ans: FunctionResponse = { id: fc.id, name: fc.name, response: { output: "Error executing function " + fc.name } };
+                        const prt = createPartFromFunctionResponse(ans.id ? ans.id : "NO_ID", ans.name ? ans.name : "NO_NAME", ans.response ? ans.response : { output: "ERROR IN FUNCTION HANDLING" });
+                        functionResponses.push(prt);
+                    }
+                }
+            }
+        }
+        if (chunk.text) {
+            fullText += chunk.text;
+            messageTextSpace.MD(fullText);
+        }
+    }
+    return {fullText, functionResponses};
+}
+
+//knockback
+export async function sendMessageEKstream(fx: (params: SendMessageParameters) => Promise<AsyncGenerator<GenerateContentResponse>>, params: SendMessageParameters, max_retries: number = 3) {
+    let response;
+    for (let exp = 0; exp < max_retries; exp++) {
+        try {
+            response = await fx(params);
+            break;
+        } catch (error) { await sleep((2 ** exp) * 1000); } //ms
+    }
+    if (!response) throw new Error("Error, could not get a response from the LLM!");
+    return response
+}
+
+export async function generateContentEKstream(fx: ((params: GenerateContentParameters) => Promise<AsyncGenerator<GenerateContentResponse>>), params: GenerateContentParameters, max_retries: number = 3) {
+    let response;
+    for (let exp = 0; exp < max_retries; exp++) {
+        try {
+            response = await fx(params);
+            break;
+        } catch (error) { await sleep((2 ** exp) * 1000); } //ms
+    }
+    if (!response) throw new Error("Error, could not get a response from the LLM!");
+    return response
+}
+
+//looper
 export interface looperConfig {
-    functions?: FunctionArg[];
+    functions: FunctionArg[];
     max_turns: number;
     max_retries: number;
 }
 
 export const DEFAULT_LOOPER_SETTINGS: looperConfig = {
-    functions: undefined,
+    functions: [],
     max_turns: 23,
     max_retries: 7,
 
 }
 
 export async function run_looper(plugin: lImporterPlugin, chat: Chat, initMessage: PartUnion[], loopfig?: looperConfig) {
-
     // { functions, max_turns, max_retries } = Object.assign({}, DEFAULT_LOOPER_SETTINGS, loopfig);
     const { functions, max_turns, max_retries } = Object.assign({}, DEFAULT_LOOPER_SETTINGS, loopfig);
 
-    const tools: Tool[] = [{ functionDeclarations: functions?.map(value => value.schema) }];
+    const tools: Tool[] = getFunctionDeclarations(functions);
     let currentMessage: PartUnion[] = initMessage;
 
     for (let index = 0; index < max_turns; index++) {
-        const procss = plugin.tracker.appendStep("LLM", "thinking...", "bot", 'in-progress');
         const messageTextSpace = plugin.tracker.createMessage("AI");
-        messageTextSpace.MD("...");
+        messageTextSpace.MD("> LLM Thinking...");
 
-        let response: AsyncGenerator<GenerateContentResponse, any, any> | undefined;
+        const response = await sendMessageEKstream(chat.sendMessageStream, { message: currentMessage, config: { tools: tools } }, max_retries);
 
-        // RETROCESO
-        for (let exp = 0; exp < max_retries; exp++) {
-            try {
-                response = await chat.sendMessageStream({ message: currentMessage, config: { tools: tools } });
-                break;
-            } catch (error) { await sleep((2 ** exp) * 1000); } //ms
-        }
-        if (!response) throw new Error("Error, could not get a response from the LLM!");
+        const { fullText, functionResponses} = await handleStream(plugin, response, functions?functions:[]);
+        currentMessage = functionResponses;
 
-        currentMessage = [];
-
-        let fullText = "";
-        for await (const chunk of response) {
-            if (functions && chunk.functionCalls?.length && chunk.functionCalls?.length > 0) {
-                for (let index = 0; index < chunk.functionCalls.length; index++) {
-                    const fc = chunk.functionCalls[index];
-
-                    const fx = functions.find(pred => pred.schema.name === fc.name);
-                    if (fx) {
-                        let res: {
-                            output: string;
-                            metadata?: any;
-                        } | undefined;
-                        try {
-                            res = await fx.run(plugin, fc.args)
-                            const ans: FunctionResponse = { id: fc.id, name: fc.name, response: { output: res.output } };
-                            const prt = createPartFromFunctionResponse(ans.id ? ans.id : "NO_ID", ans.name ? ans.name : "NO_NAME", ans.response ? ans.response : { output: "ERROR IN FUNCTION HANDLING" });
-                            currentMessage.push(prt);
-                        } catch (error) {
-                            const ans: FunctionResponse = { id: fc.id, name: fc.name, response: { output: "Error executing function " + fc.name } };
-                            const prt = createPartFromFunctionResponse(ans.id ? ans.id : "NO_ID", ans.name ? ans.name : "NO_NAME", ans.response ? ans.response : { output: "ERROR IN FUNCTION HANDLING" });
-                            currentMessage.push(prt);
-                        }
-                    }
-                }
-            }
-            if (chunk.text) {
-                fullText += chunk.text;
-                messageTextSpace.MD(fullText);
-            }
-        }
-
-        //HERE THE RESETTING MESSAGE
-        procss.updateState('complete');
         if (currentMessage.length <= 0) break;
     }
     return currentMessage;
-}
-
-export async function single_pass(plugin: lImporterPlugin, chat: Chat, initMessage: PartUnion[], loopfig?: looperConfig) {
-    const newConf: looperConfig = { max_retries: loopfig?.max_retries || 7, max_turns: 1, functions: loopfig?.functions };
-    return await run_looper(plugin, chat, initMessage, newConf);
-}
-
-export async function re_pass(plugin: lImporterPlugin, chat: Chat, initMessage: PartUnion[], loopfig?: looperConfig) {
-    const newConf: looperConfig = { max_retries: loopfig?.max_retries || 7, max_turns: 2, functions: loopfig?.functions };
-    return await run_looper(plugin, chat, initMessage, newConf);
-}
-
-export async function tri_pass(plugin: lImporterPlugin, chat: Chat, initMessage: PartUnion[], loopfig?: looperConfig) {
-    const newConf: looperConfig = { max_retries: loopfig?.max_retries || 7, max_turns: 3, functions: loopfig?.functions };
-    return await run_looper(plugin, chat, initMessage, newConf);
 }
