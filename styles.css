@@ -711,10 +711,32 @@
 /* Input Area (Textarea and Send Button) */
 .chat-input-area {
     display: flex;
+    flex-direction: row;
+    gap: var(--size-4-2); 
+    /* align-items: flex-end;  */
+    padding: var(--size-4-3);
+    background-color: var(--background-secondary); /* Consistent background for controls */
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+}
+
+.input-section {
+    display: flex;
     flex-direction: column;
     gap: var(--size-4-2); 
     /* align-items: flex-end;  */
     padding: var(--size-4-3);
+    background-color: var(--background-secondary); /* Consistent background for controls */
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+}
+
+.button-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.001rem; 
+    /* align-items: flex-end;  */
+    padding: var(--size-4-2);
     background-color: var(--background-secondary); /* Consistent background for controls */
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-m);
@@ -741,4 +763,33 @@
 /* Send button uses .limporter-button.primary, already well-styled */
 .chat-input-area .limporter-button.primary .obsidian-icon { /* Icon inside Send button */
     color: var(--text-on-accent); /* Ensure it's visible */
+}
+
+/* styles.css (or your plugin's specific CSS file) */
+
+/* .feedback-modal-content {
+    /* Add any overall styling for the modal's content area if needed */
+/* } */
+
+.feedback-modal-markdown {
+    margin-bottom: 15px; /* Space between markdown and textarea */
+    max-height: 300px; /* Prevent very long markdown from making modal too tall */
+    overflow-y: auto;  /* Add scroll if content exceeds max-height */
+    border: 1px solid var(--background-modifier-border); /* Optional border */
+    padding: 10px;
+    border-radius: var(--radius-m);
+}
+
+.feedback-modal-textarea {
+    width: 100%;
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    margin-bottom: 15px; /* Space between textarea and buttons */
+    border-radius: var(--radius-s);
+    padding: 8px;
+}
+
+.feedback-modal-buttons {
+    display: flex;
+    justify-content: flex-end; /* Align buttons to the right */
+    gap: 10px; /* Space between buttons */
 }

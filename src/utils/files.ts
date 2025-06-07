@@ -1,8 +1,6 @@
 import { App, TFolder, TFile, getAllTags, prepareFuzzySearch, FuzzySuggestModal } from 'obsidian'; // Import App
 import * as Diff from 'diff';
-import { GoogleGenAI, Type } from '@google/genai';
-import lImporterPlugin from 'src/main';
-import { models } from 'src/agents/agen';
+import { GoogleGenAI } from '@google/genai';
 
 export class FileSuggestionModal extends FuzzySuggestModal<TFile> {
     private didSubmit: boolean = false;
@@ -362,7 +360,6 @@ async function findFileBySha256(genAI: GoogleGenAI, localSha256: string) {
             }
         }
 
-        console.debug(`No file found with SHA256: ${localSha256}`);
         return null; // File not found
     } catch (error) {
         console.error("Error listing files on Gemini:", error);

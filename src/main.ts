@@ -2,16 +2,7 @@
 import { Notice, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
-
-import { ChatView, LIMPORTER_VIEW_TYPE } from './views/lImporter';
-// import { initializeAndPatchConsole, unpatchConsole } from './views/logs';
-// import { LOG_VIEW_TYPE, LogView } from './views/logs';
-// import { CPRS } from './utils/files';
-import {
-    GenerationConfig,
-    GoogleGenAI,
-    Type,
-} from '@google/genai';
+import { lImporterView, LIMPORTER_VIEW_TYPE } from './views/lImporter';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
@@ -35,7 +26,7 @@ export default class lImporterPlugin extends Plugin {
 
         this.registerView(
             LIMPORTER_VIEW_TYPE,
-            (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
+            (leaf: WorkspaceLeaf) => new lImporterView(leaf, this)
         );
         this.addRibbonIcon('import', 'lImporter', () => this.activateView(LIMPORTER_VIEW_TYPE)).addClass('limporter-ribbon-icon');
 
@@ -70,25 +61,14 @@ export default class lImporterPlugin extends Plugin {
                     });
                 }
             }));
-
-            // this.registerEvent(this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
-            //     if (file instanceof TFile && this.isSupportedFile(file)) { // isSupportedFile uses all extensions
-            //         menu.addItem((item) => {
-            //             item.setTitle("lImport").setIcon("import").onClick(() => this.openFileProcessor(file));
-            //         });
-            //     }
-            // }));
-
         });
-
-        
 
         this.addSettingTab(new lImporterSettingTab(this.app, this));
     }
 
     private async openFileProcessor(file: TFile): Promise<void> {
         const view = await this.activateView(LIMPORTER_VIEW_TYPE);
-        if (view && view instanceof ChatView) {
+        if (view && view instanceof lImporterView) {
             await view.addFile(file);
         } else {
             new Notice("lImporter view could not be opened or found.");

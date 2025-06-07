@@ -2,8 +2,10 @@ import { ItemView, WorkspaceLeaf, setIcon, MarkdownRenderer, Setting, Notice, TF
 import { GoogleGenAI } from "@google/genai";
 import lImporterPlugin from "src/main";
 import { FileItem, prepareFileData, FileSuggestionModal } from "src/utils/files";
-import { agentList } from "src/agents/agen";
+import { currentAgent } from "src/agents/agen";
 import { createProcessTracker } from "src/utils/tracker";
+import { FORMAT_CALLOUT } from "src/agents/looper";
+import { getSpecs, PromptSuggestionModal } from "src/agents/promp";
 
 /**
  * Unique identifier for the AI Chat View.
@@ -15,11 +17,11 @@ export const LIMPORTER_VIEW_TYPE = "ai-chat-view";
  * This view allows users to interact with a generative AI model,
  * with capabilities including sending text messages and attaching files.
  */
-export class ChatView extends ItemView {
+export class lImporterView extends ItemView {
     private plugin: lImporterPlugin;
     private inputEl: HTMLTextAreaElement; // Textarea for user input
 
-    private selectedFilesForChat: FileItem[] = []; // Array of files selected to be sent with the next message
+    private selectedFilesForChat: Set<FileItem> = new Set(); // Array of files selected to be sent with the next message
 
     private createMessage: (sender: "User" | "AI") => {
         messageEl: HTMLDivElement;
@@ -37,14 +39,15 @@ export class ChatView extends ItemView {
     }
 
     getViewType(): string { return LIMPORTER_VIEW_TYPE; }
-    getDisplayText(): string { return "AI Chat"; } // Title for the view tab
+    getDisplayText(): string { return "lImporter Chat"; } // Title for the view tab
     getIcon(): string { return "bot-message-square"; } // Icon for the view tab
 
     /**
      * Called when the view is first opened.
      * Responsible for setting up the UI elements of the chat view.
-     */
-    async onOpen() {
+    */
+   async onOpen() {
+        console.debug(`View opened.`);
         const viewContent = this.containerEl.children[1]; // Standard content container for ItemView
         viewContent.empty(); // Clear previous content
         viewContent.addClass("chat-view-container"); // Add a class for styling
@@ -60,41 +63,39 @@ export class ChatView extends ItemView {
         }
 
         // --- Input Area (Textarea and Send Button) ---
-        const inputArea = viewContent.createDiv("chat-input-area");
-
-        const filesContainer = inputArea.createDiv('limporter-files-container');
+        const inputSection = viewContent.createDiv("input-section");
+        
+        const filesContainer = inputSection.createDiv('limporter-files-container');
         filesContainer.style.display = 'flex';
         this.renderFileItems(filesContainer);
-
-        new Setting(inputArea).addDropdown(dropdown => {
-            dropdown
-                .addOptions(Object.fromEntries(agentList.map(opt => [opt.id, opt.id])))
-                .onChange(async (value) => {
-                    if (value) {
-                        const selected = agentList.find(opt => opt.id === value);
-                        if (selected) {
-                            this.currentPipeline = selected.buildAgent(this.plugin);
-                            new Notice(`Loaded agent`);
-                        }
-                    }
-                });
+        
+        const inputArea = inputSection.createDiv("chat-input-area");
+        
+        this.inputEl = inputArea.createEl("textarea", {
+            attr: { placeholder: "Type your message... (Shift+Enter for new line)" },
+            cls: "chat-input-textarea"
         });
+        // this.inputEl.toggleVisibility(false);
 
-        this.sendButton = inputArea.createEl("button", {
+        const specPrompt = await getSpecs(this.app, 'prompt');
+        if (specPrompt) this.inputEl.value = specPrompt;
+
+        this.inputEl.style.height = '7rem';
+
+
+        const buttonArea = inputArea.createDiv("button-section");
+
+        this.sendButton = buttonArea.createEl("button", {
             text: "Send",
             cls: "limporter-button primary" // Style as a primary button
         });
         setIcon(this.sendButton, "corner-down-left"); // Set icon for send button
 
-        this.inputEl = inputArea.createEl("textarea", {
-            attr: { placeholder: "Type your message... (Shift+Enter for new line)" },
-            cls: "chat-input-textarea"
-        });
-        this.inputEl.toggleVisibility(false);
-        this.inputEl.style.height = '0px';
-
         // Event listener for the send button
         this.sendButton.onClickEvent(() => this.handleSendMessage());
+        
+        this.createAddButton(buttonArea);
+        this.createExperimentButton(buttonArea);
 
         // Event listener for Enter key in textarea (Shift+Enter for new line)
         this.inputEl.addEventListener('keydown', async (event) => {
@@ -104,13 +105,13 @@ export class ChatView extends ItemView {
             }
         });
 
-        this.currentPipeline = agentList[0].buildAgent(this.plugin);
+        this.currentPipeline = currentAgent.buildAgent(this.plugin);
         new Notice("Loaded default agent");
     }
-
+    
     async addFile(file: TFile) {
         const newFileItem = await prepareFileData(file);
-        this.selectedFilesForChat.push(newFileItem);
+        this.selectedFilesForChat.add(newFileItem);
         const filesContainerEl = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
         if (filesContainerEl) {
             this.renderFileItems(filesContainerEl);
@@ -119,6 +120,9 @@ export class ChatView extends ItemView {
 
     private renderFileItems(container: HTMLElement): void {
         container.empty();
+
+        if (this.selectedFilesForChat.size <= 0) container.toggleVisibility(false);
+        else container.toggleVisibility(true);
         this.selectedFilesForChat.forEach((fileItem, index) => {
             const fileEl = container.createDiv('limporter-file-item');
             fileEl.dataset.index = index.toString();
@@ -146,12 +150,10 @@ export class ChatView extends ItemView {
             setIcon(trashIcon, 'trash-2');
             trashIcon.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const idx = parseInt(fileEl.dataset.index || '0');
-                this.selectedFilesForChat.splice(idx, 1);
+                this.selectedFilesForChat.delete(fileItem);
                 this.renderFileItems(container);
             });
         });
-        this.createAddButton(container);
     }
 
     private createAddButton(container: HTMLElement): void {
@@ -169,6 +171,19 @@ export class ChatView extends ItemView {
         });
     }
 
+    private createExperimentButton(container: HTMLElement): void {
+        const button = container.createEl('button', {
+            cls: 'limporter-button secondary',
+        });
+        setIcon(button, 'pocket-knife');
+        button.style.marginTop = "0.5rem";
+        button.addEventListener('click', () => {
+            new PromptSuggestionModal(this.app, async (prompt) => { // Uses plugin.getAllSupportedExtensions() which will be updated
+                this.inputEl.value = prompt;
+            }).open();
+        });
+    }
+
     private async handleSendMessage(): Promise<void> {
         try {
             if (this.processing_message) {
@@ -182,25 +197,32 @@ export class ChatView extends ItemView {
 
             const messageText = this.inputEl.value.trim();
 
-            if (!messageText && this.selectedFilesForChat.length === 0) {
+            if (!messageText && this.selectedFilesForChat.size === 0) {
                 new Notice("Please type a message or add files");
                 return;
             }
             this.processing_message = true; // Set processing flag
 
-            this.inputEl.value = "";
-            this.inputEl.focus();
-            this.inputEl.style.height = '0rem';
-
             this.plugin.tracker = createProcessTracker(this.plugin, this.createMessage);
-
+            
+            // this.inputEl.value = ""; //Do not empty the message
+            // this.inputEl.style.height = '7rem';
+            this.inputEl.focus();
+            if (this.inputEl.value!="") this.plugin.tracker.createMessage("User").MD(this.inputEl.value);
+            
             if (!this.currentPipeline) throw new Error('No pipeline selected');
-            await this.currentPipeline(this.selectedFilesForChat, messageText);
+            
+            const files_to_process: FileItem[] = [];
+            this.selectedFilesForChat.forEach(fl=>{files_to_process.push(fl)});
+
+            await this.currentPipeline(files_to_process, messageText);
 
         } catch (error: any) {
             const errorMsg = error instanceof Error ? error.message : String(error);
             console.error(errorMsg);
             this.plugin.tracker.setInProgressStepsToError(errorMsg);
+            this.plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("fail", '+', `ERROR`, errorMsg));
+
         } finally {
             this.sendButton.removeClass('stop-mode');
             setIcon(this.sendButton, 'corner-down-left')
