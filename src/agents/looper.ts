@@ -1,4 +1,4 @@
-import { Chat, createPartFromFunctionResponse, FunctionDeclaration, FunctionResponse, GenerateContentParameters, GenerateContentResponse, PartUnion, SendMessageParameters, Tool, ToolListUnion } from "@google/genai";
+import { Chat, createPartFromFunctionResponse, FunctionDeclaration, FunctionResponse, GenerateContentParameters, GenerateContentResponse, PartUnion, Tool } from "@google/genai";
 import lImporterPlugin from "src/main";
 import { getSpecs } from "./promp";
 
@@ -25,8 +25,8 @@ export async function handleStream(plugin: lImporterPlugin, response: AsyncGener
     let messageTextSpace: {
         messageEl: HTMLDivElement;
         MD: (text: string) => void;
-    }|undefined;
-    
+    } | undefined;
+
     const functionResponses: FunctionResponse[] = []
     // const functionResponses: PartUnion[] = []
     let fullText = "";
@@ -58,7 +58,7 @@ export async function handleStream(plugin: lImporterPlugin, response: AsyncGener
         if (chunk.text) {
             fullText += chunk.text;
             if (!messageTextSpace) messageTextSpace = plugin.tracker.createMessage("AI");
-            messageTextSpace.MD(preff+fullText+suff);
+            messageTextSpace.MD(preff + fullText + suff);
         }
     }
     return { fullText, functionResponses, endFxBit };
@@ -116,6 +116,8 @@ export async function run_looper(plugin: lImporterPlugin, chat: Chat, initMessag
                 break;
             } catch (error) {
                 console.error(error);
+                if (plugin.tracker.abortController.signal.aborted) throw new Error("Signal aborted during EXP KNOCK");
+                
                 await sleep((2 ** exp) * 1000);
             } //ms
         }

@@ -5,7 +5,6 @@ import { FileItem } from "src/utils/files";
 import { prompts } from "./promp";
 import { FORMAT_CALLOUT, generateContentEKstream, handleStream, run_looper } from "./looper";
 import { CPRS_TL, getFunctions } from "./tools";
-// import { Modal } from "obsidian";
 
 export enum models {
     flash25 = "gemini-2.5-flash-preview-05-20",
@@ -30,15 +29,15 @@ const agentList = [
                     up.MD(FORMAT_CALLOUT("info", '+', `uploading files`, files.map(fl => "- " + fl.path).join('\n')));
                     files_to_process = await preprocessor(files);
                 }
-                
+
                 const chat = ai.chats.create({ model: models.flash25 });
-                
+
                 let prompt_base: string = prompts.plan_and_solve_innit; //change the prompt
                 if (additionalPrompt) prompt_base = additionalPrompt; //change the prompt
                 const message = files_to_process.concat(prompt_base);
-                
-                up.MD(FORMAT_CALLOUT("check", '-', `proceeded to call agent`, files.map(fl => "- " + fl.path).concat("\n\n"+prompt_base).join('\n')));
-                
+
+                up.MD(FORMAT_CALLOUT("check", '-', `proceeded to call agent`, files.map(fl => "- " + fl.path).concat("\n\n" + prompt_base).join('\n')));
+
                 // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("quote", '+', `STARTED`));
                 await run_looper(plugin, chat, message, { max_turns: 23, max_retries: 7, functions });
                 // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("quote", '+', `FINISHED`));

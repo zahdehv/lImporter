@@ -1,11 +1,10 @@
 import { ItemView, WorkspaceLeaf, setIcon, MarkdownRenderer, Setting, Notice, TFile } from "obsidian";
-import { GoogleGenAI } from "@google/genai";
 import lImporterPlugin from "src/main";
 import { FileItem, prepareFileData, FileSuggestionModal } from "src/utils/files";
 import { currentAgent } from "src/agents/agen";
 import { createProcessTracker } from "src/utils/tracker";
 import { FORMAT_CALLOUT } from "src/agents/looper";
-import { getSpecs, PromptSuggestionModal } from "src/agents/promp";
+import { getSpecs, PromptSuggestionModal, writeSpecs } from "src/agents/promp";
 
 /**
  * Unique identifier for the AI Chat View.
@@ -21,7 +20,8 @@ export class lImporterView extends ItemView {
     private plugin: lImporterPlugin;
     private inputEl: HTMLTextAreaElement; // Textarea for user input
 
-    private selectedFilesForChat: Set<FileItem> = new Set(); // Array of files selected to be sent with the next message
+    // private selectedFilesForChat: Set<FileItem> = new Set(); // Array of files selected to be sent with the next message
+    private selectedFilesForChat: Map<string, FileItem> = new Map(); // Array of files selected to be sent with the next message
 
     private createMessage: (sender: "User" | "AI") => {
         messageEl: HTMLDivElement;
@@ -46,7 +46,7 @@ export class lImporterView extends ItemView {
      * Called when the view is first opened.
      * Responsible for setting up the UI elements of the chat view.
     */
-   async onOpen() {
+    async onOpen() {
         console.debug(`View opened.`);
         const viewContent = this.containerEl.children[1]; // Standard content container for ItemView
         viewContent.empty(); // Clear previous content
@@ -64,21 +64,18 @@ export class lImporterView extends ItemView {
 
         // --- Input Area (Textarea and Send Button) ---
         const inputSection = viewContent.createDiv("input-section");
-        
+
         const filesContainer = inputSection.createDiv('limporter-files-container');
         filesContainer.style.display = 'flex';
         this.renderFileItems(filesContainer);
-        
+
         const inputArea = inputSection.createDiv("chat-input-area");
-        
+
         this.inputEl = inputArea.createEl("textarea", {
             attr: { placeholder: "Type your message... (Shift+Enter for new line)" },
             cls: "chat-input-textarea"
         });
         // this.inputEl.toggleVisibility(false);
-
-        const specPrompt = await getSpecs(this.app, 'prompt');
-        if (specPrompt) this.inputEl.value = specPrompt;
 
         this.inputEl.style.height = '7rem';
 
@@ -93,7 +90,7 @@ export class lImporterView extends ItemView {
 
         // Event listener for the send button
         this.sendButton.onClickEvent(() => this.handleSendMessage());
-        
+
         this.createAddButton(buttonArea);
         this.createExperimentButton(buttonArea);
 
@@ -105,13 +102,19 @@ export class lImporterView extends ItemView {
             }
         });
 
-        this.currentPipeline = currentAgent.buildAgent(this.plugin);
-        new Notice("Loaded default agent");
+        this.loadAgent();
     }
-    
+
+    private async loadAgent() {
+        const specPrompt = await getSpecs(this.app, 'prompt');
+        this.inputEl.value = specPrompt || "";
+        this.currentPipeline = currentAgent.buildAgent(this.plugin);
+        console.debug("Loaded agent");
+    }
+
     async addFile(file: TFile) {
         const newFileItem = await prepareFileData(file);
-        this.selectedFilesForChat.add(newFileItem);
+        this.selectedFilesForChat.set(file.path, newFileItem);
         const filesContainerEl = this.containerEl.querySelector('.limporter-files-container') as HTMLElement;
         if (filesContainerEl) {
             this.renderFileItems(filesContainerEl);
@@ -123,9 +126,9 @@ export class lImporterView extends ItemView {
 
         if (this.selectedFilesForChat.size <= 0) container.toggleVisibility(false);
         else container.toggleVisibility(true);
-        this.selectedFilesForChat.forEach((fileItem, index) => {
+        this.selectedFilesForChat.forEach((fileItem) => {
             const fileEl = container.createDiv('limporter-file-item');
-            fileEl.dataset.index = index.toString();
+            // fileEl.dataset.index = index.toString();
             const fileInfoEl = fileEl.createDiv('limporter-file-info');
             const iconEl = fileInfoEl.createDiv('limporter-file-icon');
             setIcon(iconEl, (fileItem.mimeType.includes('pdf') || fileItem.mimeType.includes('markdown')) ? 'file-text' : 'file-audio');
@@ -150,7 +153,7 @@ export class lImporterView extends ItemView {
             setIcon(trashIcon, 'trash-2');
             trashIcon.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.selectedFilesForChat.delete(fileItem);
+                this.selectedFilesForChat.delete(fileItem.path);
                 this.renderFileItems(container);
             });
         });
@@ -178,8 +181,11 @@ export class lImporterView extends ItemView {
         setIcon(button, 'pocket-knife');
         button.style.marginTop = "0.5rem";
         button.addEventListener('click', () => {
-            new PromptSuggestionModal(this.app, async (prompt) => { // Uses plugin.getAllSupportedExtensions() which will be updated
-                this.inputEl.value = prompt;
+            new PromptSuggestionModal(this.app, async (specs) => { // Uses plugin.getAllSupportedExtensions() which will be updated
+                const notis = new Notice("Loading experiment");
+                await writeSpecs(this.app, specs);
+                await this.loadAgent();
+                notis.setMessage("Loaded experiment");
             }).open();
         });
     }
@@ -204,16 +210,16 @@ export class lImporterView extends ItemView {
             this.processing_message = true; // Set processing flag
 
             this.plugin.tracker = createProcessTracker(this.plugin, this.createMessage);
-            
+
             // this.inputEl.value = ""; //Do not empty the message
             // this.inputEl.style.height = '7rem';
             this.inputEl.focus();
-            if (this.inputEl.value!="") this.plugin.tracker.createMessage("User").MD(this.inputEl.value);
-            
+            if (this.inputEl.value != "") this.plugin.tracker.createMessage("User").MD(this.inputEl.value);
+
             if (!this.currentPipeline) throw new Error('No pipeline selected');
-            
+
             const files_to_process: FileItem[] = [];
-            this.selectedFilesForChat.forEach(fl=>{files_to_process.push(fl)});
+            this.selectedFilesForChat.forEach(fl => { files_to_process.push(fl) });
 
             await this.currentPipeline(files_to_process, messageText);
 

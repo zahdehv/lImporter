@@ -1,4 +1,4 @@
-import { GenerateContentConfig, GenerationConfig, GoogleGenAI, PartUnion, Type } from "@google/genai";
+import { GenerateContentConfig, GoogleGenAI, PartUnion, Type } from "@google/genai";
 import { FORMAT_CALLOUT, FunctionArg, generateContentEKstream, handleStream } from "./looper";
 import { treeHELPER, writeHELPER, moveHELPER } from "src/utils/files";
 import { prompts, getSpecs } from "./promp";
@@ -7,9 +7,12 @@ import { models } from "./agen";
 import lImporterPlugin from "src/main";
 import { askModal } from "../views/confirm";
 
-export async function getFunctions(app: App, cf = { askPlan: true, askWrite: false }) {
-    const { askPlan } = cf;
+export async function getFunctions(app: App, cf = { askPlan: true, askWrite: false, modelCPRS: models.flash2l }) {
+    const { askPlan, modelCPRS } = cf;
+    
     const write_specs = await getSpecs(app, 'write');
+    const plan_specs = await getSpecs(app, 'plan');
+    
     const folder_options = app.vault.getAllFolders(true).map(folder => folder.path);
     const file_options = app.vault.getFiles().map(file => file.path);
     const md_options = app.vault.getMarkdownFiles().map(file => file.path);
@@ -75,7 +78,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
                     },
                     content: {
                         type: Type.STRING,
-                        description: write_specs,
+                        description: prompts.write_content+"\n\n"+(write_specs? write_specs:""),
                     },
                 },
             },
@@ -217,7 +220,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
                 properties: {
                     plan: {
                         type: Type.STRING,
-                        description: prompts.plan_desc,
+                        description: prompts.plan_desc+"\n\n"+(plan_specs?plan_specs:""),
                     },
                 },
             },
@@ -227,7 +230,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
     const askFilesFX: FunctionArg = {
         run: async (plugin, args: { question: string, level: 'paragraph' | 'sentence' | 'keyword' }) => {
             plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '+', `The model asked a question at \`${args.level}\` level`, `QUESTION: ${args.question}`));
-            const relevant_items = await CPRS_TL(plugin, args.question, args.level);
+            const relevant_items = await CPRS_TL(plugin, args.question, args.level, {max_tokens: 131072, model: models.flash2l});
             const relevant_context: string = relevant_items?.map((item) => {
                 const file = plugin.app.vault.getFileByPath(item.path);
                 if (file) return `Cite ${plugin.app.fileManager.generateMarkdownLink(file, "")} to use the following information: '${item.extracted_item}'.`;
@@ -292,8 +295,8 @@ function getConf(plugin: lImporterPlugin, path_options: string[]): GenerateConte
     };
 }
 
-export async function CPRS(plugin: lImporterPlugin, files: TFile[], prompt: string, cf = { max_tokens: 131072 }): Promise<{ extracted_item: string; path: string }[]> {
-    const { max_tokens } = cf;
+export async function CPRS(plugin: lImporterPlugin, files: TFile[], prompt: string, cf = { max_tokens: 131072, model: models.flash2l }): Promise<{ extracted_item: string; path: string }[]> {
+    const { max_tokens, model } = cf;
     const ai = new GoogleGenAI({ apiKey: plugin.settings.GOOGLE_API_KEY });
     const context_list: PartUnion[] = [];
     for (let index = 0; index < files.length; index++) {
@@ -302,7 +305,7 @@ export async function CPRS(plugin: lImporterPlugin, files: TFile[], prompt: stri
         context_list.push(`<|FILE '${file.path}' START|>\n${file_content}\n<|FILE '${file.path}' END|>`)
     }
 
-    const tokens = await ai.models.countTokens({ model: models.flash2, contents: context_list });
+    const tokens = await ai.models.countTokens({ model, contents: context_list });
 
     if (tokens.totalTokens && tokens.totalTokens <= max_tokens) {
         //process the tokens and return
@@ -311,7 +314,7 @@ export async function CPRS(plugin: lImporterPlugin, files: TFile[], prompt: stri
         const contents: PartUnion[] = context_list.concat(prompt);
 
         const response = await generateContentEKstream(ai.models.generateContentStream, {
-            model: models.flash25,
+            model,
             config: config,
             contents,
         });
@@ -324,24 +327,26 @@ export async function CPRS(plugin: lImporterPlugin, files: TFile[], prompt: stri
         const hf = Math.ceil(files.length / 2);
         const filesI = files.slice(undefined, hf);
         const filesII = files.slice(hf);
-        return (await CPRS(plugin, filesI, prompt)).concat(await CPRS(plugin, filesII, prompt));
+        return (await CPRS(plugin, filesI, prompt, {max_tokens, model})).concat(await CPRS(plugin, filesII, prompt, {max_tokens, model}));
     }
 }
 
-export async function CPRS_TL(plugin: lImporterPlugin, question: string, level: "keyword" | "paragraph" | "sentence", max_tokens = 131072) {
+export async function CPRS_TL(plugin: lImporterPlugin, question: string, level: "keyword" | "paragraph" | "sentence", cf = {max_tokens: 131072, model: models.flash2l}) {
+    const {max_tokens, model} = cf;
+
     const files = plugin.app.vault.getMarkdownFiles().filter(file=>(!file.name.includes('.lim')));
     switch (level) {
         case "keyword":
             const prompt_keywords = prompts.extract_keywords + question + prompts.extract_suffix;
-            return CPRS(plugin, files, prompt_keywords, { max_tokens });
+            return CPRS(plugin, files, prompt_keywords, { max_tokens, model });
         case "paragraph":
             const prompt_paragraph = prompts.extract_paragraph + question + prompts.extract_suffix;
-            return CPRS(plugin, files, prompt_paragraph, { max_tokens });
+            return CPRS(plugin, files, prompt_paragraph, { max_tokens, model });
         case "sentence":
             const prompt_sentence = prompts.extract_sentence + question + prompts.extract_suffix;
-            return CPRS(plugin, files, prompt_sentence, { max_tokens });
+            return CPRS(plugin, files, prompt_sentence, { max_tokens, model });
         default:
             const prompt_default = prompts.extract_sentence + question + prompts.extract_suffix;
-            return CPRS(plugin, files, prompt_default, { max_tokens });
+            return CPRS(plugin, files, prompt_default, { max_tokens, model });
     }
 }
