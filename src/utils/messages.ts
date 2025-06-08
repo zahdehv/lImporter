@@ -5,7 +5,7 @@ import lImporterPlugin from "../main";
 export const createMessageslIm = (plugin: lImporterPlugin, ai: GoogleGenAI) => {
     const preProcess = async (tfiles: FileItem[]): Promise<PartUnion[]> => {
         const messages: PartUnion[] = [];
-        
+
         // const prep = plugin.tracker.appendStep("Preprocessing files...", "Uploading and building prompt...", 'upload', 'in-progress');
         // messages.push(createPartFromText("<|FILES TO PROCESS|>"));
 

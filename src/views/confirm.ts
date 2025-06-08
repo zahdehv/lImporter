@@ -100,7 +100,7 @@ export class FeedbackModal extends Modal {
 }
 
 export async function askModal(plugin: lImporterPlugin, title: string, question: string) {
-    const text = "## "+title+"\n"+question;
+    const text = "## " + title + "\n" + question;
     const modal = new FeedbackModal(plugin.app, text, plugin);
     return await modal.waitForUserInput();
 }

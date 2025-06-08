@@ -30,6 +30,10 @@ export default class lImporterPlugin extends Plugin {
         );
         this.addRibbonIcon('import', 'lImporter', () => this.activateView(LIMPORTER_VIEW_TYPE)).addClass('limporter-ribbon-icon');
 
+        // this.addRibbonIcon('pen', 'PEN', () => {
+
+        // });
+
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
                 if (file instanceof TFile) {

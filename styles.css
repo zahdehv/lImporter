@@ -8,9 +8,11 @@
     flex-direction: column;
     /* background-color: var(--background-primary); */
     background-color: var(--background-secondary);
-    gap: 1rem; /* Consistent spacing between elements */
+    gap: 1rem;
+    /* Consistent spacing between elements */
     /* overflow-y: auto; */
 }
+
 .limporter-header {
     align-self: center;
     /* background-color: aqua; */
@@ -22,7 +24,8 @@
 .limporter-config-container {
     /* margin-top: auto; */
     /* order: 2; */
-    /* margin: 0 0 1rem 0; */ /* Managed by main gap */
+    /* margin: 0 0 1rem 0; */
+    /* Managed by main gap */
     background: var(--background-secondary);
     border-radius: 8px;
     padding: 1rem;
@@ -40,8 +43,10 @@
     font-family: inherit;
     color: var(--text-normal);
     line-height: 1.5;
-    max-height: 231px; /* Or adjust as needed */
-    overflow-y: auto; /* Changed from scroll to auto */
+    max-height: 231px;
+    /* Or adjust as needed */
+    overflow-y: auto;
+    /* Changed from scroll to auto */
 }
 
 .material-textarea:focus {
@@ -53,12 +58,18 @@
 /* PIPELINE DROPDOWN */
 /* ============== */
 .limporter-dropdown-container {
-    background: var(--background-secondary); /* Already part of textarea-container */
-    /* border-radius: 8px; */ /* Handled by parent */
-    padding: 0.8rem 0; /* Adjust padding if it's inside another padded container */
-    display: flex; flex-direction: column; gap: 0.23rem;
+    background: var(--background-secondary);
+    /* Already part of textarea-container */
+    /* border-radius: 8px; */
+    /* Handled by parent */
+    padding: 0.8rem 0;
+    /* Adjust padding if it's inside another padded container */
+    display: flex;
+    flex-direction: column;
+    gap: 0.23rem;
     margin-bottom: 1rem;
-    /* border: 1px solid var(--background-modifier-border); */ /* Handled by parent */
+    /* border: 1px solid var(--background-modifier-border); */
+    /* Handled by parent */
 }
 
 .limporter-dropdown-container .setting-item {
@@ -73,7 +84,8 @@
     margin-bottom: 0.5rem;
 }
 
-.limporter-dropdown-container .dropdown-container { /* This is likely an Obsidian class */
+.limporter-dropdown-container .dropdown-container {
+    /* This is likely an Obsidian class */
     width: 100%;
 }
 
@@ -83,9 +95,11 @@
 /* ================= */
 .limporter-tracker-main-container {
     /* order: 1; Second visually */
-    display: flex; /* To make its child (progressContainer) fill it if needed */
+    display: flex;
+    /* To make its child (progressContainer) fill it if needed */
     flex-direction: column;
-    /* min-height: 100px; */ /* Example: ensure it has some space */
+    /* min-height: 100px; */
+    /* Example: ensure it has some space */
     overflow-y: auto;
 }
 
@@ -96,17 +110,22 @@
     /* This is the root element creat
     ed by processTracker, now inside limporter-tracker-main-container */
     /* 'order' is not needed here as its parent is ordered */
-    display: flex; /* This is set by processTracker.ts, but good to confirm */
+    display: flex;
+    /* This is set by processTracker.ts, but good to confirm */
     flex-direction: column;
-    gap: 0.7rem; /* Spacing for description, steps-container, files-container */
-    /* margin: 0.6rem 0; */ /* Managed by main gap */
+    gap: 0.7rem;
+    /* Spacing for description, steps-container, files-container */
+    /* margin: 0.6rem 0; */
+    /* Managed by main gap */
     padding: 0.7rem;
     background: var(--background-secondary);
     border-radius: 8px;
-    height: auto; /* Adjust as needed */
+    height: auto;
+    /* Adjust as needed */
     overflow-y: auto;
     border: 1px solid var(--background-modifier-border);
-    flex: 1; /* If inside a flex container like tracker-main-container and should grow */
+    flex: 1;
+    /* If inside a flex container like tracker-main-container and should grow */
 }
 
 .limporter-description {
@@ -117,12 +136,17 @@
 
 .limporter-steps-display-container {
     /* Styles for the container of step items, managed by processTracker.ts */
-    display: flex; flex-direction: column; gap: 0.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
     /* max-height: 300px; */
 
-    flex-grow: 1;       /* Take up all available vertical space */
-    overflow-y: auto;   /* Enable vertical scrolling ONLY for this area */
-    min-height: 0;      /* Flexbox overflow fix/best practice */
+    flex-grow: 1;
+    /* Take up all available vertical space */
+    overflow-y: auto;
+    /* Enable vertical scrolling ONLY for this area */
+    min-height: 0;
+    /* Flexbox overflow fix/best practice */
 
     /* --- Styling --- */
     padding: 5px;
@@ -164,7 +188,8 @@
     border-radius: 50%;
     background-color: var(--background-modifier-border);
     color: var(--text-muted);
-    flex-shrink: 0; /* Prevent icon from shrinking */
+    flex-shrink: 0;
+    /* Prevent icon from shrinking */
 }
 
 .limporter-progress-step[data-status="in-progress"] .limporter-step-icon {
@@ -175,17 +200,20 @@
 
 .limporter-progress-step[data-status="complete"] .limporter-step-icon {
     background-color: var(--interactive-success);
-    color: white; /* Or var(--text-on-accent) */
+    color: white;
+    /* Or var(--text-on-accent) */
 }
 
 .limporter-progress-step[data-status="error"] .limporter-step-icon {
     background-color: var(--text-error);
-    color: white; /* Or var(--text-on-accent) */
+    color: white;
+    /* Or var(--text-on-accent) */
 }
 
 .limporter-step-content {
     flex: 1;
-    min-width: 0; /* Prevent overflow issues */
+    min-width: 0;
+    /* Prevent overflow issues */
 }
 
 .limporter-step-label {
@@ -214,13 +242,15 @@
 }
 
 /* .limporter-files-list { */
-    /* display: flex; flex-direction: column; gap: 0.3rem; */ /* Managed by JS */
+/* display: flex; flex-direction: column; gap: 0.3rem; */
+/* Managed by JS */
 /* } */
 
 .limporter-tracked-file-item {
     padding: 0.4rem 0.8rem;
     border-radius: 4px;
-    background-color: var(--background-primary); /* Slightly different from step items */
+    background-color: var(--background-primary);
+    /* Slightly different from step items */
     border: 1px solid var(--background-modifier-border);
     cursor: pointer;
     font-size: 0.9em;
@@ -240,16 +270,19 @@
 .limporter-files-container {
     /* order: 1;  */
     /* flex: 1; Takes remaining available space if view is tall */
-    min-height: min-content; /* Ensure it's visible even if empty initially */
+    min-height: min-content;
+    /* Ensure it's visible even if empty initially */
     /* max-height: 300px; Or a percentage of viewport */
     /* height: 80px; */
     display: flex;
     flex-direction: column;
     gap: 0.23rem;
-    /* margin-bottom: 1.5rem; */ /* Managed by main gap */
+    /* margin-bottom: 1.5rem; */
+    /* Managed by main gap */
     overflow-y: scroll;
     padding: 0.5rem;
-    background-color: var(--background-secondary); /* Slightly different background */
+    background-color: var(--background-secondary);
+    /* Slightly different background */
     /* background-color: var(--background-secondary-alt); Slightly different background */
     border-radius: 8px;
     border: 1px solid var(--background-modifier-border);
@@ -257,17 +290,20 @@
 
 .limporter-file-item {
     display: flex;
-    flex-direction: column; /* For audio player below info */
+    flex-direction: column;
+    /* For audio player below info */
     gap: 0.23rem;
     background: var(--background-secondary);
     padding: 0.46rem;
     border-radius: 8px;
     transition: all 0.2s ease;
-    border: 1px solid var(--background-modifier-border); /* Default border */
+    border: 1px solid var(--background-modifier-border);
+    /* Default border */
 }
 
 .limporter-file-item:hover {
-    border-color: var(--interactive-accent); /* Highlight on hover */
+    border-color: var(--interactive-accent);
+    /* Highlight on hover */
     box-shadow: 0 2px 8px rgba(var(--interactive-accent-rgb), 0.1);
 }
 
@@ -279,19 +315,23 @@
 }
 
 .limporter-file-icon {
-    font-size: 1.8em; /* Size of the icon */
+    font-size: 1.8em;
+    /* Size of the icon */
     color: var(--text-accent);
-    /* cursor: move; */ /* If using SortableJS and want move cursor */
+    /* cursor: move; */
+    /* If using SortableJS and want move cursor */
     transition: transform 0.2s ease;
 }
 
 .limporter-file-icon:hover {
-    transform: scale(1.1); /* Slight zoom on icon hover */
+    transform: scale(1.1);
+    /* Slight zoom on icon hover */
 }
 
 .limporter-file-details {
     flex: 1;
-    min-width: 0; /* Important for text-overflow to work */
+    min-width: 0;
+    /* Important for text-overflow to work */
 }
 
 .limporter-file-name {
@@ -312,7 +352,8 @@
     width: 100%;
     margin-top: 0.5rem;
     border-radius: 4px;
-    background: var(--background-primary); /* Match primary background */
+    background: var(--background-primary);
+    /* Match primary background */
 }
 
 /* Action Controls (within .limporter-file-info) */
@@ -323,7 +364,8 @@
 }
 
 .limporter-trash-icon {
-    color: var(--text-faint); /* More subtle default color */
+    color: var(--text-faint);
+    /* More subtle default color */
     cursor: pointer;
     opacity: 0.7;
     transition: all 0.2s ease;
@@ -333,7 +375,8 @@
 .limporter-trash-icon:hover {
     opacity: 1;
     transform: scale(1.2);
-    color: var(--text-error); /* Error color on hover for trash */
+    color: var(--text-error);
+    /* Error color on hover for trash */
 }
 
 
@@ -344,10 +387,14 @@
     /* order: 3; Last visually */
     /* margin-top: auto; */
     display: flex;
-    flex-direction: column; /* Buttons side-by-side */
-    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
-    gap: 0.75rem; /* Spacing between buttons */
-    justify-content: flex-start; /* Align buttons to the start */
+    flex-direction: column;
+    /* Buttons side-by-side */
+    flex-wrap: wrap;
+    /* Allow buttons to wrap on smaller screens */
+    gap: 0.75rem;
+    /* Spacing between buttons */
+    justify-content: flex-start;
+    /* Align buttons to the start */
     /* padding-top: 1rem; */
     /* border-top: 1px solid var(--background-modifier-border); */
 }
@@ -357,10 +404,14 @@
     /* order: 2; */
     /* margin-top: auto; Pushes to bottom if parent is flex column */
     display: flex;
-    flex-direction: row; /* Buttons side-by-side */
-    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
-    gap: 0.75rem; /* Spacing between buttons */
-    justify-content: flex-end; /* Align buttons to the start */
+    flex-direction: row;
+    /* Buttons side-by-side */
+    flex-wrap: wrap;
+    /* Allow buttons to wrap on smaller screens */
+    gap: 0.75rem;
+    /* Spacing between buttons */
+    justify-content: flex-end;
+    /* Align buttons to the start */
     /* padding-top: 1rem; */
     /* border-top: 1px solid var(--background-modifier-border); */
 }
@@ -380,7 +431,8 @@
     border: none;
     cursor: pointer;
     font-size: 0.9em;
-    flex-grow: 0; /* Prevent buttons from growing too much if container is wide */
+    flex-grow: 0;
+    /* Prevent buttons from growing too much if container is wide */
 }
 
 .limporter-button.primary {
@@ -413,8 +465,10 @@
 }
 
 .limporter-button.stop-mode {
-    background-color: var(--text-error); /* Using theme variable */
-    color: white; /* Or var(--text-on-accent) if it contrasts well */
+    background-color: var(--text-error);
+    /* Using theme variable */
+    color: white;
+    /* Or var(--text-on-accent) if it contrasts well */
     animation: pulse 1s ease-in-out infinite alternate;
 }
 
@@ -422,7 +476,8 @@
     background-color: hsl(from var(--text-error) h s calc(l - 10%)); /* Darken error color */
 /* } */
 
-.limporter-button.toggled-on { /* For Show/Hide buttons */
+.limporter-button.toggled-on {
+    /* For Show/Hide buttons */
     background-color: var(--interactive-accent-hover);
     color: var(--text-on-accent);
     border-color: var(--interactive-accent-hover);
@@ -433,14 +488,29 @@
 /* ANIMATIONS */
 /* ============ */
 @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.7; }
-    100% { opacity: 1; }
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 
 @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-3px); }
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-3px);
+    }
 }
 
 /* =============== */
@@ -474,21 +544,25 @@
 }
 
 .my-plugin-vertical-separator {
-    width: 1px; /* Thickness of the line */
-    background-color: var(--divider-color); /* Use Obsidian variable */
+    width: 1px;
+    /* Thickness of the line */
+    background-color: var(--divider-color);
+    /* Use Obsidian variable */
     /* Or use a specific color: background-color: #cccccc; */
-  
+
     /* Adjust vertical alignment if parent doesn't use align-items: stretch */
-    /* align-self: stretch; */ /* Can override parent's align-items */
-  
+    /* align-self: stretch; */
+    /* Can override parent's align-items */
+
     /* Add horizontal spacing */
-    margin-left: var(--size-4-2); /* e.g., 8px */
+    margin-left: var(--size-4-2);
+    /* e.g., 8px */
     margin-right: var(--size-4-2);
     /* Or use specific margins:
        margin-left: 8px;
        margin-right: 8px;
     */
-  }
+}
 
 /* .callout[data-callout="zdv"] {
 --callout-color: 255, 0, 0;
@@ -499,102 +573,137 @@
 /* --- AI CHAT VIEW STYLES --- */
 /* ========================== */
 
-.chat-view-container { /* This is the ItemView's contentEl */
+.chat-view-container {
+    /* This is the ItemView's contentEl */
     display: flex;
     flex-direction: column;
-    height: 100%; 
-    padding: var(--size-4-3); /* Use consistent padding */
+    height: 100%;
+    padding: var(--size-4-3);
+    /* Use consistent padding */
     box-sizing: border-box;
-    gap: var(--size-4-3); /* Consistent gap between main sections */
+    gap: var(--size-4-3);
+    /* Consistent gap between main sections */
 }
 
-.chat-view-container h4 { /* Title: "AI Assistant" */
+.chat-view-container h4 {
+    /* Title: "AI Assistant" */
     margin-top: 0;
-    margin-bottom: 0; /* Gap handled by parent */
+    margin-bottom: 0;
+    /* Gap handled by parent */
     text-align: center;
     color: var(--text-normal);
     font-size: var(--font-ui-large);
 }
 
 .chat-messages-container {
-    flex-grow: 1; 
-    overflow-y: auto; 
+    flex-grow: 1;
+    overflow-y: auto;
     border: 1px solid var(--background-modifier-border);
     padding: var(--size-4-3);
     /* margin-bottom: var(--size-4-2); -- Handled by parent gap */
     border-radius: var(--radius-m);
-    background-color: var(--background-primary); 
+    background-color: var(--background-primary);
     display: flex;
     flex-direction: column;
-    gap: var(--size-4-2); 
+    gap: var(--size-4-2);
 }
 
 .chat-message {
-    padding: var(--size-4-2) var(--size-4-3); /* Adjusted padding */
-    border-radius: var(--radius-m); /* Default to medium radius */
-    max-width: 85%; 
+    padding: var(--size-4-2) var(--size-4-3);
+    /* Adjusted padding */
+    border-radius: var(--radius-m);
+    /* Default to medium radius */
+    max-width: 85%;
     line-height: var(--line-height-normal);
-    box-shadow: var(--shadow-s); /* Add subtle shadow to all messages */
-    word-break: break-word; /* Ensure long words break nicely */
+    box-shadow: var(--shadow-s);
+    /* Add subtle shadow to all messages */
+    word-break: break-word;
+    /* Ensure long words break nicely */
 }
 
-.chat-message .chat-message-text p:first-child { margin-top: 0; }
-.chat-message .chat-message-text p:last-child { margin-bottom: 0; }
+.chat-message .chat-message-text p:first-child {
+    margin-top: 0;
+}
+
+.chat-message .chat-message-text p:last-child {
+    margin-bottom: 0;
+}
 
 .user-message {
-    background-color: var(--interactive-accent); 
+    background-color: var(--interactive-accent);
     color: var(--text-on-accent);
-    align-self: flex-end; 
-    margin-left: auto; 
-    border-radius: var(--radius-m) var(--radius-s) var(--radius-m) var(--radius-m); /* Tail effect */
+    align-self: flex-end;
+    margin-left: auto;
+    border-radius: var(--radius-m) var(--radius-s) var(--radius-m) var(--radius-m);
+    /* Tail effect */
 }
+
 .user-message .chat-message-text a {
-    color: var(--text-on-accent); /* Ensure links are visible on accent bg */
+    color: var(--text-on-accent);
+    /* Ensure links are visible on accent bg */
     text-decoration: underline;
 }
-.user-message .chat-message-text a:hover { opacity: 0.8; }
+
+.user-message .chat-message-text a:hover {
+    opacity: 0.8;
+}
 
 
 .ai-message {
-    background-color: var(--background-secondary); 
+    background-color: var(--background-secondary);
     color: var(--text-normal);
-    align-self: flex-start; 
-    margin-right: auto; 
-    border: 1px solid var(--background-modifier-border); /* Subtle border for AI messages */
-    border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-m); /* Tail effect */
+    align-self: flex-start;
+    margin-right: auto;
+    border: 1px solid var(--background-modifier-border);
+    /* Subtle border for AI messages */
+    border-radius: var(--radius-s) var(--radius-m) var(--radius-m) var(--radius-m);
+    /* Tail effect */
 }
-.ai-message .chat-message-text a { color: var(--text-accent); }
-.ai-message .chat-message-text a:hover { text-decoration: underline; }
+
+.ai-message .chat-message-text a {
+    color: var(--text-accent);
+}
+
+.ai-message .chat-message-text a:hover {
+    text-decoration: underline;
+}
 
 /* Callout styling within messages */
 .chat-message .callout {
     margin-top: var(--size-4-1);
     margin-bottom: var(--size-4-1);
-    font-size: 0.9em; /* Slightly smaller callouts in chat */
+    font-size: 0.9em;
+    /* Slightly smaller callouts in chat */
     padding: var(--size-4-2);
 }
+
 .chat-message .callout .callout-title {
-    font-size: 1em; /* Relative to callout font-size */
+    font-size: 1em;
+    /* Relative to callout font-size */
     margin-bottom: var(--size-4-1);
 }
+
 .chat-message .callout .callout-content {
     font-size: 0.95em;
 }
 
 
 /* Styling for the "Include active file" Setting (Obsidian's Setting component) */
-.chat-view-container > .setting-item {
+.chat-view-container>.setting-item {
     padding: var(--size-4-2) var(--size-4-3);
     /* margin-bottom: var(--size-4-2); -- Handled by parent gap */
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-m);
-    background-color: var(--background-secondary); /* Consistent background for controls area */
+    background-color: var(--background-secondary);
+    /* Consistent background for controls area */
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
-.chat-view-container > .setting-item .setting-item-name {
-    color: var(--text-normal); /* Ensure name is clearly visible */
+
+.chat-view-container>.setting-item .setting-item-name {
+    color: var(--text-normal);
+    /* Ensure name is clearly visible */
 }
 
 
@@ -607,7 +716,8 @@
     padding: var(--size-4-3);
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-m);
-    background-color: var(--background-secondary); /* Consistent background for controls area */
+    background-color: var(--background-secondary);
+    /* Consistent background for controls area */
 }
 
 /* "Attach File" button styling (it uses .limporter-button) */
@@ -618,13 +728,17 @@
     color: var(--text-normal);
     border: 1px solid var(--button-secondary-border-color, var(--background-modifier-border));
 }
+
 .chat-add-file-container .limporter-button:hover {
     background-color: var(--button-secondary-background-hover, var(--background-modifier-hover));
     border-color: var(--button-secondary-border-color-hover, var(--interactive-accent));
 }
-.chat-add-file-container .limporter-button .obsidian-icon { /* Icon inside Attach File button */
+
+.chat-add-file-container .limporter-button .obsidian-icon {
+    /* Icon inside Attach File button */
     color: var(--text-muted);
 }
+
 .chat-add-file-container .limporter-button:hover .obsidian-icon {
     color: var(--text-accent);
 }
@@ -632,8 +746,9 @@
 
 .selected-files-display {
     border-radius: var(--radius-s);
-    min-height: 22px; 
-    background-color: var(--background-primary); /* Contrast with chat-file-section bg */
+    min-height: 22px;
+    background-color: var(--background-primary);
+    /* Contrast with chat-file-section bg */
     padding: var(--size-4-2);
     border: 1px solid var(--background-modifier-border);
 }
@@ -643,7 +758,8 @@
     font-style: italic;
     font-size: var(--font-ui-small);
     text-align: center;
-    padding: var(--size-4-1) 0; /* Less padding when empty */
+    padding: var(--size-4-1) 0;
+    /* Less padding when empty */
 }
 
 .chat-selected-files-list {
@@ -658,15 +774,18 @@
 .chat-selected-file-item {
     display: flex;
     align-items: center;
-    gap: var(--size-4-1); /* Reduced gap for tighter look */
+    gap: var(--size-4-1);
+    /* Reduced gap for tighter look */
     background-color: var(--background-secondary-alt);
     padding: var(--size-4-1) var(--size-4-2);
     border-radius: var(--radius-s);
     border: 1px solid var(--background-modifier-border);
     font-size: var(--font-ui-small);
     transition: all 0.2s ease;
-    box-shadow: var(--shadow-xs); /* Extra small shadow */
+    box-shadow: var(--shadow-xs);
+    /* Extra small shadow */
 }
+
 .chat-selected-file-item:hover {
     border-color: var(--interactive-accent);
     background-color: var(--background-modifier-hover);
@@ -674,14 +793,16 @@
 
 .selected-file-name {
     color: var(--text-normal);
-    max-width: 150px; /* Adjust as needed */
+    max-width: 150px;
+    /* Adjust as needed */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 /* Small remove button for attached files (uses .limporter-button-sm) */
-.limporter-button-sm { /* General style for small icon buttons if used elsewhere */
+.limporter-button-sm {
+    /* General style for small icon buttons if used elsewhere */
     background: transparent;
     border: none;
     padding: 0;
@@ -693,18 +814,25 @@
     justify-content: center;
     border-radius: var(--radius-s);
     transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
-    vertical-align: middle; /* Align with text */
+    vertical-align: middle;
+    /* Align with text */
 }
+
 .limporter-button-sm:hover {
     color: var(--text-error);
     background-color: var(--background-modifier-error-hover);
 }
-.limporter-button-sm .obsidian-icon { /* Target SVG icon if setIcon is used */
+
+.limporter-button-sm .obsidian-icon {
+    /* Target SVG icon if setIcon is used */
     width: 16px;
     height: 16px;
 }
-.chat-selected-file-item .limporter-button-sm { /* Specific to remove button in file item */
-    margin-left: var(--size-4-1); /* Space from file name */
+
+.chat-selected-file-item .limporter-button-sm {
+    /* Specific to remove button in file item */
+    margin-left: var(--size-4-1);
+    /* Space from file name */
 }
 
 
@@ -712,10 +840,11 @@
 .chat-input-area {
     display: flex;
     flex-direction: row;
-    gap: var(--size-4-2); 
+    gap: var(--size-4-2);
     /* align-items: flex-end;  */
     padding: var(--size-4-3);
-    background-color: var(--background-secondary); /* Consistent background for controls */
+    background-color: var(--background-secondary);
+    /* Consistent background for controls */
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-m);
 }
@@ -723,10 +852,11 @@
 .input-section {
     display: flex;
     flex-direction: column;
-    gap: var(--size-4-2); 
+    gap: var(--size-4-2);
     /* align-items: flex-end;  */
     padding: var(--size-4-3);
-    background-color: var(--background-secondary); /* Consistent background for controls */
+    background-color: var(--background-secondary);
+    /* Consistent background for controls */
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-m);
 }
@@ -734,35 +864,41 @@
 .button-section {
     display: flex;
     flex-direction: column;
-    gap: 0.001rem; 
+    gap: 0.001rem;
     /* align-items: flex-end;  */
     padding: var(--size-4-2);
-    background-color: var(--background-secondary); /* Consistent background for controls */
+    background-color: var(--background-secondary);
+    /* Consistent background for controls */
     border: 1px solid var(--background-modifier-border);
     border-radius: var(--radius-m);
 }
 
 .chat-input-textarea {
     flex-grow: 1;
-    /* min-height: calc(var(--line-height-normal) * 1em + 2 * var(--size-4-2) + 2px);  */
-    max-height: 150px; 
-    resize: none; 
+    min-height: calc(var(--line-height-normal) * 1em + 2 * var(--size-4-2) + 2px);
+    max-height: 350px;
+    resize: none;
     padding: var(--size-4-2);
     border-radius: var(--radius-m);
     border: 1px solid var(--background-modifier-border);
-    background-color: var(--background-primary); /* Input field distinct from its container */
+    background-color: var(--background-primary);
+    /* Input field distinct from its container */
     color: var(--text-normal);
     line-height: var(--line-height-normal);
     font-family: inherit;
 }
+
 .chat-input-textarea:focus {
     border-color: var(--interactive-accent);
-    box-shadow: 0 0 0 1px var(--interactive-accent); /* Subtle focus ring */
+    box-shadow: 0 0 0 1px var(--interactive-accent);
+    /* Subtle focus ring */
 }
 
 /* Send button uses .limporter-button.primary, already well-styled */
-.chat-input-area .limporter-button.primary .obsidian-icon { /* Icon inside Send button */
-    color: var(--text-on-accent); /* Ensure it's visible */
+.chat-input-area .limporter-button.primary .obsidian-icon {
+    /* Icon inside Send button */
+    color: var(--text-on-accent);
+    /* Ensure it's visible */
 }
 
 /* styles.css (or your plugin's specific CSS file) */
@@ -772,24 +908,32 @@
 /* } */
 
 .feedback-modal-markdown {
-    margin-bottom: 15px; /* Space between markdown and textarea */
-    max-height: 300px; /* Prevent very long markdown from making modal too tall */
-    overflow-y: auto;  /* Add scroll if content exceeds max-height */
-    border: 1px solid var(--background-modifier-border); /* Optional border */
+    margin-bottom: 15px;
+    /* Space between markdown and textarea */
+    max-height: 300px;
+    /* Prevent very long markdown from making modal too tall */
+    overflow-y: auto;
+    /* Add scroll if content exceeds max-height */
+    border: 1px solid var(--background-modifier-border);
+    /* Optional border */
     padding: 10px;
     border-radius: var(--radius-m);
 }
 
 .feedback-modal-textarea {
     width: 100%;
-    box-sizing: border-box; /* Include padding and border in the element's total width and height */
-    margin-bottom: 15px; /* Space between textarea and buttons */
+    box-sizing: border-box;
+    /* Include padding and border in the element's total width and height */
+    margin-bottom: 15px;
+    /* Space between textarea and buttons */
     border-radius: var(--radius-s);
     padding: 8px;
 }
 
 .feedback-modal-buttons {
     display: flex;
-    justify-content: flex-end; /* Align buttons to the right */
-    gap: 10px; /* Space between buttons */
+    justify-content: flex-end;
+    /* Align buttons to the right */
+    gap: 10px;
+    /* Space between buttons */
 }

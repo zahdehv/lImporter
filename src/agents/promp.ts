@@ -53,7 +53,10 @@ You can include specific aspects you are looking for in the selected level.`,
     ask_files_level = `You must specify the level of extraction:
 - paragraph level to extract full paragraphs (useful to get big chunks of context).
 - sentence level to extract specific sentences (useful to extract atomic claims).
-- keyword level (useful to extract entities or even tags).`
+- keyword level (useful to extract entities or even tags).`,
+
+    get_unresolved_links_desc = `Use this to get all the links to unexistent files.`,
+    get_unresolved_links_expl = "Here you explain the reason to search the unresolved links. Be brief.",
 }
 
 // export async function getWriteSpecs(app: App) {
@@ -101,7 +104,7 @@ plan: |-
 ---
 `
 
-export async function writeSpecs(app: App, specs: string):Promise<TFile> {
+export async function writeSpecs(app: App, specs: string): Promise<TFile> {
     console.debug("Writing settings file.");
     await app.vault.adapter.write("specs.lim.md", specs);
     await sleep(700);
@@ -135,7 +138,7 @@ export async function getSpecs(app: App, field: string): Promise<string | undefi
 //Experiments
 const experiment_prompts = [
     {
-        id: 'The default specs, for each modification of these, a different specs file will be handed, that will determine the behaviour of the agent.', 
+        id: 'The default specs, for each modification of these, a different specs file will be handed, that will determine the behaviour of the agent.',
         experiment_specs: `---
 system: You have a set of tools you can use to help the user to add new content to its knowledge base.
 write: |-
@@ -167,10 +170,19 @@ plan: |-
   - Take into account the requirements to create the new files.
 ---
 `},
-
-{
-    id: 'Example experiment specs, check the file has changed.', 
-    experiment_specs: `# Bla bla bla
+    {
+        id: `Structured extraction experiment.
+Requires Dataview and Graph Link Types plugins.`,
+        experiment_specs: `---
+system: You are a hard-try entity extractor, which reviews thoroughly any provided source in search of every posible detail.
+write: Each file is an entity, and can be related to another entity in
+prompt: "You can check above are some files which content you must integrate in an existing knowledge base, you must the following process: 1. Propose a plan based on the content of the files until it is accepted by the user (using the function). 2. Given the content you want to create, ask any necessary question to verify if any information is already contained in the vault. 3. Given the answers, including content already in the vault, create new .md notes linked to the ones existing, that answer jointly the question you asked."
+plan: |-
+  Considerations to create a new plan:
+  - Be specific with the files and contents you want to include.
+  - Be specific with the actions you will take at each step.
+  - Take into account the requirements to create the new files.
+---
 `},
 ]
 

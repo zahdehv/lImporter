@@ -21,8 +21,8 @@ const agentList = [
             const preprocessor = createMessageslIm(plugin, ai);
 
             const sendMessage = async (files: FileItem[], additionalPrompt?: string) => {
-                const { planFX, askFilesFX, moveFX, treeFX, writeFX, finishFX, mkdirFX, readFX } = await getFunctions(plugin.app);
-                const functions = [planFX, askFilesFX, moveFX, treeFX, writeFX, finishFX, mkdirFX, readFX];
+                const { planFX, askFilesFX, moveFX, treeFX, writeFX, finishFX, mkdirFX, readFX, getUnresolvedLinksFX } = await getFunctions(plugin.app);
+                const functions = [planFX, askFilesFX, moveFX, treeFX, writeFX, finishFX, mkdirFX, readFX, getUnresolvedLinksFX];
                 let files_to_process: PartUnion[] = [];
                 const up = plugin.tracker.createMessage("AI");
                 if (files.length > 0) {

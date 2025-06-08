@@ -9,10 +9,10 @@ import { askModal } from "../views/confirm";
 
 export async function getFunctions(app: App, cf = { askPlan: true, askWrite: false, modelCPRS: models.flash2l }) {
     const { askPlan, modelCPRS } = cf;
-    
+
     const write_specs = await getSpecs(app, 'write');
     const plan_specs = await getSpecs(app, 'plan');
-    
+
     const folder_options = app.vault.getAllFolders(true).map(folder => folder.path);
     const file_options = app.vault.getFiles().map(file => file.path);
     const md_options = app.vault.getMarkdownFiles().map(file => file.path);
@@ -52,7 +52,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
             // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '-', "write " + args.path, "```diff\n" + wrote.diff + "\n```"));
             // w.updateState("complete");
             // w.appendFile(plugin, args.path, "\n\n```diff\n" + wrote.diff + "\n```");
-            const path = args.folder_path.split('/').concat([args.filename]).filter(pt=>pt != '').join('/');
+            const path = args.folder_path.split('/').concat([args.filename]).filter(pt => pt != '').join('/');
             const wt = plugin.tracker.createMessage("AI");
             wt.MD(FORMAT_CALLOUT("note", '+', `writing \`${path}\``, `${args.content}`));
             const wrote = await writeHELPER(plugin.app, path, args.content);
@@ -78,7 +78,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
                     },
                     content: {
                         type: Type.STRING,
-                        description: prompts.write_content+"\n\n"+(write_specs? write_specs:""),
+                        description: prompts.write_content + "\n\n" + (write_specs ? write_specs : ""),
                     },
                 },
             },
@@ -220,7 +220,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
                 properties: {
                     plan: {
                         type: Type.STRING,
-                        description: prompts.plan_desc+"\n\n"+(plan_specs?plan_specs:""),
+                        description: prompts.plan_desc + "\n\n" + (plan_specs ? plan_specs : ""),
                     },
                 },
             },
@@ -230,7 +230,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
     const askFilesFX: FunctionArg = {
         run: async (plugin, args: { question: string, level: 'paragraph' | 'sentence' | 'keyword' }) => {
             plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '+', `The model asked a question at \`${args.level}\` level`, `QUESTION: ${args.question}`));
-            const relevant_items = await CPRS_TL(plugin, args.question, args.level, {max_tokens: 131072, model: models.flash2l});
+            const relevant_items = await CPRS_TL(plugin, args.question, args.level, { max_tokens: 131072, model: models.flash2l });
             const relevant_context: string = relevant_items?.map((item) => {
                 const file = plugin.app.vault.getFileByPath(item.path);
                 if (file) return `Cite ${plugin.app.fileManager.generateMarkdownLink(file, "")} to use the following information: '${item.extracted_item}'.`;
@@ -262,7 +262,45 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
         }
     }
 
-    return { writeFX, moveFX, readFX, treeFX, finishFX, planFX, askFilesFX, mkdirFX };
+    const getUnresolvedLinksFX: FunctionArg = {
+        run: async (plugin, args: { explanation: string }) => {
+
+            const uLinks: string[] = []
+
+            const unresolvedFiles = this.app.metadataCache.unresolvedLinks;
+            const filePaths = Object.keys(unresolvedFiles);
+            filePaths.forEach(fl => {
+                const unresolvedLinks = unresolvedFiles[fl];
+                const unresolved = Object.keys(unresolvedLinks);
+                unresolved.forEach(ul => {
+                    uLinks.push(`- The file ${fl} has ${unresolvedLinks[ul]} unresolved link(s) trying to connect to '${ul}' (probably using [[${ul}]])`);
+                });
+            });
+
+            const answer = uLinks.join("\n")
+            plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '+', `Searching Unresolved Links`, `RESULT:\n${answer}`));
+
+            return { output: answer }
+        },
+        schema:
+        {
+            name: 'get_unresolved_links',
+            description: prompts.get_unresolved_links_desc,
+            parameters: {
+                type: Type.OBJECT,
+                required: ["explanation"],
+                properties: {
+                    explanation: {
+                        type: Type.STRING,
+                        description: prompts.get_unresolved_links_expl,
+                    },
+
+                },
+            },
+        }
+    }
+
+    return { writeFX, moveFX, readFX, treeFX, finishFX, planFX, askFilesFX, mkdirFX, getUnresolvedLinksFX };
 }
 
 function getConf(plugin: lImporterPlugin, path_options: string[]): GenerateContentConfig {
@@ -327,14 +365,14 @@ export async function CPRS(plugin: lImporterPlugin, files: TFile[], prompt: stri
         const hf = Math.ceil(files.length / 2);
         const filesI = files.slice(undefined, hf);
         const filesII = files.slice(hf);
-        return (await CPRS(plugin, filesI, prompt, {max_tokens, model})).concat(await CPRS(plugin, filesII, prompt, {max_tokens, model}));
+        return (await CPRS(plugin, filesI, prompt, { max_tokens, model })).concat(await CPRS(plugin, filesII, prompt, { max_tokens, model }));
     }
 }
 
-export async function CPRS_TL(plugin: lImporterPlugin, question: string, level: "keyword" | "paragraph" | "sentence", cf = {max_tokens: 131072, model: models.flash2l}) {
-    const {max_tokens, model} = cf;
+export async function CPRS_TL(plugin: lImporterPlugin, question: string, level: "keyword" | "paragraph" | "sentence", cf = { max_tokens: 131072, model: models.flash2l }) {
+    const { max_tokens, model } = cf;
 
-    const files = plugin.app.vault.getMarkdownFiles().filter(file=>(!file.name.includes('.lim')));
+    const files = plugin.app.vault.getMarkdownFiles().filter(file => (!file.name.includes('.lim')));
     switch (level) {
         case "keyword":
             const prompt_keywords = prompts.extract_keywords + question + prompts.extract_suffix;

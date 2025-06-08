@@ -117,7 +117,7 @@ export async function run_looper(plugin: lImporterPlugin, chat: Chat, initMessag
             } catch (error) {
                 console.error(error);
                 if (plugin.tracker.abortController.signal.aborted) throw new Error("Signal aborted during EXP KNOCK");
-                
+
                 await sleep((2 ** exp) * 1000);
             } //ms
         }
