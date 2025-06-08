@@ -1,7 +1,7 @@
 {
   "id": "lImporter",
   "name": "lImporter",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "minAppVersion": "0.15.0",
   "description": "Use Gemini LLM to generate connected notes.",
   "author": "zahdehv",
