@@ -171,17 +171,159 @@ plan: |-
 ---
 `},
     {
-        id: `Structured extraction experiment.
-Requires Dataview and Graph Link Types plugins.`,
+        id: `EXP 1: HARRY POTTER STRUCTURED (NO INC).`,
         experiment_specs: `---
-system: You are a hard-try entity extractor, which reviews thoroughly any provided source in search of every posible detail.
-write: Each file is an entity, and can be related to another entity in
-prompt: "You can check above are some files which content you must integrate in an existing knowledge base, you must the following process: 1. Propose a plan based on the content of the files until it is accepted by the user (using the function). 2. Given the content you want to create, ask any necessary question to verify if any information is already contained in the vault. 3. Given the answers, including content already in the vault, create new .md notes linked to the ones existing, that answer jointly the question you asked."
-plan: |-
-  Considerations to create a new plan:
-  - Be specific with the files and contents you want to include.
-  - Be specific with the actions you will take at each step.
-  - Take into account the requirements to create the new files.
+system: You are a specialized AI that functions as a knowledge graph constructor. Your core task is to meticulously analyze a provided source text, identify entities and their relationships based on a predefined schema, and then generate a distinct Markdown file for each identified entity.
+
+write: |-
+  Each new file represents a single entity and must follow this structure. The placeholders (e.g., \`<ENTITY_NAME>\`) should be replaced with the extracted information.
+
+  **CRITICAL FORMATTING RULES:**
+  1.  **File Path:** The file for each entity must be placed in a folder named after its entity type in lowercase. The full path must be \`<entity_type_lowercase>/<ENTITY_NAME>.md\`. (e.g., A CHARACTER named "John Doe" becomes \`character/John Doe.md\`).
+  2.  **Relations:** If an entity has the same relation to multiple other entities, each relation must be on a new line.
+
+  ---
+  # <ENTITY_NAME>
+
+  ## Details
+  - <SUMMARY_OR_DETAILS_EXTRACTED_FROM_SOURCE>
+
+  ## Relations
+  # Example of correct relation formatting:
+  # IS_FRIEND_OF:: [[Jane Smith]]
+  # IS_FRIEND_OF:: [[Robert Brown]]
+  # BELONGS_TO:: [[The Guild]]
+  <RELATION_TYPE>:: [[<RELATED_ENTITY_NAME>]]
+
+prompt: |-
+  Analyze the provided source text. Your goal is to identify all relevant entities and relationships according to the schema below. For each unique entity you find, generate the content for a new Markdown file using the format and CRITICAL FORMATTING RULES specified in the 'write' section of this configuration.
+
+  ### Extraction Schema
+
+  **1. Entities to Extract:**
+  - CHARACTER
+  - ORGANIZATION
+  - LOCATION
+  - ITEM
+  - CONCEPT
+
+  **2. Relations to Identify:**
+  Identify connections between entities based on these triplets ([ENTITY_1, RELATION_NAME, ENTITY_2]):
+  - [CHARACTER, BELONGS_TO, ORGANIZATION]
+  - [CHARACTER, IS_FRIEND_OF, CHARACTER]
+  - [CHARACTER, IS_ENEMY_OF, CHARACTER]
+  - [CHARACTER, HAS_USED, ITEM]
+  - [CHARACTER, HAS_OWN, ITEM]
+  - [CONCEPT, RELATED_TO, ANY_ENTITY]
+---
+`},
+
+
+
+
+
+
+
+
+// churre
+{
+    id: `hp test inc.`,
+    experiment_specs: `---
+system: You are a meticulous AI agent specializing in managing a knowledge base of characters. Your function is to analyze source texts, integrate new information into an existing vault structure, and ensure the integrity of the knowledge base by following a precise, multi-step process.
+
+write: |-
+  Each new character file must adhere strictly to the following format and rules, which are determined by the extraction process.
+
+  **CRITICAL FORMATTING RULES:**
+  1.  **File Path:** The file path is dynamically generated based on the character's house: \`<house_name_lowercase>/<CHARACTER_NAME>.md\`. (e.g., A character in Gryffindor named "Harry Potter" becomes \`gryffindor/Harry Potter.md\`).
+  2.  **Tagging:** The character's house must also be included as a lowercase tag in the frontmatter.
+
+  ---
+  type: character
+  tags: [character, <house_name_lowercase>]
+  ---
+  
+  # <CHARACTER_NAME>
+
+  ## Details
+  - <SUMMARY_OF_CHARACTER_DETAILS_EXTRACTED_FROM_SOURCE>
+
+  ## Relations
+  # Example of correct formatting for a Gryffindor student:
+  # BELONGS_TO:: [[Gryffindor]]
+  # IS_FRIEND_OF:: [[Ron Weasley]]
+  # IS_ENEMY_OF:: [[Draco Malfoy]]
+  <RELATION_TYPE>:: [[<RELATED_ENTITY_NAME>]]
+
+prompt: |-
+  You are to process a provided source text to update a knowledge vault about characters from the world of Harry Potter. You must follow this three-step procedure exactly:
+
+  **Step 1: Analyze Existing Vault Structure**
+  First, you will be provided with a tree-like representation of the current vault (e.g., \`gryffindor/\`, \`slytherin/\`, etc.). Review this structure to understand which characters already exist.
+
+  **Step 2: Extract, Create, and Update**
+  Next, meticulously analyze the provided source text.
+
+    *Primary Directive: House Classification*
+    For each character identified, your **first and most important task** is to determine their Hogwarts House: \`Gryffindor\`, \`Hufflepuff\`, \`Ravenclaw\`, or \`Slytherin\`.
+    -   This House affiliation dictates the **output folder** and the **metadata tag** for the character's file, as specified in the 'write' section.
+    -   **If a character's house cannot be determined** from the text, place their file in an \`unassigned/\` directory and use the tag \`unassigned\`.
+
+    *Secondary Directive: Data Extraction*
+    Once the house is classified, extract additional details and relationships.
+    -   **For new characters:** Generate the complete file content using the format from the 'write' section, placing it in the correct house folder.
+    -   **For existing characters:** Propose updates to their file with any new information found.
+    -   **Relations to Identify:** \`BELONGS_TO\`, \`IS_FRIEND_OF\`, \`IS_ENEMY_OF\`, \`IS_FAMILY_OF\`, \`MENTORS\`, \`IS_MENTORED_BY\`.
+
+  **Step 3: Report Unresolved Links**
+  Finally, after generating all new and updated content, perform a verification check. Create a list of any character or house names that are linked (\`[[link]]\`) but do not have a corresponding file in the vault. Present this as an "Unresolved Links Report".
+---`},
+{
+    id: `Structured extraction experiment.
+Requires Dataview and Graph Link Types plugins.`,
+    experiment_specs: `---
+system: You are a specialized AI that functions as a knowledge graph constructor. Your core task is to meticulously analyze a provided source text, identify entities and their relationships based on a predefined schema, and then generate a distinct Markdown file for each identified entity.
+
+write: |-
+Each new file represents a single entity and must follow this structure. The placeholders (e.g., \`<ENTITY_NAME>\`) should be replaced with the extracted information.
+
+**CRITICAL FORMATTING RULES:**
+1.  **File Path:** The file for each entity must be placed in a folder named after its entity type in lowercase. The full path must be \`<entity_type_lowercase>/<ENTITY_NAME>.md\`. (e.g., A CHARACTER named "John Doe" becomes \`character/John Doe.md\`).
+2.  **Relations:** If an entity has the same relation to multiple other entities, each relation must be on a new line.
+
+---
+# <ENTITY_NAME>
+
+## Details
+- <SUMMARY_OR_DETAILS_EXTRACTED_FROM_SOURCE>
+
+## Relations
+# Example of correct relation formatting:
+# IS_FRIEND_OF:: [[Jane Smith]]
+# IS_FRIEND_OF:: [[Robert Brown]]
+# BELONGS_TO:: [[The Guild]]
+<RELATION_TYPE>:: [[<RELATED_ENTITY_NAME>]]
+
+prompt: |-
+Analyze the provided source text. Your goal is to identify all relevant entities and relationships according to the schema below. For each unique entity you find, generate the content for a new Markdown file using the format and CRITICAL FORMATTING RULES specified in the 'write' section of this configuration.
+
+### Extraction Schema
+
+**1. Entities to Extract:**
+- CHARACTER
+- ORGANIZATION
+- LOCATION
+- ITEM
+- CONCEPT
+
+**2. Relations to Identify:**
+Identify connections between entities based on these triplets ([ENTITY_1, RELATION_NAME, ENTITY_2]):
+- [CHARACTER, BELONGS_TO, ORGANIZATION]
+- [CHARACTER, IS_FRIEND_OF, CHARACTER]
+- [CHARACTER, IS_ENEMY_OF, CHARACTER]
+- [CHARACTER, HAS_USED, ITEM]
+- [CHARACTER, HAS_OWN, ITEM]
+- [CONCEPT, RELATED_TO, ANY_ENTITY]
 ---
 `},
 ]
