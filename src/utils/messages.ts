@@ -1,8 +1,9 @@
 import { FileItem, upload_file } from "./files"; // Assuming upload_file is correctly imported
-import { createPartFromText, createPartFromUri, GoogleGenAI, PartUnion } from "@google/genai";
+import { createPartFromUri, GoogleGenAI, PartUnion } from "@google/genai";
 import lImporterPlugin from "../main";
 
-export const createMessageslIm = (plugin: lImporterPlugin, ai: GoogleGenAI) => {
+export const createMessageslIm = (plugin: lImporterPlugin, ai: GoogleGenAI, cf = { prepend_files_path: true }) => {
+    const { prepend_files_path } = cf;
     const preProcess = async (tfiles: FileItem[]): Promise<PartUnion[]> => {
         const messages: PartUnion[] = [];
 
@@ -19,6 +20,8 @@ export const createMessageslIm = (plugin: lImporterPlugin, ai: GoogleGenAI) => {
             }
 
             if (tfile.cloud_file) {
+
+                if (prepend_files_path) messages.push(`The following file path is \`${tfile.path}\`:`);
                 messages.push(createPartFromUri(tfile.cloud_file.uri, tfile.cloud_file.mimeType));
                 // prep.appendFile(plugin, tfile.path, "File uploaded");
             }

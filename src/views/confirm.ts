@@ -92,8 +92,8 @@ export class FeedbackModal extends Modal {
         // and the promise hasn't been resolved yet.
         if (!this.didSubmit && this.resolvePromise) {
             this.resolvePromise({
-                accepted: false, // Default to rejected or a specific "cancelled" state
-                feedback: this.textareaEl?.value?.trim() || '' // Still provide feedback if any was typed
+                accepted: true, // Default to rejected or a specific "cancelled" state
+                feedback: "The user accepted the plan" // Still provide feedback if any was typed
             });
         }
     }

@@ -7,7 +7,7 @@ import { models } from "./agen";
 import lImporterPlugin from "src/main";
 import { askModal } from "../views/confirm";
 
-export async function getFunctions(app: App, cf = { askPlan: true, askWrite: false, modelCPRS: models.flash2l }) {
+export async function getFunctions(app: App, cf = { askPlan: true, askWrite: false, modelCPRS: models.flash2 }) {
     const { askPlan, modelCPRS } = cf;
 
     const write_specs = await getSpecs(app, 'write');
@@ -19,10 +19,6 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
 
     const mkdirFX: FunctionArg = {
         run: async (plugin, args: { path: string }) => {
-            // const w = plugin.tracker.appendStep("Write file", "writing file...", "pen", 'in-progress');
-            // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '-', "write " + args.path, "```diff\n" + wrote.diff + "\n```"));
-            // w.updateState("complete");
-            // w.appendFile(plugin, args.path, "\n\n```diff\n" + wrote.diff + "\n```");
             const md = plugin.tracker.createMessage("AI");
 
             await app.vault.adapter.mkdir(normalizePath(args.path));
@@ -48,15 +44,19 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
 
     const writeFX: FunctionArg = {
         run: async (plugin, args: { folder_path: string, filename: string, content: string }) => {
-            // const w = plugin.tracker.appendStep("Write file", "writing file...", "pen", 'in-progress');
-            // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '-', "write " + args.path, "```diff\n" + wrote.diff + "\n```"));
-            // w.updateState("complete");
-            // w.appendFile(plugin, args.path, "\n\n```diff\n" + wrote.diff + "\n```");
+            if (args.filename.includes("/")) return {output: "Filename cannot contain '/'"}
             const path = args.folder_path.split('/').concat([args.filename]).filter(pt => pt != '').join('/');
             const wt = plugin.tracker.createMessage("AI");
             wt.MD(FORMAT_CALLOUT("note", '+', `writing \`${path}\``, `${args.content}`));
             const wrote = await writeHELPER(plugin.app, path, args.content);
             wt.MD(FORMAT_CALLOUT("check", '-', `\`${path}\` wrote`, `\`\`\`diff\n${wrote.diff}\n\`\`\``));
+            
+            //REMOVE THIS
+            let flltmp = plugin.app.vault.getFileByPath("clltz_logs_27.md");
+            if (!flltmp) flltmp = await plugin.app.vault.create("clltz_logs_27.md", "");
+            
+            await plugin.app.vault.append(flltmp, `\`\`\`diff\n${wrote.diff}\n\`\`\`\n\n`)
+
             return { output: wrote.message };
         },
         schema:
@@ -203,7 +203,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
                     return { output: "The user accepted the plan.", metadata: { accepted: true } };
                 }
                 plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("fail", '-', "plan rejected", `FEEDBACK:\n${feedback}`));
-                return { output: `The user rejected the plan and gave feedback: '${feedback}'.`, metadata: { accepted: true } };
+                return { output: `The user rejected the plan and gave feedback: '${feedback}'.`, metadata: { accepted: false } };
 
             } else {
                 plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("check", '-', "plan accepted", `PLAN:\n${args.plan}`));
@@ -230,10 +230,10 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
     const askFilesFX: FunctionArg = {
         run: async (plugin, args: { question: string, level: 'paragraph' | 'sentence' | 'keyword' }) => {
             plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '+', `The model asked a question at \`${args.level}\` level`, `QUESTION: ${args.question}`));
-            const relevant_items = await CPRS_TL(plugin, args.question, args.level, { max_tokens: 131072, model: models.flash2l });
+            const relevant_items = await CPRS_TL(plugin, args.question, args.level, { max_tokens: 131072, model: modelCPRS });
             const relevant_context: string = relevant_items?.map((item) => {
                 const file = plugin.app.vault.getFileByPath(item.path);
-                if (file) return `Cite ${plugin.app.fileManager.generateMarkdownLink(file, "")} to use the following information: '${item.extracted_item}'.`;
+                if (file) return `If the following information is of any interest for the question: '${item.extracted_item}', you can create a link to the file that contains it by writing ${plugin.app.fileManager.generateMarkdownLink(file, "")}`;
                 console.debug("FILE NOT FOUND WATS HAPENINN?");
                 return `File '${item.path}' not found.`;
             }).join("\n\n");
