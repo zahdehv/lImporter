@@ -187,5 +187,5 @@ TIP: You can include the usage of the following functions in the plan:
     },
 ];
 
-// export const currentAgent = agentList[0]; // Pure react agent
-export const currentAgent = agentList[1]; //Agent with chain (force plan)
+export const currentAgent = agentList[0]; // Pure react agent
+// export const currentAgent = agentList[1]; //Agent with chain (force plan)
