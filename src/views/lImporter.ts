@@ -227,7 +227,7 @@ export class lImporterView extends ItemView {
             const errorMsg = error instanceof Error ? error.message : String(error);
             console.error(errorMsg);
             this.plugin.tracker.setInProgressStepsToError(errorMsg);
-            this.plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("fail", '+', `ERROR`, errorMsg));
+            this.plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("fail", '-', `ERROR`, errorMsg));
 
         } finally {
             this.sendButton.removeClass('stop-mode');

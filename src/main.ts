@@ -30,9 +30,18 @@ export default class lImporterPlugin extends Plugin {
         );
         this.addRibbonIcon('import', 'lImporter', () => this.activateView(LIMPORTER_VIEW_TYPE)).addClass('limporter-ribbon-icon');
 
-        // this.addRibbonIcon('pen', 'PEN', () => {
-
-        // });
+        this.addRibbonIcon('pen', 'PEN', () => {
+            const allNotes = this.app.vault.getMarkdownFiles();
+            new Notice(`${allNotes.length} TOTAL NOTES`);
+            let counter = 0;
+            allNotes.forEach(note => {
+                const cch = this.app.metadataCache.getFileCache(note);
+                if (cch) {
+                    counter += (cch.links?.length || 0);
+                }
+            });
+            new Notice(`${counter} TOTAL LINKS`);
+        });
 
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {

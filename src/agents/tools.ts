@@ -22,7 +22,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
             const md = plugin.tracker.createMessage("AI");
 
             await app.vault.adapter.mkdir(normalizePath(args.path));
-            md.MD(FORMAT_CALLOUT("note", '+', `mkdir \`${args.path}\``));
+            md.MD(FORMAT_CALLOUT("note", '-', `mkdir \`${args.path}\``));
             return { output: "Folder created" };
         },
         schema:
@@ -44,18 +44,18 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
 
     const writeFX: FunctionArg = {
         run: async (plugin, args: { folder_path: string, filename: string, content: string }) => {
-            if (args.filename.includes("/")) return {output: "Filename cannot contain '/'"}
+            if (args.filename.includes("/")) return { output: "Filename cannot contain '/'" }
             const path = args.folder_path.split('/').concat([args.filename]).filter(pt => pt != '').join('/');
             const wt = plugin.tracker.createMessage("AI");
-            wt.MD(FORMAT_CALLOUT("note", '+', `writing \`${path}\``, `${args.content}`));
+            wt.MD(FORMAT_CALLOUT("note", '-', `writing \`${path}\``, `${args.content}`));
             const wrote = await writeHELPER(plugin.app, path, args.content);
             wt.MD(FORMAT_CALLOUT("check", '-', `\`${path}\` wrote`, `\`\`\`diff\n${wrote.diff}\n\`\`\``));
-            
+
             //REMOVE THIS
-            let flltmp = plugin.app.vault.getFileByPath("clltz_logs_27.md");
-            if (!flltmp) flltmp = await plugin.app.vault.create("clltz_logs_27.md", "");
-            
-            await plugin.app.vault.append(flltmp, `\`\`\`diff\n${wrote.diff}\n\`\`\`\n\n`)
+            // let flltmp = plugin.app.vault.getFileByPath("clltz_logs_27.md");
+            // if (!flltmp) flltmp = await plugin.app.vault.create("clltz_logs_27.md", "");
+
+            // await plugin.app.vault.append(flltmp, `\`\`\`diff\n${wrote.diff}\n\`\`\`\n\n`)
 
             return { output: wrote.message };
         },
@@ -229,14 +229,14 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
 
     const askFilesFX: FunctionArg = {
         run: async (plugin, args: { question: string, level: 'paragraph' | 'sentence' | 'keyword' }) => {
-            plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '+', `The model asked a question at \`${args.level}\` level`, `QUESTION: ${args.question}`));
+            plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '-', `The model asked a question at \`${args.level}\` level`, `QUESTION: ${args.question}`));
             const relevant_items = await CPRS_TL(plugin, args.question, args.level, { max_tokens: 131072, model: modelCPRS });
-            const relevant_context: string = relevant_items?.map((item) => {
+            const relevant_context: string = [`The following information can be relevant to the question '${args.question}'`].concat(relevant_items?.map((item) => {
                 const file = plugin.app.vault.getFileByPath(item.path);
-                if (file) return `If the following information is of any interest for the question: '${item.extracted_item}', you can create a link to the file that contains it by writing ${plugin.app.fileManager.generateMarkdownLink(file, "")}`;
+                if (file) return `- The ${args.level} '${item.extracted_item}', appears in ${file.path}, you can link to this file including \`${plugin.app.fileManager.generateMarkdownLink(file, "")}\` in a file content.`;
                 console.debug("FILE NOT FOUND WATS HAPENINN?");
                 return `File '${item.path}' not found.`;
-            }).join("\n\n");
+            })).join("\n\n");
             plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("check", '-', `\`${args.question}\``, relevant_context));
             return { output: relevant_context }
         },
@@ -278,7 +278,7 @@ export async function getFunctions(app: App, cf = { askPlan: true, askWrite: fal
             });
 
             const answer = uLinks.join("\n")
-            plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '+', `Searching Unresolved Links`, `RESULT:\n${answer}`));
+            plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("info", '-', `Searching Unresolved Links`, `RESULT:\n${answer}`));
 
             return { output: answer }
         },
@@ -387,4 +387,20 @@ export async function CPRS_TL(plugin: lImporterPlugin, question: string, level: 
             const prompt_default = prompts.extract_sentence + question + prompts.extract_suffix;
             return CPRS(plugin, files, prompt_default, { max_tokens, model });
     }
+}
+
+export async function getFXDict(plugin: lImporterPlugin): Promise<Record<'plan' | 'ask' | 'mkdir' | 'write' | 'read' | 'tree' | 'move' | 'unresolved_links', FunctionArg>> {
+    const { planFX, askFilesFX, moveFX, treeFX, writeFX, finishFX, mkdirFX, readFX, getUnresolvedLinksFX } = await getFunctions(plugin.app);
+
+    return {
+        'plan': planFX,
+        'ask': askFilesFX,
+        'mkdir': mkdirFX,
+        'write': writeFX,
+        'read': readFX,
+        'tree': treeFX,
+        'move': moveFX,
+        'unresolved_links': getUnresolvedLinksFX,
+    }
+
 }

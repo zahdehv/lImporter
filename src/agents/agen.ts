@@ -1,13 +1,14 @@
 import lImporterPlugin from "src/main";
 import { createMessageslIm } from "../utils/messages";
-import { GoogleGenAI, PartUnion } from "@google/genai";
+import { FunctionCallingConfigMode, GoogleGenAI, PartUnion } from "@google/genai";
 import { FileItem } from "src/utils/files";
 import { prompts } from "./promp";
-import { FORMAT_CALLOUT, generateContentEKstream, handleStream, run_looper } from "./looper";
+import { FORMAT_CALLOUT, generateContentEKstream, handleStream, LoopStep, pplnloop, run_looper } from "./looper";
 import { CPRS_TL, getFunctions } from "./tools";
 
 export enum models {
-    flash25 = "gemini-2.5-flash-preview-05-20",
+    flash25 = "gemini-2.5-flash",
+    flash25l = "gemini-2.5-flash-lite-preview-06-17",
     flash2 = "gemini-2.0-flash",
     flash2l = "gemini-2.0-flash-lite",
 }
@@ -15,7 +16,7 @@ export enum models {
 // El loop esta inspirado en tiny agents 
 const agentList = [
     {
-        id: 'ra_test998',
+        id: 'ra_test997',
         buildAgent: (plugin: lImporterPlugin): (files: FileItem[], additionalPrompt?: string) => Promise<void> => {
             const ai = new GoogleGenAI({ apiKey: plugin.settings.GOOGLE_API_KEY });
             const preprocessor = createMessageslIm(plugin, ai);
@@ -26,7 +27,7 @@ const agentList = [
                 let files_to_process: PartUnion[] = [];
                 const up = plugin.tracker.createMessage("AI");
                 if (files.length > 0) {
-                    up.MD(FORMAT_CALLOUT("info", '+', `uploading files`, files.map(fl => "- " + fl.path).join('\n')));
+                    up.MD(FORMAT_CALLOUT("info", '-', `uploading files`, files.map(fl => "- " + fl.path).join('\n')));
                     files_to_process = await preprocessor(files);
                 }
 
@@ -38,9 +39,51 @@ const agentList = [
 
                 up.MD(FORMAT_CALLOUT("check", '-', `proceeded to call agent`, files.map(fl => "- " + fl.path).concat("\n\n" + prompt_base).join('\n')));
 
-                // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("quote", '+', `STARTED`));
+                // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("quote", '-', `STARTED`));
                 await run_looper(plugin, chat, message, { max_turns: 23, max_retries: 7, functions });
-                // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("quote", '+', `FINISHED`));
+                // plugin.tracker.createMessage("AI").MD(FORMAT_CALLOUT("quote", '-', `FINISHED`));
+            }
+            return sendMessage;
+        }
+    },
+    {
+        id: 'ra_test998',
+        buildAgent: (plugin: lImporterPlugin): (files: FileItem[], additionalPrompt?: string) => Promise<void> => {
+            const ai = new GoogleGenAI({ apiKey: plugin.settings.GOOGLE_API_KEY });
+            const preprocessor = createMessageslIm(plugin, ai);
+
+            const sendMessage = async (files: FileItem[], additionalPrompt?: string) => {
+                let files_to_process: PartUnion[] = [];
+                const up = plugin.tracker.createMessage("AI");
+                if (files.length > 0) {
+                    up.MD(FORMAT_CALLOUT("info", '-', `uploading files`, files.map(fl => "- " + fl.path).join('\n')));
+                    files_to_process = await preprocessor(files);
+                }
+
+                const chat = ai.chats.create({ model: models.flash25 });
+
+                let prompt_base: string = prompts.plan_and_solve_innit; //change the prompt
+                if (additionalPrompt) prompt_base = additionalPrompt; //change the prompt
+                const message = files_to_process.concat(`The user sent some files and the prompt: '${prompt_base}', you must propose a plan until the user accepts it, then end the session.`);
+
+                up.MD(FORMAT_CALLOUT("check", '-', `proceeded to call agent`, files.map(fl => "- " + fl.path).concat("\n\n" + prompt_base).join('\n')));
+                const planStep: LoopStep = {
+                    functions: ["plan"],
+                    finishable: true,
+                    max_retries: 4,
+                    max_turns: 7,
+                    mode: FunctionCallingConfigMode.ANY,
+                    prompt: ["Given the previously accepted plan, you must accomplish it."],
+                };
+                const ActStep: LoopStep = {
+                    functions: ["ask", "tree", "read", "mkdir", "write", "unresolved_links"],
+                    finishable: true,
+                    max_retries: 4,
+                    max_turns: 13,
+                    mode: FunctionCallingConfigMode.AUTO,
+                    prompt: message,
+                };
+                await pplnloop(plugin, chat, [planStep, ActStep])
             }
             return sendMessage;
         }
@@ -137,4 +180,5 @@ const agentList = [
     },
 ];
 
-export const currentAgent = agentList[0];
+// export const currentAgent = agentList[0]; // Pure react agent
+export const currentAgent = agentList[1]; //Agent with chain (force plan)
