@@ -63,49 +63,5 @@ export class lImporterSettingTab extends PluginSettingTab {
 
         }
 
-        containerEl.createEl('h3', { text: 'DEV Settings' });
-
-        new Setting(containerEl)
-            .setName('Reload Plugin')
-            .setDesc('Click to reload this plugin. This is useful for applying changes during development or if the plugin encounters an issue.')
-            .addButton(button => button
-                .setButtonText('Reload Plugin')
-                .setCta() // Makes the button more prominent (call to action style)
-                .onClick(async () => {
-                    const pluginId = this.plugin.manifest.id;
-                    const pluginName = this.plugin.manifest.name;
-
-                    button.setDisabled(true); // Disable button during reload
-                    button.setButtonText('Reloading...');
-
-                    try {
-                        console.log(`Attempting to reload plugin: ${pluginName} (${pluginId})`);
-
-                        // @ts-ignore (Obsidian's private API, but commonly used for this)
-                        // More robust way:
-                        // await this.app.plugins.disablePlugin(pluginId);
-                        await this.plugin.unload();
-                        console.log(`Plugin "${pluginName}" disabled.`);
-                        // await this.app.plugins.enablePlugin(pluginId);
-                        await this.plugin.load();
-                        console.log(`Plugin "${pluginName}" enabled.`);
-
-                        new Notice(`Plugin "${pluginName}" reloaded successfully!`);
-                    } catch (e) {
-                        console.error(`Error reloading plugin "${pluginName}":`, e);
-                        new Notice(`Failed to reload plugin "${pluginName}". Check console for details.`);
-                    } finally {
-                        // Re-enable button and restore text, even if an error occurs
-                        // A short delay might be needed if the settings tab itself re-renders too quickly
-                        // but usually, this is fine.
-                        setTimeout(() => {
-                            if (button.buttonEl.isConnected) { // Check if element is still in DOM
-                                button.setDisabled(false);
-                                button.setButtonText('Reload Plugin');
-                            }
-                        }, 100); // 100ms delay
-                    }
-                }));
-
     }
 }

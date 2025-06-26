@@ -2,10 +2,7 @@
 import { Notice, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, lImporterSettings, lImporterSettingTab } from './views/settings';
 import { ProcessTrackerInstance } from './utils/tracker';
-
-import { ChatView, CHAT_VIEW_TYPE } from './views/lImporter';
-import { LOG_VIEW_TYPE, LogView } from './views/logs';
-import { CPRS } from './utils/files';
+import { lImporterView, LIMPORTER_VIEW_TYPE } from './views/lImporter';
 
 export default class lImporterPlugin extends Plugin {
     settings: lImporterSettings;
@@ -14,28 +11,38 @@ export default class lImporterPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
 
-        this.registerView(
-            LOG_VIEW_TYPE,
-            (leaf) => (new LogView(leaf, this))
-        );
-        this.addCommand(
-            {
-                id: 'toggle-logs-file',
-                name: "Toggle logs to file",
-                callback: async () => {
-                    await this.activateView(LOG_VIEW_TYPE);
-                },
-            });
+        // this.addCommand(
+        //     {
+        //         id: 'toggle-logs-file',
+        //         name: "Toggle logs to file",
+        //         callback: async () => {
+        //             await this.loadData()
+        //             if (this.settings.patchedConsole) unpatchConsole();
+        //             else initializeAndPatchConsole(this.app, true);
+        //             this.settings.patchedConsole = !this.settings.patchedConsole;
+        //             await this.saveSettings();
+        //         },
+        //     });
 
         this.registerView(
-            CHAT_VIEW_TYPE,
-            (leaf: WorkspaceLeaf) => new ChatView(leaf, this)
+            LIMPORTER_VIEW_TYPE,
+            (leaf: WorkspaceLeaf) => new lImporterView(leaf, this)
         );
-        const lri = this.addRibbonIcon('import', 'lImporter', () => this.activateView(CHAT_VIEW_TYPE));
-        lri.addClass('limporter-ribbon-icon');
-        
-        this.addRibbonIcon('pen', 'pen', async () => await CPRS(this, [], 1));
-        
+        this.addRibbonIcon('import', 'lImporter', () => this.activateView(LIMPORTER_VIEW_TYPE)).addClass('limporter-ribbon-icon');
+
+        this.addRibbonIcon('pen', 'PEN', () => {
+            const allNotes = this.app.vault.getMarkdownFiles();
+            new Notice(`${allNotes.length} TOTAL NOTES`);
+            let counter = 0;
+            allNotes.forEach(note => {
+                const cch = this.app.metadataCache.getFileCache(note);
+                if (cch) {
+                    counter += (cch.links?.length || 0);
+                }
+            });
+            new Notice(`${counter} TOTAL LINKS`);
+        });
+
         this.app.workspace.onLayoutReady(() => {
             this.registerEvent(this.app.vault.on("create", (file: TAbstractFile) => {
                 if (file instanceof TFile) {
@@ -59,6 +66,7 @@ export default class lImporterPlugin extends Plugin {
                     }
                 }
             }));
+
             this.registerEvent(this.app.workspace.on("file-menu", (menu, file: TAbstractFile) => {
                 if (file instanceof TFile && this.isSupportedFile(file)) { // isSupportedFile uses all extensions
                     menu.addItem((item) => {
@@ -67,12 +75,13 @@ export default class lImporterPlugin extends Plugin {
                 }
             }));
         });
+
         this.addSettingTab(new lImporterSettingTab(this.app, this));
     }
 
     private async openFileProcessor(file: TFile): Promise<void> {
-        const view = await this.activateView(CHAT_VIEW_TYPE);
-        if (view && view instanceof ChatView) {
+        const view = await this.activateView(LIMPORTER_VIEW_TYPE);
+        if (view && view instanceof lImporterView) {
             await view.addFile(file);
         } else {
             new Notice("lImporter view could not be opened or found.");
@@ -167,11 +176,6 @@ export default class lImporterPlugin extends Plugin {
     }
 
     async onunload() {
-        console.log(`Unloading plugin: ${this.manifest.name}`);
-
-        this.app.workspace.detachLeavesOfType(CHAT_VIEW_TYPE);
-        this.app.workspace.detachLeavesOfType(LOG_VIEW_TYPE);
-
+        // this.app.workspace.detachLeavesOfType(LIMPORTER_VIEW_TYPE);
     }
-
 }

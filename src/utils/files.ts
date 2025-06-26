@@ -1,9 +1,6 @@
 import { App, TFolder, TFile, getAllTags, prepareFuzzySearch, FuzzySuggestModal } from 'obsidian'; // Import App
 import * as Diff from 'diff';
-import { GoogleGenAI, Type } from '@google/genai';
-import lImporterPlugin from 'src/main';
-import { describe } from 'node:test';
-import { models } from 'src/agents/agen';
+import { GoogleGenAI } from '@google/genai';
 
 export class FileSuggestionModal extends FuzzySuggestModal<TFile> {
     private didSubmit: boolean = false;
@@ -98,7 +95,7 @@ export async function treeHELPER(
             return a.name.localeCompare(b.name);
         });
 
-        const itemsToList = includeFiles ? children : children.filter(child => child instanceof TFolder);
+        const itemsToList = (includeFiles ? children : children.filter(child => child instanceof TFolder)).filter(item => !item.name.includes(".lim"));
 
         for (let i = 0; i < itemsToList.length; i++) {
             const child = itemsToList[i];
@@ -265,7 +262,6 @@ export const ghostHELPER = (app: App, file: TFile | null) => {
 
 export async function writeHELPER(app: App, path: string, content: string): Promise<{ message: string, diff: string }> {
     const vault = app.vault;
-    console.log("path", path);
     if (path.includes(".lim")) return { message: `Error al escribir archivo: ${"Cannot write a .lim file"}`, diff: "" };
 
     const fileExists = await vault.adapter.exists(path);
@@ -349,7 +345,6 @@ export async function prepareFileData(file: TFile): Promise<FileItem> {
 
 
 async function findFileBySha256(genAI: GoogleGenAI, localSha256: string) {
-    // console.log(`Searching for file with SHA256: ${localSha256}`);
     try {
         // The `files` manager is available directly on the genAI instance
         const listFilesResponse = await genAI.files.list({
@@ -360,14 +355,11 @@ async function findFileBySha256(genAI: GoogleGenAI, localSha256: string) {
         // const files = listFilesResponse.files || []; // Ensure files is an array
 
         for await (const remoteFile of listFilesResponse) {
-            // console.log(remoteFile.displayName, remoteFile.sha256Hash);
             if (remoteFile.sha256Hash === localSha256) {
-                // console.log(`File found on Gemini with SHA256: ${localSha256}, Name: ${remoteFile.name}, URI: ${remoteFile.uri}`);
                 return remoteFile; // Found the file
             }
         }
 
-        console.log(`No file found with SHA256: ${localSha256}`);
         return null; // File not found
     } catch (error) {
         console.error("Error listing files on Gemini:", error);
@@ -395,143 +387,18 @@ export async function upload_file(app: App, file: FileItem, ai: GoogleGenAI, sig
     let geminiFile = await findFileBySha256(ai, SHA256b64);
 
     if (geminiFile) {
-        console.log(`File "${file.title}" (SHA256: ${SHA256b64}) already exists on Gemini as "${geminiFile.name}". URI: ${geminiFile.uri}`);
+        console.debug(`File "${file.title}" (SHA256: ${SHA256b64}) already exists on Gemini as "${geminiFile.name}". URI: ${geminiFile.uri}`);
         file.cloud_file = (geminiFile.name && geminiFile.mimeType && geminiFile.uri) ? { name: geminiFile.name, mimeType: geminiFile.mimeType, uri: geminiFile.uri } : null;
 
         return geminiFile;
     } else {
 
-        console.log(`File "${file.title}" (SHA256: ${SHA256b64}) not found on Gemini. Uploading...`);
+        console.debug(`File "${file.title}" (SHA256: ${SHA256b64}) not found on Gemini. Uploading...`);
 
         geminiFile = await ai.files.upload({ file: file.blob, config: { abortSignal: signal, displayName: file.path, mimeType: file.mimeType } });
         file.cloud_file = (geminiFile.name && geminiFile.mimeType && geminiFile.uri) ? { name: geminiFile.name, mimeType: geminiFile.mimeType, uri: geminiFile.uri } : null;
 
-        console.log(`File "${file.title}" uploaded successfully. Name: ${geminiFile.name}, URI: ${geminiFile.uri}`);
+        console.debug(`File "${file.title}" uploaded successfully. Name: ${geminiFile.name}, URI: ${geminiFile.uri}`);
         return geminiFile;
     }
 }
-
-interface res {
-    retrieved_items: {
-        path: string;
-        summary: string;
-        keypoints: string[];
-    }[]
-}
-
-export async function CPRS(plugin: lImporterPlugin, query_keypoints: string[], batch_size = 10) {
-    const ai = new GoogleGenAI({ apiKey: plugin.settings.GOOGLE_API_KEY });
-    const files = plugin.app.vault.getMarkdownFiles(); // Consider using all files
-
-    const path_to_link: Record<string, string> = {}
-    // const path_to_file: Record<string, TFile> = {}
-
-    files.forEach(file => {
-        // path_to_file[file.path] = file;
-        path_to_link[file.path] = plugin.app.fileManager
-            .generateMarkdownLink(
-                file,
-                "/",
-                undefined,
-                "{here you can use any alias to show in the document}");
-    });
-
-    console.log(Object.keys(path_to_link));
-    console.log(path_to_link);
-
-
-    // here goes the batch function...
-    const processBATCH = async (batch_files: TFile[], no: number) => {
-        const retr_stp = plugin.tracker.appendStep("Processing Batch NO: "+no, "Retrieving data...", 'file-search', 'in-progress');
-        const path_options = batch_files.map(file => file.path);
-        console.log("Processing files:\n"+path_options.join("\n"));
-        const context_list = [];
-        for (let index = 0; index < batch_files.length; index++) {
-            const b_file = batch_files[index];
-            const b_file_content = await plugin.app.vault.cachedRead(b_file);
-            context_list.push(`<file path='${b_file.path}'>\n${b_file_content}\n</file>`)
-        }
-        const context_files = context_list.join("\n\n");
-        const config = {
-            temperature: 0.55,
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: Type.OBJECT,
-                required: ["retrieved_items"],
-                properties: {
-                    retrieved_items: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            required: ["path", "keypoints", "summary"],
-                            properties: {
-                                path: {
-                                    type: Type.STRING,
-                                    enum: path_options,
-                                },
-                                keypoints: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.STRING,
-                                        enum: query_keypoints,
-                                    },
-                                },
-                                summary: {
-                                    type: Type.STRING,
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        };
-
-        const contents = [
-            {
-                role: 'user',
-                parts: [
-                    {
-                        text: context_files+"\n\nPlease extract those files that contain content related to a greater than zero amount of the provided keypoints: \n"+ query_keypoints.map(i=>"- "+i).join("\n")+ " and sumarize why is the content of those files relevant.",
-                    },
-                ],
-            },
-        ];
-
-        const response = await ai.models.generateContent({
-            model: models.flash25,
-            config,
-            contents,
-        });
-        if (response.text) {
-            const ob: res = JSON.parse(response.text);
-            const answer_parts: string[] = [];
-            ob.retrieved_items.forEach(item=> {
-                const keypoints = item.keypoints.map(kp=>"- "+kp).join("\n");
-                const retrieved = `The file '${item.path}'(link to this note using '${path_to_link[item.path]}') contains the following keypoints:\n${keypoints}\nSummary: ${item.summary}`;
-                answer_parts.push(retrieved);
-                retr_stp.appendFile(plugin, item.path, retrieved);
-            });
-            retr_stp.updateState('complete');
-            
-            return answer_parts.join("\n\n");
-        }
-        retr_stp.updateState('pending');
-        return ""
-    }
-
-    // here goes the for
-    const batches: Promise<string>[] = [];
-    for (let s = 0; s < files.length; s += batch_size) {
-        const elements = files.slice(s, s + batch_size);
-        batches.push(processBATCH(elements, (s+batch_size)/batch_size));
-    }
-    const result = (await Promise.all(batches)).join("\n");
-    return result;
-    /// Consider output type here...
-}
-
-
-//     for await (const chunk of response) {
-//       console.log(chunk.text);
-//     }
-//   }
