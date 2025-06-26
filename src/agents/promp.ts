@@ -256,7 +256,7 @@ write: |-
 prompt: |-
   The user sent an audio with a thought he had. You must:
   1. Ask the vault to see if there exist any related note on this topic.
-  2. Create the file, including relevant context if and only if necessary.
+  2. Create the file, including relevant context if and only if necessary (If the exact same idea already exists, do not create a new file).
 ---
 `},
 

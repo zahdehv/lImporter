@@ -64,7 +64,14 @@ const agentList = [
 
                 let prompt_base: string = prompts.plan_and_solve_innit; //change the prompt
                 if (additionalPrompt) prompt_base = additionalPrompt; //change the prompt
-                const message = files_to_process.concat(`The user sent some files and the prompt: '${prompt_base}', you must propose a plan until the user accepts it, then end the session.`);
+                const message = files_to_process.concat(`The user sent some files and the prompt: '${prompt_base}', you must propose a plan until the user accepts it, then end the session.
+TIP: You can include the usage of the following functions in the plan:
+- ask: to ask the vault if it has content related to a question
+- tree: to list the directory tree of the vault
+- read: to read a file
+- mkdir: to create a folder
+- write: to write a file
+- unresolved_links: to search for unresolved links`);
 
                 up.MD(FORMAT_CALLOUT("check", '-', `proceeded to call agent`, files.map(fl => "- " + fl.path).concat("\n\n" + prompt_base).join('\n')));
                 const planStep: LoopStep = {
@@ -73,7 +80,7 @@ const agentList = [
                     max_retries: 4,
                     max_turns: 7,
                     mode: FunctionCallingConfigMode.ANY,
-                    prompt: ["Given the previously accepted plan, you must accomplish it."],
+                    prompt: message,
                 };
                 const ActStep: LoopStep = {
                     functions: ["ask", "tree", "read", "mkdir", "write", "unresolved_links"],
@@ -81,7 +88,7 @@ const agentList = [
                     max_retries: 4,
                     max_turns: 13,
                     mode: FunctionCallingConfigMode.AUTO,
-                    prompt: message,
+                    prompt: ["Given the previously accepted plan, you must accomplish it."],
                 };
                 await pplnloop(plugin, chat, [planStep, ActStep])
             }
