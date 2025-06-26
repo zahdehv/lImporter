@@ -255,7 +255,7 @@ write: |-
   <eof>
 prompt: |-
   The user sent an audio with a thought he had. You must:
-  1. Ask the vault to see if there exist any related note on this topic.
+  1. Ask the vault to see if there exist any related note on this topic (sentence level is usually more relevant as it capture better the claims).
   2. Create the file, including relevant context if and only if necessary (If the exact same idea already exists, do not create a new file).
 ---
 `},
