@@ -1,0 +1,33 @@
+% \chapter{Introducción}
+% \label{chapter:introduccion}
+
+\chapter*{Introducción}
+\addcontentsline{toc}{chapter}{Introducción}
+
+La sobrecarga de información en la actualidad plantea un desafío significativo para la productividad y el aprendizaje efectivo. En este contexto, la gestión del conocimiento personal emerge como una disciplina fundamental, no solo para académicos e investigadores, sino para cualquier individuo que busque optimizar su capacidad de aprendizaje y generación de ideas. Como señala \cite{ahrensHowTakeSmart2017}, una gestión eficaz de las notas y el conocimiento adquirido no solo facilita la escritura y el estudio, sino que transforma la manera en que se interactúa con la información, convirtiéndola en un activo dinámico y generador de nuevas perspectivas. El desarrollo de un \textit{segundo cerebro} \parencite{forteBuildingSecondBrain2022}, un sistema externo confiable para almacenar y conectar ideas, libera recursos cognitivos, permitiendo un enfoque más profundo en el pensamiento crítico y la creatividad.
+
+El potencial de los Grandes Modelos de Lenguaje (\textit{LLM}) para revolucionar este campo es inmenso. Estas tecnologías ofrecen la posibilidad de automatizar y enriquecer la integración del conocimiento, asistiendo en la destilación de información, la identificación de conexiones y la generación de contenido relevante dentro de las bases de conocimiento personales. La automatización de estos procesos no solo promete un aumento en la eficiencia, sino también una democratización del acceso a metodologías avanzadas de gestión del conocimiento.
+
+% \section{Motivación y Planteamiento del Problema}
+\subsubsection{Motivación y Planteamiento del Problema}
+\label{sec:motivacion_problema}
+El presente trabajo de tesis se enmarca en la intersección de la Gestión del Conocimiento Personal (PKM) y los avances en Inteligencia Artificial, específicamente los \textit{LLM}. La investigación busca abordar los desafíos inherentes a la integración eficiente y significativa de nuevo conocimiento en bases de conocimiento personales semiestructuradas.
+
+El problema científico que se aborda es la optimización del proceso de integración de conocimiento en dichas bases. Tradicionalmente, este proceso es manual y consume tiempo, especialmente al incorporar información de diversas fuentes y formatos, y al establecer conexiones relevantes. Se busca explorar cómo los \textit{LLM} pueden automatizar y enriquecer esta tarea, facilitando la asimilación de información y la adaptación a diferentes paradigmas de toma de notas (e.g., \textit{Zettelkasten}, notas conectadas, resúmenes progresivos). El objeto de estudio es, por tanto, el proceso de construcción y enriquecimiento automatizado de bases de conocimiento personal mediante LLM, centrándose el campo de acción en sistemas basados en lenguajes de marcado como \textit{Markdown} y la representación del conocimiento mediante grafos, con especial atención a los \textit{trabajadores del conocimiento}.
+
+La investigación se guía por la pregunta: ¿En qué medida la aplicación de \textit{LLMs}, a través de un \textit{framework} de agentes personalizables, puede automatizar y optimizar la integración de conocimiento proveniente de diversas fuentes (predominantemente no estructuradas) en bases de conocimiento personales semiestructuradas (como las basadas en \textit{Markdown} y grafos), y cómo se adapta esta automatización a diferentes paradigmas de toma de notas?
+
+% \section{Objetivos}
+\subsubsection{Objetivos}
+\label{sec:objetivos}
+Para responder a esta pregunta, el \textit{Objetivo General} es avanzar en la automatización de la construcción incremental y progresiva de bases de conocimiento personal, con un enfoque en la integración contextualizada de información mediante \textit{LLM}. Los \textit{Objetivos Específicos} son:
+\begin{enumerate}
+    \item Desarrollar un \textit{framework} flexible, implementado como un \textit{plugin} para \textit{Obsidian.md}, capaz de procesar datos en múltiples formatos (e.g., texto, \textit{PDF}, web, audio) para su integración en bases de conocimiento personales existentes.
+    \item Diseñar e implementar un agente autónomo basado en el paradigma \textit{ReAct} y dotado de distintas capacidades (resumen, extracción de entidades, generación de enlaces, creación de notas atómicas) para la integración de conocimiento.
+    \item Evaluar la eficacia y adaptabilidad del sistema para soportar diversos paradigmas de toma de notas, mediante estudios de caso que abarcan desde la construcción de grafos de conocimiento estructurados hasta la gestión de tareas de productividad personal, analizando la coherencia y utilidad del conocimiento integrado.
+\end{enumerate}
+
+% \section{Contribución y Alcance}
+\subsubsection{Contribución y Alcance}
+\label{sec:contribucion_alcance}
+Este esfuerzo continúa la línea de investigación de trabajos como \cite{fragaAutomaticGenerationKnowledge2023}, pero se enfoca en el aprovechamiento de LLM para generar y enriquecer información directamente en el contexto de una base de conocimiento personal existente o en desarrollo. Hasta donde alcanza el conocimiento del autor, no existe una herramienta que combine integralmente \textit{LLM} para la construcción progresiva y contextualizada de una base de conocimiento personal basada en notas interconectadas, considerando la diversidad de fuentes y paradigmas. Para abordar esta brecha, se ha diseñado y desarrollado \textbf{lImporter}, un prototipo funcional para \textit{Obsidian.md}. Este sistema se implementa como un agente autónomo que, guiado por instrucciones del usuario, procesa archivos, interactúa con un \textit{LLM} para planificar y ejecutar la extracción, síntesis e integración de conocimiento en una base de notas (existente o nueva), generando nuevas notas, resúmenes, conexiones y metadatos. Este trabajo explora, a través de una serie de experimentos prácticos y teóricos, la viabilidad, eficacia y los desafíos de dicha automatización, buscando una contribución significativa a la \textit{PKM} y a las aplicaciones prácticas de los \textit{LLM}.

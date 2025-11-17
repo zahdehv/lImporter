@@ -1,0 +1,66 @@
+\documentclass[11pt]{report}
+\usepackage{paper}
+
+\addbibresource{Thesis.bib}
+\begin{document}
+
+% ===== TITLE PAGE =====
+\pagenumbering{Alph}
+\hypersetup{pageanchor=false}
+\input{parts/_title}
+\cleardoublepage
+
+% ===== FRONT MATTER =====
+\pagenumbering{roman}
+\setcounter{page}{1}
+\hypersetup{pageanchor=false}
+
+\input{parts/a_dedication}
+\input{parts/b_acknowledgments}
+\setcounter{page}{1}
+\input{parts/c_supervisorOpinion}
+\input{parts/d_abstract}
+
+% ===== LISTS =====
+\input{parts/_index}
+
+% \cleardoublepage
+% \phantomsection
+% \addcontentsline{toc}{chapter}{\contentsname}
+% \tableofcontents
+% \hypersetup{linkcolor=magenta, citecolor=green, urlcolor=magenta}
+
+% =========OTHER LISTS
+% \cleardoublepage
+% \phantomsection
+% \addcontentsline{toc}{chapter}{\listfigurename}
+% \listoffigures
+% \cleardoublepage
+% \phantomsection
+% \addcontentsline{toc}{chapter}{\listtablename}
+% \listoftables
+
+% ===== MAIN CONTENT =====
+\cleardoublepage
+\phantomsection
+\pagenumbering{arabic}
+\setcounter{page}{1} % Reset counter for Arabic numerals
+\hypersetup{pageanchor=true}
+
+\input{parts/e_introduction}
+\input{parts/ei_sota}
+
+\input{parts/f_proposal}
+\input{parts/fi_experiments}
+
+\input{parts/g_conclusions}
+
+% ===== BIBLIOGRAPHY =====
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\bibname}
+\printbibliography
+
+% \thispagestyle{empty}% % No page number on bib
+
+\end{document}

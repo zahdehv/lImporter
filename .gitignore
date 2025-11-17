@@ -1,6 +1,18 @@
 
-node_modules/
-data.json
-main.js
-lImporter.zip
-prmpts.md
+# document/paper.pdf
+document/paper.synctex.gz
+temp/
+bash.exe.stackdump
+document/paper.bbl
+document/paper.aux
+document/paper.bcf
+document/paper.blg
+document/paper.log
+document/paper.out
+document/paper.run.xml
+document/paper.toc
+compile_latex.bat
+document/paper.fdb_latexmk
+document/paper.fls
+document/paper-blx.bib
+document/paper.bbl-SAVE-ERROR

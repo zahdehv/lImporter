@@ -1,0 +1,45 @@
+\newcommand{\logopath}{figures/uhlogo.pdf} % Or just uhlogo.pdf if in the same directory
+\newcommand{\thetitletext}{Construcción Incremental de Bases de Conocimiento Semi-estructuradas con Modelos de Lenguaje}
+\newcommand{\theauthortext}{Carlos Mauricio Reyes Escudero}
+\newcommand{\theadvisortext}{Dr.C Alejandro Piad Morffis}
+\newcommand{\thedate}{Junio de 2025}
+\newcommand{\theuniversitytext}{Universidad de La Habana}
+\newcommand{\thefacultytext}{Facultad de Matemática y Computación}
+\newcommand{\thedegreetext}{Trabajo de Diploma presentado en opción al título de \\ \textbf{Licenciado en Ciencia de la Computación}}
+
+\begin{titlingpage}
+\centering % Center all content within the page
+
+% 1. University and Logo Block
+{\large \theuniversitytext} \\
+{\large \thefacultytext} \\ % Remove if not wanted
+\vspace{0.5cm} % Space after text, before logo. Adjust if needed.
+\includegraphics[width=3cm]{\logopath} % Keep logo width reasonable (e.g., 1.5cm to 2cm)
+
+\vspace{2cm} % Space after logo, before title. Adjust this spacing.
+
+% 2. Title
+{\LARGE \bfseries \thetitletext \par} % Use \par for paragraph break after title
+% Add manual spacing after title if needed, e.g., \vspace{1cm}
+\vspace{2cm} % Space after title, before author. Adjust this spacing.
+
+% 3. Author and Advisor
+{\Large Autor: \theauthortext \par} % Author, use \par
+\vspace{0.5cm} % Space between author and advisor
+{\Large Tutor: \theadvisortext \par} % Advisor, use \par
+
+% 4. Date (Optional, place it logically, e.g., after author/advisor or near bottom)
+% \vspace{1cm} % Space before date
+% {\large \thedate \par}
+
+% Use \vfill to push the degree info to the bottom
+\vfill
+
+% 5. Degree Information
+{\large \thedegreetext \par} % Degree Info, use \par
+\vspace{1cm} % Add some space at the very bottom of the page
+
+% 6. Date (Alternative position: At the very bottom)
+{\large \thedate \par}
+\vspace{1cm} % Add some space at the very bottom of the page
+\end{titlingpage}
